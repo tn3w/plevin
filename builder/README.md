@@ -21,8 +21,8 @@ Download the latest build:
 
 ```mermaid
 flowchart LR
-    S["17 files<br>156 feeds"] --> B[builder]
-    B --> D[("plevin.plv<br>18.49 MB")]
+    S["17 files and 156 feeds"] --> B[builder]
+    B --> D[("plevin.plv, 18.49 MB")]
     D --> Q["lookup(8.8.8.8)"]
 ```
 
@@ -195,9 +195,9 @@ xychart-beta
 ```mermaid
 flowchart LR
     M[magic] --> V[format byte] --> H[JSON header] --> S[sections]
-    S --> A["spine.v4 / v6<br>bisected"]
-    S --> O["hosts.v4 / v6"]
-    S --> C["col. / link.<br>columns"]
+    S --> A["spine.v4 and v6, bisected"]
+    S --> O["hosts.v4 and v6"]
+    S --> C["col. and link. columns"]
     S --> T[strings]
 ```
 
