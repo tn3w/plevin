@@ -21,8 +21,8 @@ Download the latest build:
 
 ```mermaid
 flowchart LR
-    S[17 files<br>156 feeds] --> B[builder]
-    B --> D[(plevin.plv<br>18.49 MB)]
+    S["17 files<br>156 feeds"] --> B[builder]
+    B --> D[("plevin.plv<br>18.49 MB")]
     D --> Q["lookup(8.8.8.8)"]
 ```
 
