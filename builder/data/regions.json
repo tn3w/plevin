@@ -1,0 +1,130 @@
+{
+    "AZ.35": {
+        "iso": "AZ-NX",
+        "note": "Nakhchivan, the autonomous republic, not AZ-NV the city"
+    },
+    "BA.01": {
+        "iso": "BA-BIH",
+        "note": "Federation of Bosnia and Herzegovina"
+    },
+    "BA.02": {
+        "iso": "BA-SRP",
+        "note": "Republika Srpska"
+    },
+    "BE.BRU": {
+        "iso": "BE-BRU",
+        "note": "Brussels; Natural Earth carries no parent code for Belgium"
+    },
+    "BE.VLG": {
+        "iso": "BE-VLG",
+        "note": "Flanders"
+    },
+    "BE.WAL": {
+        "iso": "BE-WAL",
+        "note": "Wallonia"
+    },
+    "ES.07": {
+        "iso": "ES-IB",
+        "note": "Illes Balears, the community, not ES-PM the province"
+    },
+    "ES.31": {
+        "iso": "ES-MC",
+        "note": "Murcia, the community, not ES-MU the province"
+    },
+    "ES.32": {
+        "iso": "ES-NC",
+        "note": "Navarra, the community, not ES-NA the province"
+    },
+    "ES.ML": {
+        "iso": "ES-ML",
+        "note": "Melilla; Natural Earth files it under Ceuta's code"
+    },
+    "FR.94": {
+        "iso": "FR-20R",
+        "note": "Corse; Natural Earth still carries the retired FR-COR"
+    },
+    "HR.11": {
+        "iso": "HR-11",
+        "note": "Pozega-Slavonia, spelt Pozesko-slavonska zupanija by ISO"
+    },
+    "ID.42": {
+        "iso": "ID-KU",
+        "note": "North Kalimantan, spelt Kalimantan Utara by ISO"
+    },
+    "ID.PD": {
+        "iso": "ID-PD",
+        "note": "Southwest Papua, spelt Papua Barat Daya by ISO"
+    },
+    "ID.PT": {
+        "iso": "ID-PT",
+        "note": "Central Papua, spelt Papua Tengah by ISO"
+    },
+    "IE.C": {
+        "iso": "IE-C",
+        "note": "Connacht, spelt Connaught by ISO"
+    },
+    "KZ.12510143": {
+        "iso": "KZ-10",
+        "note": "Abai, spelt Abay oblysy by ISO"
+    },
+    "KZ.12510144": {
+        "iso": "KZ-33",
+        "note": "Zhetysu, spelt Zhetisu oblysy by ISO"
+    },
+    "MA.02": {
+        "iso": "MA-02",
+        "note": "Oriental, spelt L'Oriental by ISO"
+    },
+    "MA.07": {
+        "iso": "MA-07",
+        "note": "Marrakesh-Safi, spelt Marrakech-Safi by ISO"
+    },
+    "MD.58": {
+        "iso": "MD-SN",
+        "note": "Transnistria, spelt Stinga Nistrului by ISO"
+    },
+    "MH.150": {
+        "iso": "MH-KWA",
+        "note": "Kwajalein Atoll"
+    },
+    "MH.190": {
+        "iso": "MH-MAJ",
+        "note": "Majuro Atoll"
+    },
+    "QA.14": {
+        "iso": "QA-SH",
+        "note": "Al-Shahaniya, spelt Ash Shihaniyah by ISO"
+    },
+    "SB.14": {
+        "iso": "SB-CT",
+        "note": "Honiara, the capital territory"
+    },
+    "SG.03": {
+        "iso": "SG-03",
+        "note": "North West; GeoNames names no Singapore district"
+    },
+    "SG.04": {
+        "iso": "SG-04",
+        "note": "South East"
+    },
+    "SG.05": {
+        "iso": "SG-05",
+        "note": "South West"
+    },
+    "SL.05": {
+        "iso": "SL-NW",
+        "note": "North West, spelt North Western by ISO"
+    },
+    "TM.S": {
+        "iso": "TM-S",
+        "note": "Ashgabat, spelt Asgabat by ISO"
+    },
+    "TN.38": {
+        "iso": "TN-12",
+        "note": "Ariana, spelt L'Ariana by ISO"
+    },
+    "VN.79": {
+        "iso": "VN-SG",
+        "note": "Ho Chi Minh City"
+    }
+}

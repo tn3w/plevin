@@ -1,0 +1,142 @@
+name: Build and release database
+
+on:
+  schedule:
+    - cron: '0 5 3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      AGENT: 'plevin-builder (https://github.com/tn3w/plevin)'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Free runner disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+
+      - name: Download sources
+        working-directory: builder
+        env:
+          IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
+          PEERINGDB_API_KEY: ${{ secrets.PEERINGDB_API_KEY }}
+        run: |
+          mkdir -p inputs && cd inputs
+          geonames=https://download.geonames.org/export
+          natural_earth=https://naciscdn.org/naturalearth/10m/cultural
+          iso_codes=https://salsa.debian.org/iso-codes-team/iso-codes/-/raw/main/data
+          caida=https://publicdata.caida.org/datasets
+          get() { curl -fsSL -A "$AGENT" --retry 6 --retry-all-errors --retry-delay 15 "$@"; }
+          newest() { get "$caida/$1/" | grep -oE "[0-9]{8}\.$2" | sort | tail -1; }
+          for url in \
+            $geonames/dump/admin1CodesASCII.txt \
+            $geonames/dump/admin2Codes.txt \
+            $geonames/dump/cities500.zip \
+            $geonames/zip/allCountries.zip \
+            $natural_earth/ne_10m_admin_0_countries.zip \
+            $natural_earth/ne_10m_admin_1_states_provinces.zip \
+            $iso_codes/iso_3166-2.json \
+            https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb \
+            https://ftp.ripe.net/pub/stats/ripencc/nro-stats/latest/nro-delegated-stats \
+            https://ftp.ripe.net/ripe/asnames/asn.txt \
+            https://console.rpki-client.org/vrps.csv \
+            https://data.ris.ripe.net/rrc00/latest-bview.gz \
+            https://github.com/tn3w/asn-abuse/releases/latest/download/abuse-contacts.tsv \
+            $caida/as-organizations/$(newest as-organizations 'as-org2info\.txt\.gz') \
+            $caida/as-relationships/serial-2/$(newest as-relationships/serial-2 'as-rel2\.txt\.bz2')
+          do
+            get -O "$url"
+          done
+          get -o DB11LITEBINIPV6.zip \
+            "https://www.ip2location.com/download/?token=$IP2LOCATION_TOKEN&file=DB11LITEBINIPV6"
+          for endpoint in net org netixlan; do
+            sleep 30
+            get --retry 8 --retry-delay 60 -o "peeringdb_$endpoint.json" \
+              -H "Authorization: Api-Key $PEERINGDB_API_KEY" \
+              "https://www.peeringdb.com/api/$endpoint"
+          done
+          for archive in *.zip; do unzip -oq "$archive"; done
+          gunzip -f *.gz && bunzip2 -f *.bz2 && rm *.zip
+          mv latest-bview bview
+          for dated in *.as-*.txt; do mv "$dated" "${dated#*.}"; done
+
+      - name: Download feeds
+        env:
+          IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
+        working-directory: builder/inputs
+        run: |
+          feeds=../data/feeds.json
+          jq -r '.[] | .name + " " + .url' $feeds |
+            sed "s|{IP2LOCATION_TOKEN}|$IP2LOCATION_TOKEN|" |
+            xargs -P 8 -L 1 bash -c 'curl -fsSL -A "$AGENT" --retry 6 \
+              --retry-all-errors --retry-delay 15 -o "$0" "$1" || echo "missed $0"'
+          for name in $(jq -r '.[].name' $feeds); do
+            case "$(file -b --mime-type "$name" 2>/dev/null)" in
+              application/zip)
+                rm -rf opened && unzip -qo "$name" -d opened
+                mv "$(ls -S opened/* | head -1)" held && rm -rf opened ;;
+              application/gzip | application/x-gzip)
+                gzip -dc "$name" > held ;;
+              *) continue ;;
+            esac
+            mv held "$name"
+          done
+
+      - name: Build database
+        working-directory: builder
+        run: |
+          cargo build --release
+          ./target/release/plevin-builder full place+metro place.country.code |
+            tee build.log
+
+      - name: Publish release
+        working-directory: builder
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          day=$(date -u +%Y.%m.%d)
+          same=$(gh release list --limit 100 --json tagName --jq \
+            "[.[].tagName | select(startswith(\"$day\"))] | length")
+          tag=$day
+          if [ "$same" -gt 0 ]; then tag="$day.$((same + 1))"; fi
+          {
+            echo "Location, network and abuse information for any IP address in one"
+            echo "offline file, built $(date -u '+%Y-%m-%d %H:%M UTC') from"
+            echo "$(jq length data/feeds.json) abuse feeds and 17 source files."
+            echo
+            echo "| file | size | bytes |"
+            echo "|---|---|---|"
+            for held in dist/*.plv; do
+              printf '| `%s` | %s | %s |\n' "${held#dist/}" \
+                "$(du -h "$held" | cut -f1)" "$(stat -c %s "$held")"
+            done
+            echo
+            echo '```bash'
+            for held in dist/*.plv; do
+              echo "curl -fsSLO https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/${held#dist/}"
+            done
+            echo '```'
+            echo
+            grep -E "^\[" build.log | sed 's/^/    /'
+            echo
+            echo "<details><summary>Sections</summary>"
+            echo
+            echo '```'
+            grep -vE "^\[" build.log
+            echo '```'
+            echo
+            echo "</details>"
+          } > notes.md
+          gh release create "$tag" dist/*.plv --title "$tag" --notes-file notes.md
+
+      - name: Delete dated releases beyond the newest six
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 100 --json tagName --jq \
+            '[.[].tagName | select(test("^[0-9]{4}(\\.[0-9]{2}){2}(\\.[0-9]+)?$"))][6:][]' |
+            xargs -r -n1 gh release delete --yes --cleanup-tag
