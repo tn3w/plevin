@@ -1,6 +1,7 @@
 target/
 inputs/
 dist/
+*.plv
 .env
 __pycache__/
 .vscode/
