@@ -3,3 +3,4 @@ inputs/
 dist/
 .env
 __pycache__/
+.vscode/
