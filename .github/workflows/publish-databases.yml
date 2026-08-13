@@ -5,6 +5,10 @@ on:
     workflows: [Build and release database]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      revision:
+        description: Republish the newest databases as this .postN revision
+        type: string
 
 env:
   DATABASES: >-
@@ -28,11 +32,13 @@ jobs:
       - id: check
         env:
           GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ inputs.revision }}
         run: |
           tag=$(gh release list --limit 30 --json tagName --jq \
             '[.[].tagName | select(test("^[0-9]{4}(\\.[0-9]{2}){2}(\\.[0-9]+)?$"))][0]')
           dated=$(awk -F. '{for (i = 1; i <= NF; i++) printf "%s%d", (i > 1 ? "." : ""),
             $i}' <<<"$tag")
+          if [ -n "$REVISION" ]; then dated="$dated.post$REVISION"; fi
           held=$(gh release view "$tag" --json assets --jq '.assets[].name')
           unpublished=false
           for entry in $DATABASES; do
@@ -115,7 +121,7 @@ jobs:
           description = "The plevin database answering $about, for any IP address."
           readme = "README.md"
           authors = [{ name = "tn3w", email = "tn3w@protonmail.com" }]
-          requires-python = ">=3.14"
+          requires-python = ">=3.10"
           classifiers = [
               "Intended Audience :: Developers",
               "Operating System :: OS Independent",
