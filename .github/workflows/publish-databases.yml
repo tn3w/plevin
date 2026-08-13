@@ -132,14 +132,15 @@ jobs:
           TOML
             uv build "$held" --out-dir "dist/$package"
           done
-          uv build python --out-dir reader
           echo "built=$(jq -nc '$ARGS.positional' --args "${built[@]}")" \
             >>"$GITHUB_OUTPUT"
 
       - run: uvx twine check dist/*/*
 
       - name: Look an address up with each built wheel
+        if: hashFiles('python/pyproject.toml') != ''
         run: |
+          uv build python --out-dir reader
           for wheel in dist/*/*.whl; do
             uv run --no-project --with "$wheel" --with reader/*.whl \
               python -c "import plevin; assert plevin.lookup('1.1.1.1')"
