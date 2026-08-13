@@ -128,14 +128,13 @@ jobs:
 
           [tool.hatch.build]
           targets.wheel.packages = ["$module"]
-          targets.sdist.include = ["/$module"]
           TOML
-            uv build "$held" --out-dir "dist/$package"
+            uv build --wheel "$held" --out-dir "dist/$package"
           done
           echo "built=$(jq -nc '$ARGS.positional' --args "${built[@]}")" \
             >>"$GITHUB_OUTPUT"
 
-      - run: uvx twine check dist/*/*
+      - run: uvx twine check dist/*/*.whl
 
       - name: Look an address up with each built wheel
         if: hashFiles('python/pyproject.toml') != ''
