@@ -329,3 +329,5 @@ cd ../builder && cargo fmt --check && cargo clippy
 Apache 2.0 for the reader and the builder, see [LICENSE](https://github.com/tn3w/plevin/blob/master/LICENSE). The database carries
 the licenses of the sources it was built from, listed in
 [`builder/README.md`](https://github.com/tn3w/plevin/blob/master/builder/README.md#sources).
+
+<!-- brand: Noto Sans 800, wordmark bar #1868f2 place, #6f42c1 network, #2ea043 abuse; #7d8894 address, ink #0b1220 light, #f0f6fc dark -->
