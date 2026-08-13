@@ -19,7 +19,7 @@ No API, no rate limit, no lookup leaving the machine.
 </div>
 
 ```bash
-pip install "plevin[country,full]"
+pip install "plevin[db,full]"
 ```
 
 ```python
