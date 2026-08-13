@@ -34,6 +34,7 @@ cargo build --release
 
 ./target/release/plevin-builder              # dist/plevin.plv, every field
 ./target/release/plevin-builder place+metro  # dist/plevin.metro-place.plv
+./target/release/plevin-builder network+abuse  # dist/plevin.abuse-network.plv
 ```
 
 `.github/workflows/build.yml` fetches, builds and releases monthly, on secrets

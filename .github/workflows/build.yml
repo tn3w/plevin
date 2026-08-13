@@ -90,8 +90,8 @@ jobs:
         working-directory: builder
         run: |
           cargo build --release
-          ./target/release/plevin-builder full place+metro place.country.code |
-            tee build.log
+          ./target/release/plevin-builder full place+metro network+abuse \
+            place.country.code | tee build.log
 
       - name: Publish release
         working-directory: builder

@@ -1,0 +1,172 @@
+name: Publish databases
+
+on:
+  workflow_run:
+    workflows: [Build and release database]
+    types: [completed]
+  workflow_dispatch:
+
+env:
+  DATABASES: >-
+    plevin-db:plevin.plv
+    plevin-db-place:plevin.metro-place.plv
+    plevin-db-network:plevin.abuse-network.plv
+    plevin-db-country:plevin.place-country-code.plv
+
+jobs:
+  version:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+      version: ${{ steps.check.outputs.version }}
+      unpublished: ${{ steps.check.outputs.unpublished }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --limit 30 --json tagName --jq \
+            '[.[].tagName | select(test("^[0-9]{4}(\\.[0-9]{2}){2}(\\.[0-9]+)?$"))][0]')
+          dated=$(awk -F. '{for (i = 1; i <= NF; i++) printf "%s%d", (i > 1 ? "." : ""),
+            $i}' <<<"$tag")
+          held=$(gh release view "$tag" --json assets --jq '.assets[].name')
+          unpublished=false
+          for entry in $DATABASES; do
+            package=${entry%%:*}
+            if ! grep -qx "${entry#*:}" <<<"$held"; then
+              echo "$package has no database in $tag"
+              continue
+            fi
+            status=$(curl -so /dev/null -w '%{http_code}' \
+              "https://pypi.org/pypi/$package/$dated/json")
+            echo "$package $dated is $status on PyPI"
+            if [ "$status" = 404 ]; then unpublished=true; fi
+          done
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+          echo "version=$dated" >>"$GITHUB_OUTPUT"
+          echo "unpublished=$unpublished" >>"$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    if: needs.version.outputs.unpublished == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      built: ${{ steps.write.outputs.built }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+
+      - id: write
+        name: Write and build a package around each database
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          built=()
+          for entry in $DATABASES; do
+            package=${entry%%:*} database=${entry#*:}
+            module=${package//-/_} held=$RUNNER_TEMP/$package
+            case $package in
+              plevin-db) about="every field" ;;
+              plevin-db-place) about="city, region, country, postal and coordinates" ;;
+              plevin-db-network) about="ASN, operator, routing and abuse" ;;
+              plevin-db-country) about="the country code" ;;
+            esac
+            mkdir -p "$held/$module/data"
+            if ! gh release download "$TAG" --pattern "$database" \
+              --dir "$held/$module/data"; then
+              echo "::warning::$TAG carries no $database, leaving $package unpublished"
+              continue
+            fi
+            built+=("$package")
+            cat >"$held/$module/__init__.py" <<PYTHON
+          from pathlib import Path
+
+          PATH = Path(__file__).parent / "data" / "$database"
+          PYTHON
+            cat >"$held/README.md" <<MARKDOWN
+          # $package
+
+          The plevin database answering $about, built $TAG. Install it beside
+          \`plevin\`, which finds it without being given a path.
+
+          \`\`\`python
+          import plevin
+
+          plevin.lookup("1.1.1.1")
+          \`\`\`
+
+          The reader is Apache-2.0. The database carries the licenses of the sources it
+          was built from: https://github.com/tn3w/plevin#sources
+          MARKDOWN
+            cat >"$held/pyproject.toml" <<TOML
+          [build-system]
+          requires = ["hatchling"]
+          build-backend = "hatchling.build"
+
+          [project]
+          name = "$package"
+          version = "$VERSION"
+          description = "The plevin database answering $about, for any IP address."
+          readme = "README.md"
+          authors = [{ name = "tn3w", email = "tn3w@protonmail.com" }]
+          requires-python = ">=3.14"
+          classifiers = [
+              "Intended Audience :: Developers",
+              "Operating System :: OS Independent",
+              "Programming Language :: Python :: 3 :: Only",
+              "Topic :: Internet",
+          ]
+
+          [project.urls]
+          Source = "https://github.com/tn3w/plevin"
+
+          [tool.hatch.build]
+          targets.wheel.packages = ["$module"]
+          targets.sdist.include = ["/$module"]
+          TOML
+            uv build "$held" --out-dir "dist/$package"
+          done
+          uv build python --out-dir reader
+          echo "built=$(jq -nc '$ARGS.positional' --args "${built[@]}")" \
+            >>"$GITHUB_OUTPUT"
+
+      - run: uvx twine check dist/*/*
+
+      - name: Look an address up with each built wheel
+        run: |
+          for wheel in dist/*/*.whl; do
+            uv run --no-project --with "$wheel" --with reader/*.whl \
+              python -c "import plevin; assert plevin.lookup('1.1.1.1')"
+          done
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: databases
+          path: dist
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.build.outputs.built) }}
+    environment: pypi-${{ matrix.package }}
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: databases
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/${{ matrix.package }}
+          skip-existing: true
