@@ -129,18 +129,18 @@ impl World {
         self.count(&mut slabs, &spines);
         let pool = respell(&mut slabs, &words.pool);
         let mut ranks: Vec<Vec<u32>> = Vec::new();
-        for at in 0..slabs.len() {
+        for slab in slabs.iter_mut() {
             let placed: HashMap<&str, &Vec<u32>> =
                 TABLES.iter().zip(&ranks).map(|(name, held)| (*name, held)).collect();
-            relink(&mut slabs[at], &placed);
-            let order = rank(&slabs[at]);
-            reorder(&mut slabs[at], &order);
+            relink(slab, &placed);
+            let order = rank(slab);
+            reorder(slab, &order);
             ranks.push(order);
         }
         let placed: HashMap<&str, &Vec<u32>> =
             TABLES.iter().zip(&ranks).map(|(name, held)| (*name, held)).collect();
-        for family in 0..2 {
-            for (_, stop) in spines[family].iter_mut() {
+        for spine in spines.iter_mut() {
+            for (_, stop) in spine.iter_mut() {
                 stop.place = ranked(placed["place"], stop.place);
                 stop.network = ranked(placed["network"], stop.network);
                 stop.abuse = ranked(placed["abuse"], stop.abuse);
@@ -434,8 +434,8 @@ impl World {
     fn count(&self, slabs: &mut [Slab], spines: &[Vec<(u128, Stop)>; 2]) {
         let mut tallies: HashMap<&str, Vec<u64>> =
             slabs.iter().map(|slab| (slab.name, vec![0u64; slab.rows.len()])).collect();
-        for family in 0..2 {
-            for (_, stop) in &spines[family] {
+        for (family, spine) in spines.iter().enumerate() {
+            for (_, stop) in spine {
                 for (name, held) in [
                     ("place", stop.place),
                     ("network", stop.network),

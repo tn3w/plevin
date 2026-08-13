@@ -42,6 +42,12 @@ pub struct City {
     pub lon: f64,
 }
 
+/// A country's bounding box, its code, and the rings its outline is drawn from.
+type Border = (f64, f64, f64, f64, [u8; 2], Vec<Vec<[f64; 2]>>);
+
+/// Postal codes by country and folded region name, each with a coordinate.
+type Postals = HashMap<(u16, String), Vec<(String, f64, f64)>>;
+
 pub struct Gazetteer {
     pub countries: Vec<String>,
     pub regions: Vec<Region>,
@@ -50,7 +56,7 @@ pub struct Gazetteer {
     pub cities: Vec<City>,
     pub zones: Vec<String>,
     cells: HashMap<i32, Vec<u32>>,
-    borders: Vec<(f64, f64, f64, f64, [u8; 2], Vec<Vec<[f64; 2]>>)>,
+    borders: Vec<Border>,
     named: HashMap<(u16, String), u32>,
 }
 
@@ -300,7 +306,7 @@ impl Gazetteer {
 
     fn read_postal(&mut self, inputs: &Path) {
         let body = read::slurp(&inputs.join("allCountries.txt"));
-        let mut places: HashMap<(u16, String), Vec<(String, f64, f64)>> = HashMap::new();
+        let mut places: Postals = HashMap::new();
         for line in body.lines() {
             let row: Vec<&str> = line.split('\t').collect();
             if row.len() < 11 || row[1].is_empty() {

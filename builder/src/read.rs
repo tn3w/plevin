@@ -142,7 +142,7 @@ impl Mmdb {
             return at;
         }
         let width = (size >> 3) & 3;
-        let mut value = (size & 7) as usize;
+        let mut value = size & 7;
         for step in 0..=width {
             value = value << 8 | self.data[next + step] as usize;
         }
@@ -409,10 +409,11 @@ pub fn announcements(path: &Path) -> Vec<Announce> {
         if reader.read_exact(&mut body).is_err() {
             break;
         }
-        if kind == 13 && (subtype == 2 || subtype == 4) {
-            if let Some(seen) = table(&body, subtype == 4) {
-                found.push(seen);
-            }
+        if kind == 13
+            && (subtype == 2 || subtype == 4)
+            && let Some(seen) = table(&body, subtype == 4)
+        {
+            found.push(seen);
         }
     }
     found

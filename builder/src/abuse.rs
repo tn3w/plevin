@@ -542,13 +542,16 @@ impl Records {
     }
 }
 
+/// The boundaries a family stores, and the host records that fall through them.
+type Carried = (Vec<(u128, u32)>, Vec<(u128, Folded, u32)>);
+
 /// What each boundary stores, and the record the address answers once it falls through.
 fn carried(
     sweep: &[(u128, Folded)],
     systems: &Systems,
     pool: &mut Pool,
     family: usize,
-) -> (Vec<(u128, u32)>, Vec<(u128, Folded, u32)>) {
+) -> Carried {
     let mut runs: Vec<(u128, u32)> = Vec::new();
     let mut whole: Vec<(u128, Folded, u32)> = Vec::new();
     together(sweep, &systems.runs[family], |at, held, route| {

@@ -156,7 +156,7 @@ impl Interning<'_> {
         other: Option<&Coarse>,
         grain: u8,
     ) -> u8 {
-        fn spoke<'a>(held: Option<&'a Coarse>) -> Option<&'a Coarse> {
+        fn spoke(held: Option<&Coarse>) -> Option<&Coarse> {
             held.filter(|row| row.grain < NOWHERE)
         }
         let (Some(fine), Some(coarse)) = (spoke(one), spoke(other)) else {
@@ -183,13 +183,12 @@ impl Interning<'_> {
     /// The floor every accuracy in a granularity is held to, measured at nine tenths.
     fn floors(&mut self) -> [u16; 4] {
         let mut floors = [0u16; 4];
-        for grain in 0..3 {
-            let held = &mut self.spread[grain];
+        for (floor, held) in floors.iter_mut().zip(&mut self.spread) {
             if held.is_empty() {
                 continue;
             }
             held.sort_unstable();
-            floors[grain] = held[held.len() * 9 / 10] as u16;
+            *floor = held[held.len() * 9 / 10] as u16;
         }
         floors
     }

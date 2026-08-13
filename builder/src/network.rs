@@ -259,10 +259,10 @@ impl Systems {
         }
         for (asn, class) in &feeds.classes {
             let named = CLASSES.iter().find(|(held, _)| held == class);
-            if let (Some((_, name)), Some(system)) = (named, self.at(*asn)) {
-                if system.category == 0 {
-                    system.category = word(CATEGORIES, name);
-                }
+            if let (Some((_, name)), Some(system)) = (named, self.at(*asn))
+                && system.category == 0
+            {
+                system.category = word(CATEGORIES, name);
             }
         }
         let cellular = word(CATEGORIES, "cellular");
