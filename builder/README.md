@@ -7,22 +7,23 @@ No API, no rate limit, no lookup leaving the machine.
 
 ![Rust 2024](https://img.shields.io/badge/rust-2024-CE422B?logo=rust&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
-![Full build](https://img.shields.io/badge/full%20build-17.3%20MB-2ea043)
+![Full build](https://img.shields.io/badge/full%20build-17.4%20MB-2ea043)
 ![Lookup](https://img.shields.io/badge/lookup-250k%2Fs-2ea043)
 ![Fields](https://img.shields.io/badge/fields-98-6f42c1)
 ![Sources](https://img.shields.io/badge/sources-17%20files%20%2B%20156%20feeds-6f42c1)
 
 Download the latest build:
-[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 17.3 MB,
-[location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 6.9 MB,
-[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 496 KB
+[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 17.4 MB,
+[network](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-network.plv) 10.6 MB,
+[location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 6.6 MB,
+[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 500 KB
 
 </div>
 
 ```mermaid
 flowchart LR
     S["17 files and 156 feeds"] --> B[builder]
-    B --> D[("plevin.plv, 17.3 MB")]
+    B --> D[("plevin.plv, 17.4 MB")]
     D --> Q["lookup(8.8.8.8)"]
 ```
 
@@ -247,7 +248,7 @@ flowchart LR
 
 |                            |                                           |
 | -------------------------- | ----------------------------------------- |
-| full build                 | 17.3 MB                                   |
+| full build                 | 17.4 MB                                   |
 | open                       | 10 ms full, 2 ms one-field                |
 | cold start to first answer | 30 ms                                     |
 | warm lookups               | 250k/s full record, 700k/s one field      |
