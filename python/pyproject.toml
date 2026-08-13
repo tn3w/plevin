@@ -1,0 +1,106 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "plevin"
+version = "0.1.0"
+description = "Location, network and abuse information for any IP address in one offline file."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "tn3w", email = "tn3w@protonmail.com" }]
+keywords = [
+    "ip",
+    "ipv4",
+    "ipv6",
+    "geoip",
+    "geolocation",
+    "ip-lookup",
+    "ip-database",
+    "ip-intelligence",
+    "asn",
+    "bgp",
+    "rpki",
+    "whois",
+    "network",
+    "abuse",
+    "reputation",
+    "threat-intelligence",
+    "vpn-detection",
+    "proxy-detection",
+    "datacenter-detection",
+    "offline",
+    "mmap",
+    "zstd",
+]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet",
+    "Typing :: Typed",
+]
+dependencies = ["pyzstd>=0.19; python_version < '3.14'"]
+
+[project.optional-dependencies]
+full = ["pycountry>=26.2", "tzdata; sys_platform == 'win32'"]
+db = ["plevin-db"]
+place = ["plevin-db-place"]
+network = ["plevin-db-network"]
+country = ["plevin-db-country"]
+
+[project.urls]
+Documentation = "https://github.com/tn3w/plevin#readme"
+Source = "https://github.com/tn3w/plevin"
+Funding = "https://www.buymeacoffee.com/tn3w"
+
+[dependency-groups]
+dev = [{ include-group = "tests" }, { include-group = "typing" }]
+tests = [
+    "pytest>=9",
+    "pytest-cov>=7",
+    "pycountry>=26.2",
+    "pyzstd>=0.19",
+    "tzdata; sys_platform == 'win32'",
+]
+typing = ["mypy>=2", "basedpyright>=1.39"]
+
+[tool.hatch.build]
+targets.wheel.packages = ["plevin"]
+targets.sdist.include = ["/plevin", "/tests"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --cov --cov-fail-under=100"
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.coverage]
+run.branch = true
+run.source = ["plevin"]
+report.show_missing = true
+report.exclude_also = ["except ImportError:"]
+
+[tool.ruff]
+line-length = 90
+src = [".", "tests"]
+lint.select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+lint.ignore = ["SIM905"]
+
+[tool.mypy]
+strict = true
+files = [".", "../plevin_mini.py"]
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+include = [".", "../plevin_mini.py"]
+enableTypeIgnoreComments = true
+extraPaths = ["tests"]
+reportMissingTypeStubs = false

@@ -247,7 +247,7 @@ flowchart LR
 
 |                            |                                           |
 | -------------------------- | ----------------------------------------- |
-| full build                 | 17.3 MB                                  |
+| full build                 | 17.3 MB                                   |
 | open                       | 10 ms full, 2 ms one-field                |
 | cold start to first answer | 30 ms                                     |
 | warm lookups               | 250k/s full record, 700k/s one field      |

@@ -1,0 +1,61 @@
+name: Publish
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      unpublished: ${{ steps.check.outputs.unpublished }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+      - id: check
+        working-directory: python
+        run: |
+          version=$(uv version --short)
+          status=$(curl -so /dev/null -w '%{http_code}' \
+            "https://pypi.org/pypi/plevin/$version/json")
+          echo "plevin $version is $status on PyPI"
+          echo "unpublished=$([ "$status" = 404 ] && echo true || echo false)" \
+            >>"$GITHUB_OUTPUT"
+
+  test:
+    needs: version
+    if: needs.version.outputs.unpublished == 'true'
+    uses: ./.github/workflows/test.yml
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+
+      - run: uv build --wheel
+      - run: uvx twine check dist/*
+
+      - name: Look an address up with the built wheel
+        run: |
+          uv run --no-project --with dist/plevin-*.whl --with plevin-db-country \
+            --with pycountry python -c "
+          import plevin
+          found = plevin.lookup('1.1.1.1')
+          assert found, 'the country database answers nothing'
+          assert found.place.country.code == 'AU', found.place.country
+          assert found.arpa == '1.1.1.1.in-addr.arpa'
+          "
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist
+          skip-existing: true
