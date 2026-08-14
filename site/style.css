@@ -238,7 +238,7 @@ button {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
   margin: 4rem 0 0;
   background: var(--line);
@@ -254,6 +254,10 @@ button {
 .stats div:nth-child(2) b { color: var(--network); }
 .stats div:nth-child(3) b { color: var(--abuse); }
 .stats div:nth-child(4) b { color: var(--address); }
+
+@media (max-width: 46rem) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 section.band { padding: 5.5rem 0; }
 section.band + section.band { border-top: 1px solid var(--line); }
@@ -319,7 +323,7 @@ h2.big {
 }
 
 @media (max-width: 62rem) {
-  .split { grid-template-columns: 1fr; gap: 2rem; }
+  .split { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
 }
 
 .tabs { display: flex; gap: 0.35rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
@@ -510,9 +514,16 @@ footer nav { display: flex; gap: 1.25rem; margin-left: auto; }
 .hunt .search input { font-size: 0.92rem; padding: 0.45rem 0; }
 .hunt .search button { padding: 0.45rem 1rem; font-size: 0.9rem; }
 
+.topbar nav a { white-space: nowrap; }
+
 @media (max-width: 48rem) {
   .topbar .wrap { height: auto; padding-top: 0.7rem; padding-bottom: 0.7rem; flex-wrap: wrap; }
   .hunt { order: 3; width: 100%; flex-basis: 100%; }
+  .topbar nav { gap: 0.9rem; font-size: 0.88rem; }
+}
+
+@media (max-width: 34rem) {
+  .topbar nav .only-home { display: none; }
 }
 
 .stage { padding: 2.5rem 0 4rem; min-height: 60vh; }
@@ -969,6 +980,13 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
 }
 
 .tryout button:hover { filter: brightness(1.08); }
+.tryout label > span { white-space: nowrap; }
+
+@media (max-width: 34rem) {
+  .tryout { flex-wrap: wrap; border-radius: var(--radius); padding: 0.6rem 0.7rem; }
+  .tryout label { flex-basis: 100%; order: 3; }
+  .tryout button { margin-left: auto; }
+}
 
 pre.curl { margin-top: 0.9rem; overflow-wrap: anywhere; white-space: pre-wrap; }
 #try-json { margin-top: 0.7rem; max-height: 22rem; }
