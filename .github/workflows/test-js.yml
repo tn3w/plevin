@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22, 24]
+        node-version: [22, 24, 26]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
@@ -39,6 +39,27 @@ jobs:
 
       - run: npm run build
       - run: npm test
+
+  oldest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: js/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+      - name: Read the built package on the oldest Node the package claims
+        run: |
+          node --input-type=module -e "
+          import { File, Plevin, open } from './dist/index.js';
+          for (const held of [File, Plevin, open]) {
+            if (typeof held !== 'function') throw new Error('missing an export');
+          }
+          "
 
   lint:
     runs-on: ubuntu-latest
