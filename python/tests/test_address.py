@@ -40,6 +40,12 @@ def test_parse_refuses_numbers_outside_both_families(value: int) -> None:
         address.parse(value)
 
 
+@pytest.mark.parametrize("value", [None, 1.5, True, object()])
+def test_parse_refuses_what_is_not_a_number_or_an_address(value: object) -> None:
+    with pytest.raises(ValueError, match="not an address"):
+        address.parse(value)  # type: ignore[arg-type]
+
+
 def test_parse_refuses_text_that_is_not_an_address() -> None:
     with pytest.raises(ValueError, match="does not appear"):
         address.parse("not.an.address")

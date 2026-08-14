@@ -65,7 +65,7 @@ SPECIAL = (_table(SPECIAL_V4), _table(SPECIAL_V6))
 
 
 def parse(value: Value) -> tuple[int, bool]:
-    """An address however it is written, as its number and whether it is a v6 one."""
+    """An address however it is written; an integer reads as v6 only above 0xFFFFFFFF."""
     if isinstance(value, str):
         wide = ":" in value
         try:
@@ -77,6 +77,8 @@ def parse(value: Value) -> tuple[int, bool]:
         return parse(ip_address(bytes(value)))
     if isinstance(value, IPv4Address | IPv6Address):
         return int(value), value.version == 6
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{value!r} is not an address")
     if value < 0 or value > 0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF:
         raise ValueError(f"{value} is not an address")
     return value, value > 0xFFFFFFFF
