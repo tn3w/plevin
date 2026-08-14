@@ -18,8 +18,8 @@ jobs:
         run: |
           version=$(jq -r .version package.json)
           status=$(curl -so /dev/null -w '%{http_code}' \
-            "https://registry.npmjs.org/plevin/$version")
-          echo "plevin $version is $status on npm"
+            "https://registry.npmjs.org/plevinjs/$version")
+          echo "plevinjs $version is $status on npm"
           echo "unpublished=$([ "$status" = 404 ] && echo true || echo false)" \
             >>"$GITHUB_OUTPUT"
 
@@ -46,6 +46,7 @@ jobs:
           cache: npm
           cache-dependency-path: js/package-lock.json
 
+      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run build
 
@@ -62,6 +63,4 @@ jobs:
           console.log(found.place?.country?.code);
           "
 
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish --access public

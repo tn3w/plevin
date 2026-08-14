@@ -1,5 +1,5 @@
 <div align="center">
-<a href="https://www.npmjs.com/package/plevin">
+<a href="https://www.npmjs.com/package/plevinjs">
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tn3w/plevin/master/.github/title-dark.png">
 <img src="https://raw.githubusercontent.com/tn3w/plevin/master/.github/title-light.png" width="320" alt="plevin">
@@ -9,7 +9,7 @@
 **Location, network and abuse information for any IP address in one offline file.**<br>
 No API, no rate limit, no lookup leaving the machine — or the browser tab.
 
-![npm](https://img.shields.io/npm/v/plevin?color=1868f2)
+![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2)
 ![Types](https://img.shields.io/badge/types-included-1868f2)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
 ![Fields](https://img.shields.io/badge/fields-98-6f42c1)
@@ -19,11 +19,11 @@ No API, no rate limit, no lookup leaving the machine — or the browser tab.
 </div>
 
 ```bash
-npm install plevin
+npm install plevinjs
 ```
 
 ```js
-import { Plevin, open } from "plevin";
+import { Plevin, open } from "plevinjs";
 
 const db = await open("https://plevin.tn3w.dev/db/plevin.plv");
 const found = db.lookup("1.1.1.1");  // string, number, bigint or packed bytes
@@ -53,14 +53,14 @@ Cloudflare Workers, and any browser off a CDN.
 
 ```html
 <script type="module">
-import { open } from "https://cdn.jsdelivr.net/npm/plevin";
+import { open } from "https://cdn.jsdelivr.net/npm/plevinjs";
 
 const db = await open("https://plevin.tn3w.dev/db/plevin.plv");
 document.title = db.lookup("8.8.8.8").place.country.flag;
 </script>
 ```
 
-`https://esm.sh/plevin` serves the same thing. Every database is rehosted with open
+`https://esm.sh/plevinjs` serves the same thing. Every database is rehosted with open
 CORS at [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/), because GitHub release
 downloads send no CORS header.
 
@@ -69,7 +69,7 @@ downloads send no CORS header.
 | where it runs | how to open it |
 | --- | --- |
 | browser, worker | `await open(url)`, or `await open(response)` |
-| Node, Deno, Bun | `import { openFile } from "plevin/node"`, then `await openFile(path)` |
+| Node, Deno, Bun | `import { openFile } from "plevinjs/node"`, then `await openFile(path)` |
 | bytes you hold | `new Plevin(bytes)`, taking a `Uint8Array` |
 
 `openFile()` reads `PLEVIN_DB` where no path is given. Nothing is downloaded for you
@@ -195,7 +195,7 @@ CDN serves it as it is.
 
 ```html
 <script type="module">
-  import { open } from "https://cdn.jsdelivr.net/npm/plevin";
+  import { open } from "https://cdn.jsdelivr.net/npm/plevinjs";
 
   const db = await open("https://plevin.tn3w.dev/db/plevin.plv");
   document.title = db.lookup("1.1.1.1").place.country.flag;
@@ -204,15 +204,15 @@ CDN serves it as it is.
 
 | | |
 | --- | --- |
-| `https://cdn.jsdelivr.net/npm/plevin` | the published files, as they are |
-| `https://esm.sh/plevin` | the same, imports rewritten |
-| `https://unpkg.com/plevin` | the same as jsDelivr |
+| `https://cdn.jsdelivr.net/npm/plevinjs` | the published files, as they are |
+| `https://esm.sh/plevinjs` | the same, imports rewritten |
+| `https://unpkg.com/plevinjs` | the same as jsDelivr |
 | `https://plevin.tn3w.dev/plevin/` | the reader beside the databases |
 
 Every module is fetched as published, `./reader.js` and all, so the browser loads the
 ten it needs and nothing more. Pin a version for anything that ships:
-`cdn.jsdelivr.net/npm/plevin@0.1.0`. `plevin/node` is the only entry that touches Node,
-so a CDN import never reaches for `node:fs`.
+`cdn.jsdelivr.net/npm/plevinjs@0.1.0`. `plevinjs/node` is the only entry that touches
+Node, so a CDN import never reaches for `node:fs`.
 
 18 MB crosses the wire once, so keep it out of the critical path and out of the next
 visit's way:

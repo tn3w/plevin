@@ -10,7 +10,7 @@
 No API, no rate limit, no lookup leaving the machine.
 
 ![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)
-![npm](https://img.shields.io/npm/v/plevin?color=1868f2&label=npm)
+![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2&label=npm)
 ![Python](https://img.shields.io/badge/python-3.10%2B-1868f2)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
 ![Fields](https://img.shields.io/badge/fields-98-6f42c1)
@@ -300,18 +300,18 @@ The same reader, field for field, as one ESM package with no dependencies: Node,
 Bun, Cloudflare Workers and the browser. [`js/README.md`](js/README.md) has all of it.
 
 ```bash
-npm install plevin
+npm install plevinjs
 ```
 
 ```js
-import { open } from "plevin";                 // or "plevin/node" for a path on disk
+import { open } from "plevinjs";                 // or "plevinjs/node" for a path on disk
 
 const db = await open("https://plevin.tn3w.dev/db/plevin.plv");
 db.lookup("1.1.1.1").network.operator.brand;   // 'Cloudflare'
 ```
 
-A page needs no install: `https://cdn.jsdelivr.net/npm/plevin` is the reader, as is
-`https://esm.sh/plevin`, and `open()` takes the database from wherever it is hosted.
+A page needs no install: `https://cdn.jsdelivr.net/npm/plevinjs` is the reader, as is
+`https://esm.sh/plevinjs`, and `open()` takes the database from wherever it is hosted.
 
 The file is Zstandard with trained dictionaries, which no runtime decompresses on its
 own, so the package carries a decoder condensed from
