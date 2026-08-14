@@ -19,8 +19,16 @@ No API, no rate limit, no lookup leaving the machine.
 </div>
 
 ```bash
-pip install "plevin[db,full]"
+pip install "plevin[db,full]"               # Python
+npm install plevinjs                        # Node, Deno, Bun, Workers
+curl https://plevin.tn3w.dev/api/1.1.1.1    # HTTP, nothing installed
 ```
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/plevinjs"></script>
+```
+
+<br>
 
 ```python
 import plevin
@@ -247,7 +255,7 @@ the address it carries; `is_ipv4_mapped`, `is_6to4` and `is_teredo` beside it.
 | timezones         | 394                                 |
 | abuse records     | 2,147 over 156 feeds                |
 
-Rebuilt monthly from MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, a
+Rebuilt daily from MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, a
 RIPE RIS RIB, RPKI ROAs, the NRO delegations, CAIDA, PeeringDB,
 [asn-abuse](https://github.com/tn3w/asn-abuse) and the feeds in
 [`builder/data/feeds.json`](https://github.com/tn3w/plevin/blob/master/builder/README.md#sources). `Plevin(path).built` dates your
@@ -337,10 +345,12 @@ downloads do not carry:
 | `https://plevin.tn3w.dev/db/index.json` | the tag and what it carries |
 | `https://plevin.tn3w.dev/plevin/plevin.min.js` | the reader, one file |
 
-## Cloudflare Worker
+## The API at plevin.tn3w.dev/api
 
-[`worker/`](worker) is the smallest useful API around the file: it reads `plevin.plv`
-out of a KV namespace once per isolate and answers from memory after that.
+[`worker/`](worker) is the smallest useful API around the file, running at
+[plevin.tn3w.dev/api](https://plevin.tn3w.dev/api/1.1.1.1): it reads `plevin.plv` out of
+a KV namespace once per isolate and answers from memory after that, in the same JSON
+the two readers return.
 
 ```bash
 curl https://plevin.tn3w.dev/api/1.1.1.1   # any address

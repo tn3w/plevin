@@ -1,9 +1,8 @@
 name: Publish databases
 
 on:
-  workflow_run:
-    workflows: [Build and release database]
-    types: [completed]
+  schedule:
+    - cron: '0 9 3 * *'
   workflow_dispatch:
     inputs:
       revision:
@@ -19,9 +18,6 @@ env:
 
 jobs:
   version:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.check.outputs.tag }}

@@ -85,6 +85,21 @@ read once.
 | `plevin.abuse-network.plv` | 10.3 MB | ASN, operator, routing, abuse |
 | `plevin.place-country-code.plv` | 423 KB | the country code |
 
+## The same answers over HTTP
+
+Where a file is one dependency too many, the reader runs on a Cloudflare Worker at
+[plevin.tn3w.dev/api](https://plevin.tn3w.dev/api/1.1.1.1) and returns the same JSON,
+field for field, with no key and CORS open to every origin.
+
+```bash
+curl https://plevin.tn3w.dev/api/1.1.1.1   # any address
+curl https://plevin.tn3w.dev/api/me        # the caller's own
+curl https://plevin.tn3w.dev/api/about     # the build and its fields
+```
+
+[`worker/`](https://github.com/tn3w/plevin/blob/master/worker) is that worker, ready to
+run on an account of your own.
+
 ## Every field
 
 <picture>

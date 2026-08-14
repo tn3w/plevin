@@ -38,7 +38,7 @@ cargo build --release
 ./target/release/plevin-builder network+abuse  # dist/plevin.abuse-network.plv
 ```
 
-`.github/workflows/build.yml` fetches, builds and releases monthly, on secrets
+`.github/workflows/build.yml` fetches, builds and releases daily, on secrets
 `IP2LOCATION_TOKEN` and `PEERINGDB_API_KEY`.
 
 ## Layout

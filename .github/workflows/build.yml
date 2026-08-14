@@ -2,7 +2,7 @@ name: Build and release database
 
 on:
   schedule:
-    - cron: '0 5 3 * *'
+    - cron: '0 5 * * *'
   workflow_dispatch:
 
 permissions:
@@ -133,10 +133,10 @@ jobs:
           } > notes.md
           gh release create "$tag" dist/*.plv --title "$tag" --notes-file notes.md
 
-      - name: Delete dated releases beyond the newest six
+      - name: Delete dated releases beyond the newest seven
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release list --limit 100 --json tagName --jq \
-            '[.[].tagName | select(test("^[0-9]{4}(\\.[0-9]{2}){2}(\\.[0-9]+)?$"))][6:][]' |
+            '[.[].tagName | select(test("^[0-9]{4}(\\.[0-9]{2}){2}(\\.[0-9]+)?$"))][7:][]' |
             xargs -r -n1 gh release delete --yes --cleanup-tag

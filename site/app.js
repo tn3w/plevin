@@ -1,5 +1,9 @@
 import { Plevin } from "./plevin/index.js";
+import { SAMPLE } from "./sample.js";
 import { LAND } from "./world.js";
+
+const API = "https://plevin.tn3w.dev/api";
+const SAMPLED = "1.1.1.1";
 
 const DATABASE = "db/plevin.plv";
 const OWN_ADDRESS = "https://api.ipify.org?format=json";
@@ -545,6 +549,34 @@ fetch("db/index.json")
     for (const held of document.querySelectorAll("[data-tag]")) held.textContent = tag;
   })
   .catch(() => {});
+
+const command = (address) => `curl ${API}/<span class="s">${escaped(address)}</span>`;
+
+const rendered = (address, body) => {
+  node("try-curl").innerHTML = command(address);
+  node("try-json").innerHTML = painted(body);
+};
+
+const tried = async (event) => {
+  event.preventDefault();
+  const address = node("try-ip").value.trim();
+  if (!address) return;
+  if (address === SAMPLED) return rendered(address, written(SAMPLE));
+
+  node("try-json").textContent = "…";
+  try {
+    const response = await fetch(`${API}/${encodeURIComponent(address)}`);
+    rendered(address, written(await response.json()));
+  } catch (error) {
+    rendered(address, written({ error: `${error}` }));
+  }
+};
+
+node("try").addEventListener("submit", tried);
+node("try-ip").addEventListener("input", () => {
+  node("try-curl").innerHTML = command(node("try-ip").value.trim());
+});
+rendered(SAMPLED, written(SAMPLE));
 
 window.addEventListener("hashchange", route);
 route();

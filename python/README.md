@@ -247,7 +247,7 @@ the address it carries; `is_ipv4_mapped`, `is_6to4` and `is_teredo` beside it.
 | timezones         | 394                                 |
 | abuse records     | 2,147 over 156 feeds                |
 
-Rebuilt monthly from MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, a
+Rebuilt daily from MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, a
 RIPE RIS RIB, RPKI ROAs, the NRO delegations, CAIDA, PeeringDB,
 [asn-abuse](https://github.com/tn3w/asn-abuse) and the feeds in
 [`builder/data/feeds.json`](https://github.com/tn3w/plevin/blob/master/builder/README.md#sources). `Plevin(path).built` dates your
@@ -292,46 +292,6 @@ cd builder && cargo build --release
 ./target/release/plevin-builder              # dist/plevin.plv, every field
 ./target/release/plevin-builder place+metro  # dist/plevin.metro-place.plv
 ```
-
-## Lookup page
-
-[plevin.tn3w.dev](https://plevin.tn3w.dev/) reads the database in the tab
-and answers there: no API, and no address of yours sent anywhere except to the service
-that tells you your own, and to a resolver for the hostname. It is plain HTML, CSS and
-JavaScript in [`site/`](https://github.com/tn3w/plevin/blob/master/site), built and deployed by
-[`pages.yml`](https://github.com/tn3w/plevin/blob/master/.github/workflows/pages.yml) whenever a database is released.
-
-The same deployment rehosts every release file with open CORS, which the GitHub release
-downloads do not carry:
-
-| | |
-| --- | --- |
-| `https://plevin.tn3w.dev/db/plevin.plv` | every field, 16.9 MB |
-| `https://plevin.tn3w.dev/db/plevin.metro-place.plv` | city, region, postal, coordinates, metro, 6.3 MB |
-| `https://plevin.tn3w.dev/db/plevin.abuse-network.plv` | ASN, operator, routing, abuse, 10.3 MB |
-| `https://plevin.tn3w.dev/db/plevin.place-country-code.plv` | the country code, 423 KB |
-| `https://plevin.tn3w.dev/db/index.json` | the tag and what it carries |
-
-## Cloudflare Worker
-
-[`worker/`](https://github.com/tn3w/plevin/blob/master/worker) is the smallest useful API around the file: it keeps the newest
-release in a KV namespace and answers out of an isolate that opened it once.
-
-```bash
-cd worker && npm install
-npx wrangler kv namespace create PLEVIN   # put the id in wrangler.toml
-npx wrangler deploy
-curl -X POST https://plevin.<you>.workers.dev/refresh   # then monthly, on a cron
-```
-
-```bash
-curl https://plevin.<you>.workers.dev/1.1.1.1   # any address
-curl https://plevin.<you>.workers.dev/me        # the caller's own
-curl https://plevin.<you>.workers.dev/about     # what the file carries
-```
-
-`REFRESH_TOKEN` guards the refresh where it is set, and `DATABASE` picks a smaller file
-than `plevin.plv`.
 
 ## Mini file
 

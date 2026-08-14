@@ -33,6 +33,7 @@
       <a href="#" data-mine>My address</a>
       <a href="#data" class="only-home">Data</a>
       <a href="#install" class="only-home">Install</a>
+      <a href="#api" class="only-home">API</a>
       <a href="https://github.com/tn3w/plevin">GitHub</a>
     </nav>
   </div>
@@ -160,17 +161,17 @@ db.<span class="f">lookup</span>(<span class="s">"1.1.1.1"</span>).place.country
   <span class="s">"https://plevin.tn3w.dev/db/plevin.plv"</span>);
 db.<span class="f">lookup</span>(<span class="s">"2606:4700::1111"</span>).place.time.local;</pre>
 
-          <pre data-panel="worker" hidden><span class="c"># the worker in worker/, on your own account</span>
-curl https://plevin.&lt;you&gt;.workers.dev/<span class="s">1.1.1.1</span>
-curl https://plevin.&lt;you&gt;.workers.dev/<span class="s">me</span>
-curl https://plevin.&lt;you&gt;.workers.dev/<span class="s">about</span></pre>
+          <pre data-panel="worker" hidden><span class="c"># nothing to install, the same answers</span>
+curl https://plevin.tn3w.dev/api/<span class="s">1.1.1.1</span>
+curl https://plevin.tn3w.dev/api/<span class="s">me</span>
+curl https://plevin.tn3w.dev/api/<span class="s">about</span></pre>
         </div>
       </div>
     </section>
 
     <section class="band wrap">
       <p class="title" style="--kind: var(--network)">Inside the file</p>
-      <h2 class="big">Rebuilt monthly, from the primary sources</h2>
+      <h2 class="big">Rebuilt daily, from the primary sources</h2>
       <p class="lead">MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, a RIPE
         RIS RIB, RPKI ROAs, the NRO delegations, CAIDA, PeeringDB and 156 abuse feeds.</p>
 
@@ -203,6 +204,40 @@ curl https://plevin.&lt;you&gt;.workers.dev/<span class="s">about</span></pre>
             <div class="track"><i style="width: 30%"></i></div><b>12 ms</b></div>
           <div class="meter-row"><span>Open, mmapped</span>
             <div class="track"><i style="width: 6%"></i></div><b>2 ms</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band wrap" id="api">
+      <div class="split">
+        <div>
+          <p class="title" style="--kind: var(--network)">HTTP</p>
+          <h2 class="big">Still want an API? One is running here</h2>
+          <p class="lead">The same reader over the same file, on a Cloudflare Worker that
+            keeps the database in KV. Identical JSON to the two libraries, field for
+            field, at <code>plevin.tn3w.dev/api</code>.</p>
+          <ul class="checks">
+            <li>No key, no rate limit, CORS open to every origin</li>
+            <li><code>/api/me</code> answers the caller, <code>/api/about</code> the build</li>
+            <li>Answers cache for five minutes, errors never</li>
+            <li>An address it cannot parse answers <code>400</code></li>
+            <li><a href="https://github.com/tn3w/plevin/tree/master/worker">Run your own</a>
+              on your account in two commands</li>
+          </ul>
+        </div>
+        <div>
+          <form class="tryout" id="try">
+            <span class="verb">GET</span>
+            <label>
+              <span>plevin.tn3w.dev/api/</span>
+              <input id="try-ip" value="1.1.1.1" spellcheck="false"
+                     autocomplete="off" aria-label="address to look up">
+            </label>
+            <button type="submit" class="solid">Send</button>
+          </form>
+
+          <pre class="curl" id="try-curl"></pre>
+          <pre class="json" id="try-json"></pre>
         </div>
       </div>
     </section>
