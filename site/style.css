@@ -415,6 +415,24 @@ pre .f { color: var(--place); }
   .meter-row .track { grid-column: 1 / -1; order: 3; }
 }
 
+.faq {
+  margin-top: 2.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1.2rem;
+}
+
+.faq article {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 1.2rem 1.3rem;
+}
+
+.faq h3 { margin: 0 0 0.5rem; font-size: 1.02rem; }
+.faq p { margin: 0; color: var(--soft); font-size: 0.92rem; }
+
 .files {
   margin-top: 2.5rem;
   display: grid;
@@ -569,6 +587,41 @@ body.answering main { padding-top: 4rem; }
 
 .headline .flag { font-size: 2.6rem; line-height: 1; }
 
+.ip-line { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+
+.copy-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: var(--panel);
+  color: var(--faint);
+  cursor: pointer;
+}
+
+.copy-chip:hover { color: var(--ink); border-color: var(--place); }
+.copy-chip svg { width: 0.95rem; height: 0.95rem; }
+.copy-chip .back, .copy-chip .front { fill: none; stroke: currentColor; stroke-width: 1.5; }
+.copy-chip .tick {
+  display: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.copy-chip.done { color: var(--abuse); border-color: var(--abuse); }
+.copy-chip.done .back, .copy-chip.done .front { display: none; }
+.copy-chip.done .tick { display: block; }
+
+.panel > header .copy-chip { margin-left: 0.55rem; }
+.field .line { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+
 .headline .top {
   display: flex;
   align-items: center;
@@ -648,7 +701,6 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  overflow: hidden;
 }
 
 .panel > header {
@@ -657,6 +709,7 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
   gap: 0.6rem;
   padding: 0.95rem 1.4rem;
   border-bottom: 1px solid var(--line);
+  border-radius: var(--radius) var(--radius) 0 0;
   background: color-mix(in srgb, var(--kind) 7%, transparent);
 }
 
@@ -784,12 +837,56 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
 
 .gauges { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
 
-.gauge { text-align: center; }
+.gauge { text-align: center; position: relative; }
 .gauge svg { width: 100%; max-width: 8rem; height: auto; }
 .gauge .rail { stroke: var(--line); }
 .gauge .arc { stroke: var(--tone, var(--abuse)); stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
 .gauge .value { font: 800 1.05rem var(--sans); fill: var(--ink); }
-.gauge p { margin: 0.2rem 0 0; font-size: 0.78rem; color: var(--soft); }
+.gauge p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.tip {
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--faint);
+  font: 700 0.7rem/1 var(--sans);
+  cursor: help;
+}
+
+.tip .bubble {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 2;
+  width: min(17rem, 62vw);
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--soft);
+  font: 400 0.75rem/1.45 var(--sans);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease;
+}
+
+.gauge:last-child .tip .bubble { left: auto; right: 0; }
+.tip:hover .bubble, .tip:focus-visible .bubble { opacity: 1; visibility: visible; }
+.tip:hover, .tip:focus-visible { color: var(--ink); border-color: var(--place); }
 
 .flags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 

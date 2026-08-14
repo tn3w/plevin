@@ -3,11 +3,117 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>plevin - IP lookup in your browser</title>
-<meta name="description" content="Location, network and abuse information for any IP address, looked up in your browser with no API call.">
+<title>plevin - IP lookup in your browser, no API</title>
+<meta name="description" content="Free IP address lookup: city, region, country, coordinates, timezone, ASN, operator, RPKI and abuse risk for any IPv4 or IPv6 address. Runs on one 16.9 MB offline file in your browser, with Python and JavaScript readers and an open API.">
 <meta name="color-scheme" content="light dark">
+<meta name="author" content="tn3w">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#070b14" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://plevin.tn3w.dev/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://dns.google" crossorigin>
 <link rel="stylesheet" href="style.css">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="plevin">
+<meta property="og:title" content="plevin - IP lookup in your browser, no API">
+<meta property="og:description" content="Location, network and abuse data for any IPv4 or IPv6 address, out of one offline file. No API key, no rate limit, no address leaving the browser.">
+<meta property="og:url" content="https://plevin.tn3w.dev/">
+<meta property="og:image" content="https://plevin.tn3w.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="plevin: every address, answered in this tab">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="plevin - IP lookup in your browser, no API">
+<meta name="twitter:description" content="Location, network and abuse data for any IPv4 or IPv6 address, out of one offline file.">
+<meta name="twitter:image" content="https://plevin.tn3w.dev/og.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://plevin.tn3w.dev/#site",
+      "url": "https://plevin.tn3w.dev/",
+      "name": "plevin",
+      "description": "IP address lookup in the browser, out of one offline database file.",
+      "inLanguage": "en",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://plevin.tn3w.dev/#{search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "plevin",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Any",
+      "url": "https://plevin.tn3w.dev/",
+      "downloadUrl": "https://pypi.org/project/plevin",
+      "license": "https://www.apache.org/licenses/LICENSE-2.0",
+      "author": { "@type": "Person", "name": "tn3w", "url": "https://github.com/tn3w" },
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "description": "Offline IP geolocation, network and abuse database with Python and JavaScript readers, 98 fields per address in a 16.9 MB file."
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Does the address I type leave the tab?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The lookup does not: the database file is downloaded once and every answer is read out of it in the browser. Two helpers on the page do call out, both optional - api.ipify.org behind My address, and dns.google for the hostname. The Python and JavaScript libraries call neither."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What does a lookup return?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "98 fields: city, region, country, coordinates, postal code and timezone; ASN, operator, announcement, RPKI state and abuse mailbox; and abuse records with an address risk and a network risk score."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there an API and does it need a key?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, plevin.tn3w.dev/api answers the same JSON with no key, no rate limit and CORS open to every origin. You can also run the worker on your own account."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How often is the database rebuilt?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Daily, from MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, a RIPE RIS RIB, RPKI ROAs, the NRO delegations, CAIDA, PeeringDB and 156 abuse feeds."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What can I look up?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Any IPv4 or IPv6 address. A hostname works too: it is resolved to an address over DNS first, then looked up in the file like any other."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How exact is the location?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "City level at best, and every place carries its own confidence and radius in kilometres. An IP address names a network, not a person or a street, so the coordinates are the centre of an area."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
 </head>
 <body>
 <div class="blobs" aria-hidden="true">
@@ -34,6 +140,7 @@
       <a href="#data" class="only-home">Data</a>
       <a href="#install" class="only-home">Install</a>
       <a href="#api" class="only-home">API</a>
+      <a href="#faq" class="only-home">FAQ</a>
       <a href="https://github.com/tn3w/plevin">GitHub</a>
     </nav>
   </div>
@@ -261,6 +368,51 @@ curl https://plevin.tn3w.dev/api/<span class="s">about</span></pre>
           <span>the tag and what it carries</span><b data-tag>-</b></a>
       </div>
 
+    </section>
+
+    <section class="band wrap" id="faq">
+      <p class="title" style="--kind: var(--abuse)">Questions</p>
+      <h2 class="big">What a lookup is, and is not</h2>
+
+      <div class="faq">
+        <article>
+          <h3>Does the address I type leave the tab?</h3>
+          <p>The lookup does not: the database file is downloaded once and every answer is
+            read out of it here. Two helpers on this page do call out, both optional -
+            <code>api.ipify.org</code> behind <em>My address</em>, and
+            <code>dns.google</code> for the hostname. The libraries call neither.</p>
+        </article>
+        <article>
+          <h3>What does a lookup return?</h3>
+          <p>98 fields: city, region, country, coordinates, postal code and timezone;
+            ASN, operator, announcement, RPKI state and abuse mailbox; and abuse records
+            with an address risk and a network risk score.</p>
+        </article>
+        <article>
+          <h3>Is there an API, and does it need a key?</h3>
+          <p>Yes, <code>plevin.tn3w.dev/api</code> answers the same JSON with no key, no
+            rate limit and CORS open to every origin. You can also run the worker on your
+            own account.</p>
+        </article>
+        <article>
+          <h3>How often is the database rebuilt?</h3>
+          <p>Daily, from MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, a
+            RIPE RIS RIB, RPKI ROAs, the NRO delegations, CAIDA, PeeringDB and 156 abuse
+            feeds.</p>
+        </article>
+        <article>
+          <h3>What can I type into the box?</h3>
+          <p>Any IPv4 or IPv6 address. A hostname works too: it is resolved to an address
+            over DNS first, then looked up in the file like any other.</p>
+        </article>
+        <article>
+          <h3>How exact is the location?</h3>
+          <p>City level at best, and every place carries its own confidence and radius in
+            kilometres. An IP address names a network, not a person or a street, so treat
+            the coordinates as the centre of an area.</p>
+        </article>
+      </div>
+
       <div class="cta">
         <a class="solid" href="#1.1.1.1">Look up an address</a>
         <a href="https://pypi.org/project/plevin">PyPI</a>
@@ -284,7 +436,7 @@ curl https://plevin.tn3w.dev/api/<span class="s">about</span></pre>
         <div class="top">
           <span class="flag" id="flag"></span>
           <div>
-            <h1 id="ip"></h1>
+            <div class="ip-line" id="ip-line"><h1 id="ip"></h1></div>
             <p class="where" id="where"></p>
           </div>
         </div>

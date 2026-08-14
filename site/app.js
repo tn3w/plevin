@@ -91,19 +91,53 @@ const database = () => {
   return opening;
 };
 
-const field = (label, value, mono) => {
+const COPY_ICON = `<svg viewBox="0 0 16 16" aria-hidden="true">
+    <rect class="back" x="5.2" y="1.2" width="9.6" height="9.6" rx="2.2"/>
+    <rect class="front" x="1.2" y="5.2" width="9.6" height="9.6" rx="2.2"/>
+    <path class="tick" d="M3.6 8.3 L6.4 11 L12.2 4.8"/>
+  </svg>`;
+
+const copied = async (button, text) => {
+  await navigator.clipboard.writeText(text);
+  button.classList.add("done");
+  setTimeout(() => button.classList.remove("done"), 1200);
+};
+
+const copier = (text, label) => {
+  const button = make("button", "copy-chip");
+  button.type = "button";
+  button.title = `Copy ${label}`;
+  button.setAttribute("aria-label", `Copy ${label}`);
+  button.append(drawn(COPY_ICON));
+  button.addEventListener("click", () => copied(button, text));
+  return button;
+};
+
+const field = (label, value, mono, copy) => {
   const held = make("div", "field");
-  held.append(make("span", "", label), make("b", mono ? "mono" : "", String(value)));
+  const line = make("div", "line");
+  line.append(make("b", mono ? "mono" : "", String(value)));
+  if (copy) line.append(copier(String(value), copy));
+  held.append(make("span", "", label), line);
   return held;
 };
 
 const fields = (pairs) => {
   const grid = make("div", "fields");
-  for (const [label, value, mono] of pairs) {
+  for (const [label, value, mono, copy] of pairs) {
     if (value === null || value === undefined || value === "") continue;
-    grid.append(field(label, value, mono));
+    grid.append(field(label, value, mono, copy));
   }
   return grid;
+};
+
+const hint = (text) => {
+  const held = make("button", "tip");
+  held.type = "button";
+  held.textContent = "?";
+  held.setAttribute("aria-label", text);
+  held.append(make("span", "bubble", text));
+  return held;
 };
 
 const panel = (kind, title, note) => {
@@ -173,7 +207,7 @@ const spanBar = (found) => {
 const tone = (value) =>
   value >= 0.66 ? "var(--bad)" : value >= 0.33 ? "var(--warn)" : "var(--abuse)";
 
-const gauge = (label, value) => {
+const gauge = (label, value, tip) => {
   const held = make("div", "gauge");
   const percent = Math.round(value * 100);
   held.append(drawn(`<svg viewBox="0 0 100 60" role="img" aria-label="${label} ${percent}%">
@@ -184,7 +218,9 @@ const gauge = (label, value) => {
       <text class="value" x="50" y="50" text-anchor="middle">${percent}%</text>
     </svg>`));
   held.style.setProperty("--tone", tone(value));
-  held.append(make("p", "", label));
+  const caption = make("p", "", label);
+  caption.append(hint(tip));
+  held.append(caption);
   return held;
 };
 
@@ -287,6 +323,8 @@ const networkPanel = (found) => {
   const operator = network.operator ?? {};
   const [section, body] = panel("network", "Network",
     network.asn === null ? "" : `AS${network.asn}`);
+  if (network.asn !== null)
+    section.querySelector("header").append(copier(`AS${network.asn}`, "the ASN"));
   if (network.start && network.end) body.append(spanBar(found));
 
   body.append(fields([
@@ -302,7 +340,7 @@ const networkPanel = (found) => {
     ["Since", operator.since],
     ["Scope", operator.scope],
     ["Website", operator.website, true],
-    ["Abuse mailbox", operator.abuse_email, true],
+    ["Abuse mailbox", operator.abuse_email, true, "the abuse mailbox"],
     ["User type", network.carrier?.user_type],
     ["Mobile codes", network.carrier?.mcc
       ? `MCC ${network.carrier.mcc}, MNC ${network.carrier.mnc}` : null],
@@ -317,11 +355,21 @@ const told = (abuse) =>
   Boolean(abuse) && [abuse.name, abuse.service, abuse.evidence, abuse.risk,
     abuse.network_risk, abuse.last_seen_days].some((value) => value !== null);
 
+const ADDRESS_TIP = "How often this single address itself was reported by the abuse " +
+  "feeds. 0% is never seen, 100% is seen in every recent feed.";
+
+const NETWORK_TIP = "The same score for the whole ASN this address sits in. A high " +
+  "address risk with a low network risk means one bad address on an otherwise " +
+  "quiet network.";
+
 const abusePanel = (abuse) => {
+  const risk = abuse.risk ?? 0;
   const [section, body] = panel("abuse", "Abuse", abuse.evidence ?? "");
+  section.style.setProperty("--kind", tone(Math.max(risk, abuse.network_risk ?? 0)));
+
   const gauges = make("div", "gauges");
-  gauges.append(gauge("address risk", abuse.risk ?? 0));
-  gauges.append(gauge("network risk", abuse.network_risk ?? 0));
+  gauges.append(gauge("address risk", risk, ADDRESS_TIP));
+  gauges.append(gauge("network risk", abuse.network_risk ?? 0, NETWORK_TIP));
   body.append(gauges);
 
   const held = make("div", "stack");
@@ -422,6 +470,7 @@ const render = (found) => {
   node("result").hidden = false;
 
   node("ip").textContent = found.ip;
+  node("ip-line").replaceChildren(node("ip"), copier(found.ip, "the address"));
   node("flag").textContent = found.place?.country?.flag ?? "";
   node("where").textContent = found.found
     ? named(found.place) || found.network?.operator?.brand || "no place stored here"
@@ -442,9 +491,18 @@ const render = (found) => {
 
 let asked = "";
 
+const HOME_TITLE = "plevin - IP lookup in your browser, no API";
+
+const described = (text) =>
+  document.querySelector("meta[name=description]").setAttribute("content", text);
+
+const HOME_DESCRIPTION =
+  document.querySelector("meta[name=description]").getAttribute("content");
+
 const show = async (address) => {
   asked = address;
-  document.title = `${address} - plevin`;
+  document.title = `${address} - IP lookup - plevin`;
+  described(`Location, network operator, ASN and abuse risk for ${address}.`);
   document.body.classList.add("answering");
   node("answer").hidden = false;
   node("failed").hidden = true;
@@ -478,7 +536,8 @@ const show = async (address) => {
 
 const home = () => {
   asked = "";
-  document.title = "plevin - IP lookup in your browser";
+  document.title = HOME_TITLE;
+  described(HOME_DESCRIPTION);
   document.body.classList.remove("answering");
   node("answer").hidden = true;
 };
