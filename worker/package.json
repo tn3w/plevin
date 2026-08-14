@@ -1,0 +1,19 @@
+{
+  "name": "plevin-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "upload": "wrangler kv key put --binding PLEVIN --remote plevin.plv --path ../plevin.plv",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "plevinjs": "file:../js"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260811.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.42.0"
+  }
+}

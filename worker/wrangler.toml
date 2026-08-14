@@ -1,0 +1,12 @@
+name = "plevin"
+main = "src/worker.ts"
+compatibility_date = "2026-08-01"
+workers_dev = false
+preview_urls = false
+
+routes = [{ pattern = "WORKER_ROUTE", zone_id = "ZONE_ID" }]
+
+kv_namespaces = [{ binding = "PLEVIN", id = "KV_NAMESPACE_ID" }]
+
+[observability]
+enabled = true

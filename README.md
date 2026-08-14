@@ -339,24 +339,34 @@ downloads do not carry:
 
 ## Cloudflare Worker
 
-[`worker/`](worker) is the smallest useful API around the file: it keeps the newest
-release in a KV namespace and answers out of an isolate that opened it once.
+[`worker/`](worker) is the smallest useful API around the file: it reads `plevin.plv`
+out of a KV namespace once per isolate and answers from memory after that.
+
+```bash
+curl https://plevin.tn3w.dev/api/1.1.1.1   # any address
+curl https://plevin.tn3w.dev/api/me        # the caller's own
+curl https://plevin.tn3w.dev/api/about     # what the file carries
+curl "https://plevin.tn3w.dev/api?ip=9.9.9.9"
+```
+
+An unknown address answers `400` with `{"error": …}`; every answer carries
+`access-control-allow-origin: *`, and lookups cache for five minutes.
 
 ```bash
 cd worker && npm install
-npx wrangler kv namespace create PLEVIN   # put the id in wrangler.toml
+npx wrangler kv namespace create PLEVIN   # the id goes in the KV_NAMESPACE_ID secret
+npx wrangler kv key put --binding PLEVIN --remote plevin.plv --path ../plevin.plv
 npx wrangler deploy
-curl -X POST https://plevin.<you>.workers.dev/refresh   # then monthly, on a cron
 ```
 
-```bash
-curl https://plevin.<you>.workers.dev/1.1.1.1   # any address
-curl https://plevin.<you>.workers.dev/me        # the caller's own
-curl https://plevin.<you>.workers.dev/about     # what the file carries
-```
+[`.github/workflows/deploy-worker.yml`](.github/workflows/deploy-worker.yml) deploys a
+push to `worker/` or `js/`, and puts the newest `plevin.plv` in KV on a release. It
+fills [`wrangler.toml`](worker/wrangler.toml) from the `KV_NAMESPACE_ID`, `ZONE_ID`,
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` secrets and the `WORKER_ROUTE`
+variable. The token needs `Workers Scripts:Edit` and `Workers KV Storage:Edit` on the
+account and `Workers Routes:Edit` on the zone.
 
-`REFRESH_TOKEN` guards the refresh where it is set, and `DATABASE` picks a smaller file
-than `plevin.plv`.
+`DATABASE` picks a smaller file than `plevin.plv` where it is set.
 
 ## Mini file
 

@@ -1,0 +1,56 @@
+name: Deploy worker
+
+on:
+  push:
+    branches: [master]
+    paths: [worker/**, js/**, .github/workflows/deploy-worker.yml]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    environment: cloudflare
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fill in the namespace and the route
+        working-directory: worker
+        run: |
+          sed -i "s/KV_NAMESPACE_ID/${{ secrets.KV_NAMESPACE_ID }}/" wrangler.toml
+          sed -i "s/ZONE_ID/${{ secrets.ZONE_ID }}/" wrangler.toml
+          sed -i "s|WORKER_ROUTE|${{ vars.WORKER_ROUTE }}|" wrangler.toml
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Build the reader
+        working-directory: js
+        run: npm ci && npm run build
+
+      - name: Install the worker
+        working-directory: worker
+        run: npm ci
+
+      - name: Put the newest database in KV
+        if: github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: worker
+        run: |
+          gh release download --pattern plevin.plv --output plevin.plv
+          npx wrangler kv key put --binding PLEVIN --remote plevin.plv \
+            --path plevin.plv
+
+      - name: Deploy
+        working-directory: worker
+        run: npx wrangler deploy
