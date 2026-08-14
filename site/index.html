@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plevin - IP lookup in your browser</title>
+<meta name="description" content="Location, network and abuse information for any IP address, looked up in your browser with no API call.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="blobs" aria-hidden="true">
+  <div class="blob one"></div>
+  <div class="blob two"></div>
+  <div class="blob three"></div>
+</div>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="wordmark" href="#" aria-label="plevin">
+      <span class="bar"><i class="place"></i><i class="network"></i><i class="abuse"></i></span>
+      <span>plevin</span>
+    </a>
+    <div class="hunt">
+      <form class="search" data-ask autocomplete="off">
+        <input type="text" data-address spellcheck="false" enterkeyhint="search"
+          placeholder="1.1.1.1, 2606:4700::1111 or example.com" aria-label="IP address">
+        <button type="submit">Look up</button>
+      </form>
+    </div>
+    <nav>
+      <a href="#" data-mine>My address</a>
+      <a href="#data" class="only-home">Data</a>
+      <a href="#install" class="only-home">Install</a>
+      <a href="https://github.com/tn3w/plevin">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div id="home">
+    <section class="hero wrap">
+      <div class="mark" aria-hidden="true">
+        <i class="place"></i><i class="network"></i><i class="abuse"></i>
+      </div>
+      <h1>Every address,<br><em>answered in this tab</em></h1>
+      <p class="claim">Location, network and abuse information for any IP address, out of
+        one offline file. No API, no rate limit, no address leaving the browser.</p>
+
+      <form class="search" data-ask autocomplete="off">
+        <input type="text" data-address spellcheck="false" enterkeyhint="search"
+          placeholder="1.1.1.1, 2606:4700::1111 or example.com" aria-label="IP address">
+        <button type="submit">Look up</button>
+      </form>
+
+      <ul class="samples">
+        <li><button type="button" data-mine>My address</button></li>
+        <li><button type="button" data-ip="1.1.1.1">1.1.1.1</button></li>
+        <li><button type="button" data-ip="8.8.8.8">8.8.8.8</button></li>
+        <li><button type="button" data-ip="185.220.101.1">185.220.101.1</button></li>
+        <li><button type="button" data-ip="2606:4700::1111">2606:4700::1111</button></li>
+      </ul>
+
+      <div class="stats">
+        <div><b>98</b><span>fields per address</span></div>
+        <div><b>2.6M</b><span>boundaries</span></div>
+        <div><b>2M/s</b><span>warm lookups</span></div>
+        <div><b>16.9 MB</b><span>the whole world</span></div>
+      </div>
+    </section>
+
+    <section class="band wrap" id="data">
+      <p class="title">Rich data</p>
+      <h2 class="big">One address, three answers</h2>
+      <p class="lead">Every leaf is <code>null</code> rather than an empty string where a
+        source says nothing, so an answer is never guessed.</p>
+
+      <div class="flow">
+        <article class="branch place">
+          <span class="bar" aria-hidden="true"><i class="place"></i><i class="place"></i><i class="place"></i></span>
+          <h3>Place</h3>
+          <ul>
+            <li><span>City</span><b>Brisbane</b></li>
+            <li><span>Region</span><b>Queensland</b></li>
+            <li><span>Country</span><b>🇦🇺 Australia</b></li>
+            <li><span>Coordinates</span><b>-27.4675, 153.0281</b></li>
+            <li><span>Local time</span><b>19:20 +10:00</b></li>
+            <li><span>Postal</span><b>4000</b></li>
+          </ul>
+        </article>
+        <article class="branch network">
+          <span class="bar" aria-hidden="true"><i class="network"></i><i class="network"></i><i class="network"></i></span>
+          <h3>Network</h3>
+          <ul>
+            <li><span>ASN</span><b>AS13335</b></li>
+            <li><span>Operator</span><b>Cloudflare</b></li>
+            <li><span>Announcement</span><b>1.1.1.0/24</b></li>
+            <li><span>RPKI</span><b>valid, 1 ROA</b></li>
+            <li><span>Category</span><b>content, tier 2</b></li>
+            <li><span>Abuse mailbox</span><b>abuse@cloudflare.com</b></li>
+          </ul>
+        </article>
+        <article class="branch abuse">
+          <span class="bar" aria-hidden="true"><i class="abuse"></i><i class="abuse"></i><i class="abuse"></i></span>
+          <h3>Abuse</h3>
+          <ul>
+            <li><span>Seen as</span><b>Tor</b></li>
+            <li><span>Service</span><b>tor_exit_node</b></li>
+            <li><span>Evidence</span><b>measured</b></li>
+            <li><span>Risk</span><b>0.97</b></li>
+            <li><span>Last seen</span><b>1 day ago</b></li>
+            <li><span>Flags</span><b>anonymous, hosting</b></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="band wrap" id="install">
+      <div class="split">
+        <div>
+          <p class="title">Install</p>
+          <h2 class="big">Two readers, one file</h2>
+          <p class="lead">The same fields in Python and JavaScript, field for field, both
+            reading the memory-mapped database with no service in between.</p>
+          <ul class="checks">
+            <li>Python 3.10+, no dependencies on 3.14</li>
+            <li>ESM for Node, Deno, Bun, Workers and the browser</li>
+            <li>The database ships as a wheel, or as a file you host</li>
+            <li>Air-gapped: no address ever leaves the process</li>
+          </ul>
+        </div>
+        <div>
+          <div class="tabs" role="tablist">
+            <button type="button" role="tab" data-tab="python" aria-selected="true">Python</button>
+            <button type="button" role="tab" data-tab="node" aria-selected="false">Node</button>
+            <button type="button" role="tab" data-tab="browser" aria-selected="false">Browser</button>
+            <button type="button" role="tab" data-tab="worker" aria-selected="false">HTTP</button>
+          </div>
+
+          <pre data-panel="python"><span class="c"># pip install "plevin[db,full]"</span>
+<span class="k">import</span> plevin
+
+found = plevin.<span class="f">lookup</span>(<span class="s">"1.1.1.1"</span>)
+found.place.city.name        <span class="c"># 'Brisbane'</span>
+found.network.operator.brand <span class="c"># 'Cloudflare'</span>
+found.abuse.risk             <span class="c"># 0.97 on a tor exit</span></pre>
+
+          <pre data-panel="node" hidden><span class="c">// npm install plevinjs</span>
+<span class="k">import</span> { open } <span class="k">from</span> <span class="s">"plevinjs/node"</span>;
+
+<span class="k">const</span> db = <span class="k">await</span> <span class="f">open</span>(<span class="s">"plevin.plv"</span>);
+db.<span class="f">lookup</span>(<span class="s">"1.1.1.1"</span>).network.operator.brand;
+db.<span class="f">lookup</span>(<span class="s">"1.1.1.1"</span>).place.country.flag;</pre>
+
+          <pre data-panel="browser" hidden><span class="c">// no install, no bundler</span>
+<span class="k">import</span> { open } <span class="k">from</span> <span class="s">"https://esm.sh/plevinjs"</span>;
+
+<span class="k">const</span> db = <span class="k">await</span> <span class="f">open</span>(
+  <span class="s">"https://plevin.tn3w.dev/db/plevin.plv"</span>);
+db.<span class="f">lookup</span>(<span class="s">"2606:4700::1111"</span>).place.time.local;</pre>
+
+          <pre data-panel="worker" hidden><span class="c"># the worker in worker/, on your own account</span>
+curl https://plevin.&lt;you&gt;.workers.dev/<span class="s">1.1.1.1</span>
+curl https://plevin.&lt;you&gt;.workers.dev/<span class="s">me</span>
+curl https://plevin.&lt;you&gt;.workers.dev/<span class="s">about</span></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="band wrap">
+      <p class="title" style="--kind: var(--network)">Inside the file</p>
+      <h2 class="big">Rebuilt monthly, from the primary sources</h2>
+      <p class="lead">MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, a RIPE
+        RIS RIB, RPKI ROAs, the NRO delegations, CAIDA, PeeringDB and 156 abuse feeds.</p>
+
+      <div class="tiles">
+        <div class="tile"><b>2,182,442</b><span>v4 boundaries, plus 3.8M host rows</span></div>
+        <div class="tile"><b>375,752</b><span>v6 boundaries</span></div>
+        <div class="tile"><b>76,805</b><span>cities in 3,177 regions</span></div>
+        <div class="tile"><b>19,941</b><span>districts and 210 metros</span></div>
+        <div class="tile"><b>86,237</b><span>ASNs, 80,354 operators</span></div>
+        <div class="tile"><b>2,147</b><span>abuse records over 156 feeds</span></div>
+      </div>
+    </section>
+
+    <section class="band wrap" id="speed">
+      <div class="split">
+        <div>
+          <p class="title" style="--kind: var(--abuse)">Speed</p>
+          <h2 class="big">Opens in 2 ms, answers in 12</h2>
+          <p class="lead">Blocks decode when reached and stay decoded, so a real log lands
+            between a fresh decode and a warm repeat.</p>
+        </div>
+        <div class="meters">
+          <div class="meter-row"><span>Warm repeats</span>
+            <div class="track"><i style="width: 100%"></i></div><b>2,060,000/s</b></div>
+          <div class="meter-row"><span>JavaScript, warm</span>
+            <div class="track"><i style="width: 100%"></i></div><b>4,600,000/s</b></div>
+          <div class="meter-row"><span>Random v4, cold</span>
+            <div class="track"><i style="width: 12%"></i></div><b>16,000/s</b></div>
+          <div class="meter-row"><span>First answer</span>
+            <div class="track"><i style="width: 30%"></i></div><b>12 ms</b></div>
+          <div class="meter-row"><span>Open, mmapped</span>
+            <div class="track"><i style="width: 6%"></i></div><b>2 ms</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band wrap">
+      <p class="title" style="--kind: var(--address)">Hosted with open CORS</p>
+      <h2 class="big">Take the file, not the API</h2>
+      <p class="lead">Every release is rehosted here, which the GitHub downloads are not.
+        Point <code>open()</code> at any of them.</p>
+
+      <div class="files">
+        <a class="file-row" href="db/plevin.plv"><code>/db/plevin.plv</code>
+          <span>every field</span><b>16.9 MB</b></a>
+        <a class="file-row" href="db/plevin.metro-place.plv"><code>/db/plevin.metro-place.plv</code>
+          <span>city, region, postal, coordinates, metro</span><b>6.3 MB</b></a>
+        <a class="file-row" href="db/plevin.abuse-network.plv"><code>/db/plevin.abuse-network.plv</code>
+          <span>ASN, operator, routing, abuse</span><b>10.3 MB</b></a>
+        <a class="file-row" href="db/plevin.place-country-code.plv"><code>/db/plevin.place-country-code.plv</code>
+          <span>the country code</span><b>423 KB</b></a>
+        <a class="file-row" href="db/index.json"><code>/db/index.json</code>
+          <span>the tag and what it carries</span><b data-tag>-</b></a>
+      </div>
+
+      <div class="cta">
+        <a class="solid" href="#1.1.1.1">Look up an address</a>
+        <a href="https://pypi.org/project/plevin">PyPI</a>
+        <a href="https://www.npmjs.com/package/plevinjs">npm</a>
+        <a href="https://github.com/tn3w/plevin">Source</a>
+      </div>
+    </section>
+  </div>
+
+  <div class="wrap stage" id="answer" hidden>
+    <div class="loading" id="loading">
+      <div class="pulse" aria-hidden="true"><i></i><i></i><i></i></div>
+      <p id="state">opening the database</p>
+      <div class="track"><i id="progress"></i></div>
+    </div>
+
+    <p class="note bad" id="failed" hidden></p>
+
+    <section class="result" id="result" hidden>
+      <div class="headline">
+        <div class="top">
+          <span class="flag" id="flag"></span>
+          <div>
+            <h1 id="ip"></h1>
+            <p class="where" id="where"></p>
+          </div>
+        </div>
+        <div class="marks" id="marks"></div>
+        <button type="button" class="ghost" id="open-raw">Raw JSON</button>
+      </div>
+
+      <div class="cards" id="cards"></div>
+    </section>
+
+    <dialog id="raw">
+      <header>
+        <b>Raw JSON</b>
+        <button type="button" class="ghost" id="copy">Copy</button>
+        <button type="button" class="ghost" id="close-raw">Close</button>
+      </header>
+      <pre class="json" id="json"></pre>
+    </dialog>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Apache 2.0, built by <a href="https://github.com/tn3w">tn3w</a></span>
+    <span id="built"></span>
+    <nav>
+      <a href="https://github.com/tn3w/plevin">GitHub</a>
+      <a href="https://www.npmjs.com/package/plevinjs">npm</a>
+      <a href="https://pypi.org/project/plevin">PyPI</a>
+      <a href="plevin/">Reader</a>
+    </nav>
+  </div>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

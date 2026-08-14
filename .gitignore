@@ -24,3 +24,5 @@ coverage.xml
 node_modules/
 .wrangler/
 *.tsbuildinfo
+site/db/
+site/plevin/
