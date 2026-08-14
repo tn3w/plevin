@@ -130,6 +130,7 @@ jobs:
           ]
 
           [project.urls]
+          Homepage = "https://plevin.tn3w.dev"
           Source = "https://github.com/tn3w/plevin"
 
           [tool.hatch.build]

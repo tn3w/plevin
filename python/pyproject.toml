@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plevin"
-version = "0.1.2"
+version = "0.1.3"
 description = "Location, network and abuse information for any IP address in one offline file."
 readme = "README.md"
 license = "Apache-2.0"
@@ -58,6 +58,7 @@ network = ["plevin-db-network"]
 country = ["plevin-db-country"]
 
 [project.urls]
+Homepage = "https://plevin.tn3w.dev"
 Documentation = "https://github.com/tn3w/plevin#readme"
 Source = "https://github.com/tn3w/plevin"
 Funding = "https://www.buymeacoffee.com/tn3w"
