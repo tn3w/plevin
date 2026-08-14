@@ -11,7 +11,6 @@ No API, no rate limit, no lookup leaving the machine.
 
 ![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)
 ![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2&label=npm)
-![Python](https://img.shields.io/badge/python-3.10%2B-1868f2)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
 ![Fields](https://img.shields.io/badge/fields-98-6f42c1)
 ![Boundaries](https://img.shields.io/badge/boundaries-2.6M-6f42c1)
