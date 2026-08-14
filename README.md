@@ -335,7 +335,7 @@ downloads do not carry:
 | `https://plevin.tn3w.dev/db/plevin.abuse-network.plv` | ASN, operator, routing, abuse, 10.3 MB |
 | `https://plevin.tn3w.dev/db/plevin.place-country-code.plv` | the country code, 423 KB |
 | `https://plevin.tn3w.dev/db/index.json` | the tag and what it carries |
-| `https://plevin.tn3w.dev/plevin/` | the reader as plain ESM |
+| `https://plevin.tn3w.dev/plevin/plevin.min.js` | the reader, one file |
 
 ## Cloudflare Worker
 

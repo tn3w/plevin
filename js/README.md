@@ -216,7 +216,7 @@ rather than a download.
 | `https://cdn.jsdelivr.net/npm/plevinjs` | `dist/plevin.min.js`, the whole reader in one file |
 | `https://unpkg.com/plevinjs` | the same as jsDelivr |
 | `https://esm.sh/plevinjs` | the modules as published, imports rewritten |
-| `https://plevin.tn3w.dev/plevin/` | the reader beside the databases |
+| `https://plevin.tn3w.dev/plevin/plevin.min.js` | the reader beside the databases |
 
 jsDelivr and unpkg serve the bundle named by the `jsdelivr`/`unpkg` fields, 44 kB of
 JavaScript with no further requests. The bare `dist/index.js` is not usable from those
