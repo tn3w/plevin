@@ -1,0 +1,67 @@
+name: Publish JS
+
+on:
+  push:
+    branches: [master]
+    paths: [js/**]
+  workflow_dispatch:
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      unpublished: ${{ steps.check.outputs.unpublished }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: check
+        working-directory: js
+        run: |
+          version=$(jq -r .version package.json)
+          status=$(curl -so /dev/null -w '%{http_code}' \
+            "https://registry.npmjs.org/plevin/$version")
+          echo "plevin $version is $status on npm"
+          echo "unpublished=$([ "$status" = 404 ] && echo true || echo false)" \
+            >>"$GITHUB_OUTPUT"
+
+  test:
+    needs: version
+    if: needs.version.outputs.unpublished == 'true'
+    uses: ./.github/workflows/test-js.yml
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: js
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: js/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Look an address up with the built package
+        run: |
+          node --input-type=module -e "
+          import { Plevin } from './dist/index.js';
+          import { readFileSync } from 'node:fs';
+          const held = process.env.PLEVIN_DB;
+          if (!held) { console.log('no database to check against'); process.exit(0); }
+          const db = new Plevin(new Uint8Array(readFileSync(held)));
+          const found = db.lookup('1.1.1.1');
+          if (found.arpa !== '1.1.1.1.in-addr.arpa') throw new Error('bad arpa');
+          console.log(found.place?.country?.code);
+          "
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

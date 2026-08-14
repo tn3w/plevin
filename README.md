@@ -10,6 +10,7 @@
 No API, no rate limit, no lookup leaving the machine.
 
 ![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)
+![npm](https://img.shields.io/npm/v/plevin?color=1868f2&label=npm)
 ![Python](https://img.shields.io/badge/python-3.10%2B-1868f2)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
 ![Fields](https://img.shields.io/badge/fields-98-6f42c1)
@@ -28,7 +29,8 @@ import plevin
 found = plevin.lookup("1.1.1.1")  # str, int, packed bytes or ipaddress object
 ```
 
-Always a `Result`, never `None`. `ValueError` where the input is not an address.
+Always a `Result`, never `None`; `ValueError` for anything that is not an address, and
+an integer reads as v6 only above `0xFFFFFFFF`, so `lookup(1)` is `0.0.0.1`.
 
 ```python
 >>> found.place.city.name, found.place.city.region.name, found.place.country.name
@@ -292,6 +294,71 @@ cd builder && cargo build --release
 ./target/release/plevin-builder place+metro  # dist/plevin.metro-place.plv
 ```
 
+## JavaScript
+
+The same reader, field for field, as one ESM package with no dependencies: Node, Deno,
+Bun, Cloudflare Workers and the browser. [`js/README.md`](js/README.md) has all of it.
+
+```bash
+npm install plevin
+```
+
+```js
+import { open } from "plevin";                 // or "plevin/node" for a path on disk
+
+const db = await open("https://plevin.tn3w.dev/db/plevin.plv");
+db.lookup("1.1.1.1").network.operator.brand;   // 'Cloudflare'
+```
+
+A page needs no install: `https://cdn.jsdelivr.net/npm/plevin` is the reader, as is
+`https://esm.sh/plevin`, and `open()` takes the database from wherever it is hosted.
+
+The file is Zstandard with trained dictionaries, which no runtime decompresses on its
+own, so the package carries a decoder condensed from
+[fzstd](https://github.com/101arrowz/fzstd) (MIT) with dictionary support added, checked
+block for block against libzstd. 4,600,000 warm lookups a second.
+
+## Lookup page
+
+[plevin.tn3w.dev](https://plevin.tn3w.dev/) reads the database in the tab
+and answers there: no API, and no address of yours sent anywhere except to the service
+that tells you your own, and to a resolver for the hostname. It is plain HTML, CSS and
+JavaScript in [`site/`](site), built and deployed by
+[`pages.yml`](.github/workflows/pages.yml) whenever a database is released.
+
+The same deployment rehosts every release file with open CORS, which the GitHub release
+downloads do not carry:
+
+| | |
+| --- | --- |
+| `https://plevin.tn3w.dev/db/plevin.plv` | every field, 16.9 MB |
+| `https://plevin.tn3w.dev/db/plevin.metro-place.plv` | city, region, postal, coordinates, metro, 6.3 MB |
+| `https://plevin.tn3w.dev/db/plevin.abuse-network.plv` | ASN, operator, routing, abuse, 10.3 MB |
+| `https://plevin.tn3w.dev/db/plevin.place-country-code.plv` | the country code, 423 KB |
+| `https://plevin.tn3w.dev/db/index.json` | the tag and what it carries |
+| `https://plevin.tn3w.dev/plevin/` | the reader as plain ESM |
+
+## Cloudflare Worker
+
+[`worker/`](worker) is the smallest useful API around the file: it keeps the newest
+release in a KV namespace and answers out of an isolate that opened it once.
+
+```bash
+cd worker && npm install
+npx wrangler kv namespace create PLEVIN   # put the id in wrangler.toml
+npx wrangler deploy
+curl -X POST https://plevin.<you>.workers.dev/refresh   # then monthly, on a cron
+```
+
+```bash
+curl https://plevin.<you>.workers.dev/1.1.1.1   # any address
+curl https://plevin.<you>.workers.dev/me        # the caller's own
+curl https://plevin.<you>.workers.dev/about     # what the file carries
+```
+
+`REFRESH_TOKEN` guards the refresh where it is set, and `DATABASE` picks a smaller file
+than `plevin.plv`.
+
 ## Mini file
 
 [`plevin_mini.py`](plevin_mini.py) is the lookup with no package around it.
@@ -321,12 +388,24 @@ uv run basedpyright
 uvx ruff check . ../plevin_mini.py --config pyproject.toml
 uv build --wheel
 
+cd ../js
+npm ci && npm test     # node --test
+npm run lint           # biome
+npm run typecheck      # tsc, strict
+npm run build          # dist/, ESM and .d.ts
+
 cd ../builder && cargo fmt --check && cargo clippy
 ```
 
+`js/test/compare.ts` reads every field of both readers for the same addresses and fails
+on any difference; `js/test/blocks.ts` checks the JavaScript zstd decoder against
+libzstd over every block of a file.
+
 ## License
 
-Apache 2.0 for the reader and the builder, see [LICENSE](https://github.com/tn3w/plevin/blob/master/LICENSE). The database carries
+Apache 2.0 for the readers and the builder, see [LICENSE](https://github.com/tn3w/plevin/blob/master/LICENSE); the
+JavaScript zstd decoder is condensed from [fzstd](https://github.com/101arrowz/fzstd),
+MIT, and says so in the file. The database carries
 the licenses of the sources it was built from, listed in
 [`builder/README.md`](https://github.com/tn3w/plevin/blob/master/builder/README.md#sources).
 

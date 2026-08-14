@@ -1,0 +1,68 @@
+{
+  "name": "plevin",
+  "version": "0.1.0",
+  "description": "Location, network and abuse information for any IP address in one offline file.",
+  "keywords": [
+    "ip",
+    "ipv4",
+    "ipv6",
+    "geoip",
+    "geolocation",
+    "ip-lookup",
+    "ip-database",
+    "ip-intelligence",
+    "asn",
+    "bgp",
+    "rpki",
+    "network",
+    "abuse",
+    "reputation",
+    "threat-intelligence",
+    "vpn-detection",
+    "proxy-detection",
+    "offline",
+    "browser",
+    "cloudflare-workers",
+    "zstd"
+  ],
+  "license": "Apache-2.0",
+  "author": "tn3w",
+  "homepage": "https://github.com/tn3w/plevin#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tn3w/plevin.git",
+    "directory": "js"
+  },
+  "bugs": "https://github.com/tn3w/plevin/issues",
+  "funding": "https://www.buymeacoffee.com/tn3w",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./node": "./dist/node.js",
+    "./zstd": "./dist/zstd.js",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "node --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.8",
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
+  }
+}

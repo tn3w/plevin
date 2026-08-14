@@ -295,7 +295,7 @@ cd builder && cargo build --release
 
 ## Lookup page
 
-[tn3w.github.io/plevin](https://tn3w.github.io/plevin/) reads the database in the tab
+[plevin.tn3w.dev](https://plevin.tn3w.dev/) reads the database in the tab
 and answers there: no API, and no address of yours sent anywhere except to the service
 that tells you your own, and to a resolver for the hostname. It is plain HTML, CSS and
 JavaScript in [`site/`](https://github.com/tn3w/plevin/blob/master/site), built and deployed by
@@ -306,9 +306,11 @@ downloads do not carry:
 
 | | |
 | --- | --- |
-| `https://tn3w.github.io/plevin/db/plevin.plv` | every field, 16.9 MB |
-| `https://tn3w.github.io/plevin/db/plevin.place-country-code.plv` | the country code, 423 KB |
-| `https://tn3w.github.io/plevin/db/index.json` | the tag and what it carries |
+| `https://plevin.tn3w.dev/db/plevin.plv` | every field, 16.9 MB |
+| `https://plevin.tn3w.dev/db/plevin.metro-place.plv` | city, region, postal, coordinates, metro, 6.3 MB |
+| `https://plevin.tn3w.dev/db/plevin.abuse-network.plv` | ASN, operator, routing, abuse, 10.3 MB |
+| `https://plevin.tn3w.dev/db/plevin.place-country-code.plv` | the country code, 423 KB |
+| `https://plevin.tn3w.dev/db/index.json` | the tag and what it carries |
 
 ## Cloudflare Worker
 

@@ -1,0 +1,54 @@
+name: Test JS
+
+on:
+  push:
+    branches: [master]
+    paths: [js/**, .github/workflows/test-js.yml]
+  pull_request:
+    paths: [js/**, .github/workflows/test-js.yml]
+  workflow_call:
+
+defaults:
+  run:
+    working-directory: js
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: js/package-lock.json
+      - run: npm ci
+
+      - name: Download the newest database
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --limit 30 --json tagName --jq \
+            '[.[].tagName | select(test("^[0-9]{4}(\\.[0-9]{2}){2}(\\.[0-9]+)?$"))][0]')
+          gh release download "$tag" --pattern plevin.plv --dir ..
+
+      - run: npm run build
+      - run: npm test
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: js/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
