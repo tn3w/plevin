@@ -1,6 +1,6 @@
 {
   "name": "plevinjs",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Location, network and abuse information for any IP address in one offline file.",
   "keywords": [
     "ip",
@@ -45,6 +45,8 @@
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.ts",
+  "jsdelivr": "./dist/plevin.min.js",
+  "unpkg": "./dist/plevin.min.js",
   "files": [
     "dist",
     "README.md",
@@ -54,7 +56,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run bundle",
+    "bundle": "esbuild src/index.ts --bundle --format=esm --minify --target=es2022 --outfile=dist/plevin.min.js",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
@@ -63,6 +66,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.8",
     "@types/node": "^26.2.0",
+    "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   }
 }

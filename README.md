@@ -1,5 +1,5 @@
 <div align="center">
-<a href="https://pypi.org/project/plevin">
+<a href="https://plevin.tn3w.dev">
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tn3w/plevin/master/.github/title-dark.png">
 <img src="https://raw.githubusercontent.com/tn3w/plevin/master/.github/title-light.png" width="320" alt="plevin">

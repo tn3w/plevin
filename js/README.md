@@ -204,15 +204,17 @@ CDN serves it as it is.
 
 | | |
 | --- | --- |
-| `https://cdn.jsdelivr.net/npm/plevinjs` | the published files, as they are |
-| `https://esm.sh/plevinjs` | the same, imports rewritten |
+| `https://cdn.jsdelivr.net/npm/plevinjs` | `dist/plevin.min.js`, the whole reader in one file |
 | `https://unpkg.com/plevinjs` | the same as jsDelivr |
+| `https://esm.sh/plevinjs` | the modules as published, imports rewritten |
 | `https://plevin.tn3w.dev/plevin/` | the reader beside the databases |
 
-Every module is fetched as published, `./reader.js` and all, so the browser loads the
-ten it needs and nothing more. Pin a version for anything that ships:
-`cdn.jsdelivr.net/npm/plevinjs@0.1.0`. `plevinjs/node` is the only entry that touches
-Node, so a CDN import never reaches for `node:fs`.
+jsDelivr and unpkg serve the bundle named by the `jsdelivr`/`unpkg` fields, 44 kB of
+JavaScript with no further requests. The bare `dist/index.js` is not usable from those
+URLs: it imports `./reader.js` and neighbours, which resolve against `/npm/` there and
+404. Pin a version for anything that ships: `cdn.jsdelivr.net/npm/plevinjs@0.1.2`.
+`plevinjs/node` is the only entry that touches Node, so a CDN import never reaches for
+`node:fs`.
 
 18 MB crosses the wire once, so keep it out of the critical path and out of the next
 visit's way:
@@ -268,7 +270,8 @@ npm ci
 npm test          # node --test, no database needed for most of it
 npm run lint      # biome
 npm run typecheck # tsc, strict
-npm run build     # dist/, ESM and .d.ts
+npm run build     # dist/, ESM and .d.ts, plus the CDN bundle
+npm run bundle    # dist/plevin.min.js only (esbuild)
 
 node test/compare.ts ../plevin.plv sample.json  # field for field against Python
 node test/blocks.ts ../plevin.plv 100000        # every block against libzstd
