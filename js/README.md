@@ -55,12 +55,14 @@ Cloudflare Workers, and any browser off a CDN.
 <script type="module">
 import { open } from "https://cdn.jsdelivr.net/npm/plevinjs";
 
-const db = await open("https://plevin.tn3w.dev/db/plevin.plv");
-document.title = db.lookup("8.8.8.8").place.country.flag;
+const db = await open("https://plevin.tn3w.dev/db/plevin.place-country-code.plv");
+const { flag, name } = db.lookup("8.8.8.8").place.country;
+document.body.textContent = `${flag} ${name}`;              // '🇺🇸 United States'
 </script>
 ```
 
-`https://esm.sh/plevinjs` serves the same thing. Every database is rehosted with open
+That build is 423 KB, the country code and nothing else, and the name and flag are
+derived in the reader. `https://esm.sh/plevinjs` serves the same thing. Every database is rehosted with open
 CORS at [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/), because GitHub release
 downloads send no CORS header.
 
@@ -197,10 +199,17 @@ CDN serves it as it is.
 <script type="module">
   import { open } from "https://cdn.jsdelivr.net/npm/plevinjs";
 
-  const db = await open("https://plevin.tn3w.dev/db/plevin.plv");
-  document.title = db.lookup("1.1.1.1").place.country.flag;
+  const db = await open(
+    "https://plevin.tn3w.dev/db/plevin.place-country-code.plv"
+  );
+  const { flag, name } = db.lookup("1.1.1.1").place.country;
+  document.body.textContent = `${flag} ${name}`;             // '🇺🇸 United States'
 </script>
 ```
+
+Open the smallest build a page actually needs: `plevin.place-country-code.plv` is
+423 KB against the 16.9 MB of `plevin.plv`, so the first lookup lands in a moment
+rather than a download.
 
 | | |
 | --- | --- |
