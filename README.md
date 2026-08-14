@@ -9,12 +9,12 @@
 **Location, network and abuse information for any IP address in one offline file.**<br>
 No API, no rate limit, no lookup leaving the machine.
 
-![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)
-![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2&label=npm)
-![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
-![Fields](https://img.shields.io/badge/fields-98-6f42c1)
-![Boundaries](https://img.shields.io/badge/boundaries-2.6M-6f42c1)
-![Warm](https://img.shields.io/badge/warm%20lookups-2M%2Fs-2ea043)
+[![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)](https://pypi.org/project/plevin)
+[![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2&label=npm)](https://www.npmjs.com/package/plevinjs)
+[![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](LICENSE)
+[![Fields](https://img.shields.io/badge/fields-98-6f42c1)](#every-field)
+[![Boundaries](https://img.shields.io/badge/boundaries-2.6M-6f42c1)](#data)
+[![Warm](https://img.shields.io/badge/warm%20lookups-2M%2Fs-2ea043)](#speed)
 
 </div>
 

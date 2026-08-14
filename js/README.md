@@ -9,12 +9,12 @@
 **Location, network and abuse information for any IP address in one offline file.**<br>
 No API, no rate limit, no lookup leaving the machine — or the browser tab.
 
-![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2)
-![Types](https://img.shields.io/badge/types-included-1868f2)
-![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
-![Fields](https://img.shields.io/badge/fields-98-6f42c1)
-![Boundaries](https://img.shields.io/badge/boundaries-2.6M-6f42c1)
-![Warm](https://img.shields.io/badge/warm%20lookups-4M%2Fs-2ea043)
+[![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2)](https://www.npmjs.com/package/plevinjs)
+[![Types](https://img.shields.io/badge/types-included-1868f2)](https://www.npmjs.com/package/plevinjs?activeTab=code)
+[![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](https://github.com/tn3w/plevin/blob/master/LICENSE)
+[![Fields](https://img.shields.io/badge/fields-98-6f42c1)](#every-field)
+[![Boundaries](https://img.shields.io/badge/boundaries-2.6M-6f42c1)](https://github.com/tn3w/plevin/blob/master/README.md#data)
+[![Warm](https://img.shields.io/badge/warm%20lookups-4M%2Fs-2ea043)](#speed)
 
 </div>
 
