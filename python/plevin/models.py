@@ -145,6 +145,25 @@ class Network:
 
 
 @dataclass(slots=True)
+class Dns:
+    """What the resolvers say about the address, asked for only where a flag says so."""
+
+    asked: str | None = None
+    hostname: str | None = None
+    hostnames: tuple[str, ...] = ()
+    ipv4: str | None = None
+    ipv6: str | None = None
+    ipv4_addresses: tuple[str, ...] = ()
+    ipv6_addresses: tuple[str, ...] = ()
+    alias: str | None = None
+    zone: str | None = None
+    zone_primary: str | None = None
+    zone_contact: str | None = None
+    is_confirmed: bool = False
+    is_signed: bool = False
+
+
+@dataclass(slots=True)
 class Result:
     """One address: what it says on its own, and what the database stores for it."""
 
@@ -170,10 +189,15 @@ class Result:
     is_teredo: bool = False
     tunnel: str | None = None
     embedded_ipv4: str | None = None
+    decimal_ipv4: str | None = None
+    as_ipv4_mapped: str | None = None
+    as_6to4: str | None = None
+    as_nat64: str | None = None
     found: bool = False
     place: Place | None = None
     network: Network | None = None
     abuse: Abuse | None = None
+    dns: Dns | None = None
 
     def __bool__(self) -> bool:
         return self.found

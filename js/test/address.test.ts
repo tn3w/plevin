@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  carried,
   DOCUMENTATION,
+  guessed,
   LOOPBACK,
   parse,
   purpose,
@@ -73,4 +75,25 @@ test("masks an announcement out of the address", () => {
     "1.1.1.255",
   ]);
   assert.deepEqual(span(parse("2606:4700::1111")[0], true, 44)[0], "2606:4700::/44");
+});
+
+test("writes a narrow address as the wide ones that carry it", () => {
+  assert.deepEqual(carried(...parse("8.8.8.8")), [
+    "::ffff:8.8.8.8",
+    "2002:808:808::",
+    "64:ff9b::808:808",
+  ]);
+  assert.deepEqual(carried(...parse("2606:4700::1")), [null, null, null]);
+});
+
+test("guesses at hextets an operator wrote as decimal", () => {
+  assert.equal(guessed(...parse("2001:67c:e60:c0c:192:42:116:55")), "192.42.116.55");
+  for (const held of [
+    "2a01:4f8:c17:b8f::1",
+    "2001:db8:1:2:10:0:0:1",
+    "::ffff:8.8.8.8",
+    "8.8.8.8",
+  ]) {
+    assert.equal(guessed(...parse(held)), null);
+  }
 });

@@ -117,6 +117,27 @@ def tunnel(value: int, wide: bool) -> tuple[str | None, str | None]:
     return None, None
 
 
+def guessed(value: int, wide: bool) -> str | None:
+    """The v4 address an operator wrote into the last four hextets as decimal."""
+    if not wide or tunnel(value, wide)[0] is not None:
+        return None
+    hextets = [f"{value >> shift & 0xFFFF:x}" for shift in (48, 32, 16, 0)]
+    if not all(part.isdigit() and 0 < int(part) < 256 for part in hextets):
+        return None
+    return ".".join(hextets)
+
+
+def carried(value: int, wide: bool) -> tuple[str | None, str | None, str | None]:
+    """The v6 addresses a v4 one is written as where a tunnel carries it across."""
+    if wide:
+        return None, None, None
+    return (
+        written(0xFFFF_00000000 | value, True),
+        written(0x2002 << 112 | value << 80, True),
+        written(NAT64_PREFIX | value, True),
+    )
+
+
 def purpose(value: int, wide: bool) -> int:
     """What an address is where it is not the internet, bisected out of the table."""
     starts, ranges = SPECIAL[wide]

@@ -227,6 +227,63 @@ True
 `tunnel` is `ipv4-mapped`, `6to4`, `teredo`, `nat64` or `None`, with `embedded_ipv4`
 the address it carries; `is_ipv4_mapped`, `is_6to4` and `is_teredo` beside it.
 
+```python
+>>> plevin.lookup("2001:67c:e60:c0c:192:42:116:55").decimal_ipv4
+'192.42.116.55'
+```
+
+`decimal_ipv4` is a guess and never a tunnel: the last four hextets where an operator
+wrote a v4 address into them as decimal. It is `None` wherever a real tunnel answers.
+
+```python
+>>> found = plevin.lookup("8.8.8.8")
+>>> found.as_ipv4_mapped, found.as_6to4, found.as_nat64
+('::ffff:8.8.8.8', '2002:808:808::', '64:ff9b::808:808')
+```
+
+`as_ipv4_mapped`, `as_6to4` and `as_nat64` write a v4 address the other way about, as
+the v6 addresses that carry it; all three are `None` for a v6 address, where
+`embedded_ipv4` already says what it carries.
+
+## What DNS says, where you ask for it
+
+Off unless `dns=True` says otherwise, since it is the one part of a lookup that leaves
+the machine:
+
+```python
+>>> plevin.lookup("8.8.8.8", dns=True).dns
+Dns(
+    asked='8.8.8.8',
+    hostname='dns.google',
+    hostnames=('dns.google',),
+    ipv4='8.8.4.4',
+    ipv6='2001:4860:4860::8888',
+    ipv4_addresses=('8.8.4.4', '8.8.8.8'),
+    ipv6_addresses=('2001:4860:4860::8888', '2001:4860:4860::8844'),
+    alias=None,
+    zone='8.8.8.in-addr.arpa',
+    zone_primary='ns1.google.com',
+    zone_contact='dns-admin@google.com',
+    is_confirmed=True,
+    is_signed=True,
+)
+```
+
+`hostname` is the first PTR name and `hostnames` all of them; `ipv4` and `ipv6` are
+that name resolved forward, `ipv4_addresses` and `ipv6_addresses` all of those, so a v6
+address names its v4 and a v4 address names its v6. `is_confirmed` says the name leads
+back to the address, which is what forward-confirmed reverse DNS means; `zone`,
+`zone_primary` and `zone_contact` come from the reverse zone's SOA, naming who runs the
+range; `is_signed` is the resolver's DNSSEC verdict; `alias` is a CNAME where one
+stands in the way. A tunnel is asked about as the v4 address it carries, which `asked`
+names, since the reverse tree above `::ffff:0:0/96` holds nothing.
+
+Four questions in two rounds: PTR and SOA on the reverse name together, then A and AAAA
+of the hostname. Queries are written onto the wire and sent to every server at once,
+the system's own from `/etc/resolv.conf` or the Windows registry and 1.1.1.1, 8.8.8.8
+and 9.9.9.9, first real answer winning, TCP where one comes back truncated. Answers are
+kept for an hour, so a log with a thousand lines from one address asks once.
+
 ## Good for
 
 - Country routing, pricing and compliance without a third-party call

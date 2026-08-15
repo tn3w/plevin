@@ -242,6 +242,33 @@ export const tunnel = (
   return [null, null];
 };
 
+/** The v4 address an operator wrote into the last four hextets as decimal. */
+export const guessed = (value: number | bigint, wide: boolean): string | null => {
+  if (!wide || tunnel(value, wide)[0] !== null) return null;
+  const held = value as bigint;
+  const parts = [48n, 32n, 16n, 0n].map((shift) =>
+    Number((held >> shift) & 0xffffn).toString(16),
+  );
+  const decimal = parts.every(
+    (part) => /^[0-9]+$/.test(part) && Number(part) > 0 && Number(part) < 256,
+  );
+  return decimal ? parts.join(".") : null;
+};
+
+/** The v6 addresses a v4 one is written as where a tunnel carries it across. */
+export const carried = (
+  value: number | bigint,
+  wide: boolean,
+): [string | null, string | null, string | null] => {
+  if (wide) return [null, null, null];
+  const held = BigInt(value);
+  return [
+    written(0xffff00000000n | held, true),
+    written((0x2002n << 112n) | (held << 80n), true),
+    written((0x0064ff9bn << 96n) | held, true),
+  ];
+};
+
 /** The announcement the address falls in, masked out of the address itself. */
 export const span = (
   value: number | bigint,

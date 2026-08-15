@@ -205,6 +205,64 @@ db.lookup("2002:808:808::1").is_6to4;       // true
 
 `tunnel` is `ipv4-mapped`, `6to4`, `teredo`, `nat64` or `null`.
 
+```js
+db.lookup("2001:67c:e60:c0c:192:42:116:55").decimal_ipv4;  // '192.42.116.55'
+```
+
+`decimal_ipv4` is a guess and never a tunnel: the last four hextets where an operator
+wrote a v4 address into them as decimal. It is `null` wherever a real tunnel answers.
+
+```js
+db.lookup("8.8.8.8").as_ipv4_mapped;  // '::ffff:8.8.8.8'
+db.lookup("8.8.8.8").as_6to4;         // '2002:808:808::'
+db.lookup("8.8.8.8").as_nat64;        // '64:ff9b::808:808'
+```
+
+`as_ipv4_mapped`, `as_6to4` and `as_nat64` write a v4 address the other way about, as
+the v6 addresses that carry it; all three are `null` for a v6 address, where
+`embedded_ipv4` already says what it carries.
+
+## What DNS says, where you ask for it
+
+`lookup` never leaves the machine and stays synchronous. `resolve` is the same lookup
+with DNS behind a flag, and does nothing more than `lookup` unless the flag is set:
+
+```js
+(await db.resolve("8.8.8.8", { dns: true })).dns;
+{
+  asked: '8.8.8.8',
+  hostname: 'dns.google',
+  hostnames: [ 'dns.google' ],
+  ipv4: '8.8.4.4',
+  ipv6: '2001:4860:4860::8888',
+  ipv4_addresses: [ '8.8.4.4', '8.8.8.8' ],
+  ipv6_addresses: [ '2001:4860:4860::8888', '2001:4860:4860::8844' ],
+  alias: null,
+  zone: '8.8.8.in-addr.arpa',
+  zone_primary: 'ns1.google.com',
+  zone_contact: 'dns-admin@google.com',
+  is_confirmed: true,
+  is_signed: true,
+}
+```
+
+`hostname` is the first PTR name and `hostnames` all of them; `ipv4` and `ipv6` are
+that name resolved forward, `ipv4_addresses` and `ipv6_addresses` all of those, so a v6
+address names its v4 and a v4 address names its v6. `is_confirmed` says the name leads
+back to the address, which is what forward-confirmed reverse DNS means; `zone`,
+`zone_primary` and `zone_contact` come from the reverse zone's SOA, naming who runs the
+range; `is_signed` is the resolver's DNSSEC verdict; `alias` is a CNAME where one
+stands in the way. A tunnel is asked about as the v4 address it carries, which `asked`
+names.
+
+Four questions in two rounds: PTR and SOA on the reverse name together, then A and AAAA
+of the hostname. Node, Deno and Bun write those onto the wire themselves and send them
+to every server at once — the machine's own from `node:dns` and 1.1.1.1, 8.8.8.8 and
+9.9.9.9 — first real answer winning, TCP where one comes back truncated. A browser or a
+worker has no datagram, so the same queries go to Cloudflare and Google over
+DNS-over-HTTPS instead. Answers are kept for an hour, and nothing is asked where the
+flag is off, which keeps a bundled reader as offline as it was.
+
 ## In a browser
 
 No build step and no install: the package is plain ESM with no dependencies, so any npm

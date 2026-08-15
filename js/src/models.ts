@@ -128,6 +128,23 @@ export type Network = {
   carrier: Carrier | null;
 };
 
+/** What the resolvers say about the address, asked for only where a flag says so. */
+export type Dns = {
+  asked: string | null;
+  hostname: string | null;
+  hostnames: string[];
+  ipv4: string | null;
+  ipv6: string | null;
+  ipv4_addresses: string[];
+  ipv6_addresses: string[];
+  alias: string | null;
+  zone: string | null;
+  zone_primary: string | null;
+  zone_contact: string | null;
+  is_confirmed: boolean;
+  is_signed: boolean;
+};
+
 /** One address: what it says on its own, and what the database stores for it. */
 export type Result = {
   ip: string;
@@ -152,8 +169,13 @@ export type Result = {
   is_teredo: boolean;
   tunnel: string | null;
   embedded_ipv4: string | null;
+  decimal_ipv4: string | null;
+  as_ipv4_mapped: string | null;
+  as_6to4: string | null;
+  as_nat64: string | null;
   found: boolean;
   place: Place | null;
   network: Network | null;
   abuse: Abuse | null;
+  dns: Dns | null;
 };

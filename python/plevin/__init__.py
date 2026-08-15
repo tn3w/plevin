@@ -12,9 +12,10 @@ from pathlib import Path
 from time import time as now
 from typing import Any
 
-from . import address, derive
+from . import address, derive, naming
 from .address import (
     BENCHMARK,
+    carried,
     DOCUMENTATION,
     LINK_LOCAL,
     LOOPBACK,
@@ -27,6 +28,7 @@ from .address import (
     TEREDO,
     UNIQUE_LOCAL,
     Value,
+    guessed,
     parse,
     purpose,
     span,
@@ -40,6 +42,7 @@ from .models import (
     City,
     Country,
     District,
+    Dns,
     Metro,
     Network,
     Operator,
@@ -56,6 +59,7 @@ __all__ = [
     "City",
     "Country",
     "District",
+    "Dns",
     "Metro",
     "Network",
     "Operator",
@@ -271,10 +275,12 @@ def _stored(rows: Rows) -> Stored:
 
 
 def _result(value: int, wide: bool, stored: Stored | None,
-            moment: datetime | None) -> Result:
+            moment: datetime | None, dns: Dns | None = None) -> Result:
     text, expanded, arpa = spelled(value, wide)
     marks = purpose(value, wide)
     through, embedded = tunnel(value, wide)
+    mapped, sixtofour, nat64 = carried(value, wide)
+    decimal = guessed(value, wide)
     ground, wires, abuse = stored or (None, None, None)
     return Result(
         ip=text,
@@ -299,10 +305,15 @@ def _result(value: int, wide: bool, stored: Stored | None,
         is_teredo=through == TEREDO,
         tunnel=through,
         embedded_ipv4=embedded,
+        decimal_ipv4=decimal,
+        as_ipv4_mapped=mapped,
+        as_6to4=sixtofour,
+        as_nat64=nat64,
         found=stored is not None,
         place=None if ground is None else Place(*ground[0], clock(ground[1], moment)),
         network=None if wires is None else _spanned(*wires, value, wide),
         abuse=abuse,
+        dns=dns,
     )
 
 
@@ -361,13 +372,15 @@ class Plevin:
         found = self.file.locate(value, wide)
         return _result(value, wide, None if found is None else self.stored[found], None)
 
-    def lookup(self, value: Value, moment: datetime | None = None) -> Result:
-        """One address, however it is written, as everything the file answers."""
+    def lookup(self, value: Value, moment: datetime | None = None,
+               dns: bool = False) -> Result:
+        """One address as everything the file answers, and DNS only where asked."""
         number, wide = parse(value)
-        if moment is not None:
+        if moment is not None or dns:
             found = self.file.locate(number, wide)
             held = None if found is None else self.stored[found]
-            return _result(number, wide, held, moment)
+            names = naming.named(number, wide) if dns else None
+            return _result(number, wide, held, moment, names)
         second = int(now())
         if second != self.second:
             self.second = second
@@ -394,6 +407,7 @@ def use(path: str | PathLike[str] | None) -> Plevin:
     return database()
 
 
-def lookup(value: Value, moment: datetime | None = None) -> Result:
-    """One address, however it is written, as everything the file answers."""
-    return database().lookup(value, moment)
+def lookup(value: Value, moment: datetime | None = None,
+           dns: bool = False) -> Result:
+    """One address as everything the file answers, and DNS only where asked."""
+    return database().lookup(value, moment, dns)

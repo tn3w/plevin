@@ -10,6 +10,7 @@ from types import ModuleType
 import pytest
 
 import plevin
+from plevin import Dns
 from conftest import HOST_V4, HOST_V6
 from plevin import reader
 
@@ -316,3 +317,36 @@ def test_the_answers_are_dropped_when_the_second_turns(opened: Path) -> None:
     database.second -= 1
     database.lookup("8.8.8.8")
     assert len(database.results) == 1
+
+
+def test_an_address_is_written_as_the_wide_ones_that_carry_it(opened: Path) -> None:
+    found = plevin.lookup("8.8.8.8")
+    assert found.as_ipv4_mapped == "::ffff:8.8.8.8"
+    assert (found.as_6to4, found.as_nat64) == ("2002:808:808::", "64:ff9b::808:808")
+    wide = plevin.lookup("2606:4700::1")
+    assert (wide.as_ipv4_mapped, wide.as_6to4, wide.as_nat64) == (None, None, None)
+
+
+def test_dns_is_asked_about_an_address_only_where_the_flag_says_so(
+    opened: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked = []
+
+    def named(value: int, wide: bool) -> Dns:
+        asked.append((value, wide))
+        return Dns(asked="8.8.8.8", hostname="dns.google")
+
+    monkeypatch.setattr(plevin.naming, "named", named)
+    assert plevin.lookup("8.8.8.8").dns is None
+    assert asked == []
+    found = plevin.lookup("8.8.8.8", dns=True)
+    assert found.dns is not None and found.dns.hostname == "dns.google"
+    assert asked == [(0x08080808, False)]
+    assert found.ip == "8.8.8.8" and found.found
+
+
+def test_hextets_that_read_as_decimal_are_guessed_at(opened: Path) -> None:
+    found = plevin.lookup("2001:67c:e60:c0c:192:42:116:55")
+    assert found.decimal_ipv4 == "192.42.116.55"
+    assert (found.tunnel, found.embedded_ipv4) == (None, None)
+    assert plevin.lookup("2606:4700::1111").decimal_ipv4 is None

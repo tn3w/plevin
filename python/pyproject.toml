@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plevin"
-version = "0.1.3"
+version = "0.1.4"
 description = "Location, network and abuse information for any IP address in one offline file."
 readme = "README.md"
 license = "Apache-2.0"

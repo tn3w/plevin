@@ -118,3 +118,29 @@ def test_a_wide_address_may_carry_a_narrow_one(
 ) -> None:
     value, wide = address.parse(text)
     assert address.tunnel(value, wide) == (through, embedded)
+
+
+def test_a_narrow_address_is_written_as_the_wide_ones_that_carry_it() -> None:
+    value, wide = address.parse("8.8.8.8")
+    assert address.carried(value, wide) == (
+        "::ffff:8.8.8.8",
+        "2002:808:808::",
+        "64:ff9b::808:808",
+    )
+    assert address.carried(*address.parse("2606:4700::1")) == (None, None, None)
+
+
+@pytest.mark.parametrize(
+    ("text", "decimal"),
+    [
+        ("2001:67c:e60:c0c:192:42:116:55", "192.42.116.55"),
+        ("2a01:4f8:c17:b8f::1", None),
+        ("2001:db8:1:2:10:0:0:1", None),
+        ("::ffff:8.8.8.8", None),
+        ("8.8.8.8", None),
+    ],
+)
+def test_an_operator_may_write_a_narrow_address_into_the_hextets(
+    text: str, decimal: str | None
+) -> None:
+    assert address.guessed(*address.parse(text)) == decimal

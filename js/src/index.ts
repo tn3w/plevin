@@ -2,7 +2,9 @@
 
 import {
   BENCHMARK,
+  carried,
   DOCUMENTATION,
+  guessed,
   LINK_LOCAL,
   LOOPBACK,
   MAPPED,
@@ -27,6 +29,7 @@ import type {
   Carrier,
   City,
   District,
+  Dns,
   Metro,
   Network,
   Operator,
@@ -34,10 +37,12 @@ import type {
   Region,
   Result,
 } from "./models.ts";
+import { named } from "./naming.ts";
 import { File, type Found, type Row } from "./reader.ts";
 
 export type { Value } from "./address.ts";
 export * from "./models.ts";
+export { ask, facts, named, records } from "./naming.ts";
 export { File } from "./reader.ts";
 export { decompress, loadDictionary } from "./zstd.ts";
 
@@ -243,10 +248,13 @@ const result = (
   wide: boolean,
   found: Stored | null,
   moment?: Date | null,
+  dns: Dns | null = null,
 ): Result => {
   const [compressed, expanded, arpa] = spelled(value, wide);
   const marks = purpose(value, wide);
   const [through, embedded] = tunnel(value, wide);
+  const [mapped, sixtofour, nat64] = carried(value, wide);
+  const decimal = guessed(value, wide);
   const [ground, wires, abuse] = found ?? [null, null, null];
   return {
     ip: compressed,
@@ -271,12 +279,20 @@ const result = (
     is_teredo: through === TEREDO,
     tunnel: through,
     embedded_ipv4: embedded,
+    decimal_ipv4: decimal,
+    as_ipv4_mapped: mapped,
+    as_6to4: sixtofour,
+    as_nat64: nat64,
     found: found !== null,
     place: ground === null ? null : { ...ground[0], time: clock(ground[1], moment) },
     network: wires === null ? null : spanned(wires, value, wide),
     abuse,
+    dns,
   };
 };
+
+/** What a lookup should do beyond the file, none of it done unless it is asked for. */
+export type Asked = { dns?: boolean; moment?: Date | null };
 
 /** One database, opened once and asked as often as a log has addresses. */
 export class Plevin {
@@ -331,6 +347,14 @@ export class Plevin {
     const built = result(held, wide, found && this.storedFor(found));
     this.results.set(key, built);
     return built;
+  }
+
+  /** The same lookup with what DNS says about the address, where the flag says so. */
+  async resolve(value: Value, options?: Asked): Promise<Result> {
+    const answered = this.lookup(value, options?.moment);
+    if (!options?.dns) return answered;
+    const [held, wide] = parse(value);
+    return { ...answered, dns: await named(held, wide) };
   }
 
   /** The stored rows without any shaping, or null where the file covers nothing. */
