@@ -15,7 +15,6 @@ from typing import Any
 from . import address, derive, naming
 from .address import (
     BENCHMARK,
-    carried,
     DOCUMENTATION,
     LINK_LOCAL,
     LOOPBACK,
@@ -28,6 +27,7 @@ from .address import (
     TEREDO,
     UNIQUE_LOCAL,
     Value,
+    carried,
     guessed,
     parse,
     purpose,

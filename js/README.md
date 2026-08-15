@@ -7,7 +7,7 @@
 </a>
 
 **Location, network and abuse information for any IP address in one offline file.**<br>
-No API, no rate limit, no lookup leaving the machine — or the browser tab.
+No API, no rate limit, no lookup leaving the machine, or the browser tab.
 
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2)](https://www.npmjs.com/package/plevinjs)
 [![Types](https://img.shields.io/badge/types-included-1868f2)](https://www.npmjs.com/package/plevinjs?activeTab=code)
@@ -177,7 +177,7 @@ db.lookup("185.220.101.1").abuse;
 ```
 
 `risk` is 0 to 1 for the address, `network_risk` the same for the whole ASN, `null`
-where nothing has ever been seen — which is not a risk of zero.
+where nothing has ever been seen, so which is not a risk of zero.
 
 ## What an address says on its own
 
@@ -246,22 +246,20 @@ with DNS behind a flag, and does nothing more than `lookup` unless the flag is s
 }
 ```
 
-`hostname` is the first PTR name and `hostnames` all of them; `ipv4` and `ipv6` are
-that name resolved forward, `ipv4_addresses` and `ipv6_addresses` all of those, so a v6
-address names its v4 and a v4 address names its v6. `is_confirmed` says the name leads
-back to the address, which is what forward-confirmed reverse DNS means; `zone`,
-`zone_primary` and `zone_contact` come from the reverse zone's SOA, naming who runs the
-range; `is_signed` is the resolver's DNSSEC verdict; `alias` is a CNAME where one
-stands in the way. A tunnel is asked about as the v4 address it carries, which `asked`
-names.
-
-Four questions in two rounds: PTR and SOA on the reverse name together, then A and AAAA
-of the hostname. Node, Deno and Bun write those onto the wire themselves and send them
-to every server at once — the machine's own from `node:dns` and 1.1.1.1, 8.8.8.8 and
-9.9.9.9 — first real answer winning, TCP where one comes back truncated. A browser or a
-worker has no datagram, so the same queries go to Cloudflare and Google over
-DNS-over-HTTPS instead. Answers are kept for an hour, and nothing is asked where the
-flag is off, which keeps a bundled reader as offline as it was.
+`hostname` is the first PTR name and `hostnames` all of them, `ipv4` and `ipv6` that
+name resolved forward with `ipv4_addresses` and `ipv6_addresses` all of those, so each
+address names its other half; `is_confirmed` says the name leads back to the address,
+which is forward-confirmed reverse DNS; `zone`, `zone_primary` and `zone_contact` come
+from the reverse zone's SOA, naming who runs the range; `is_signed` is the DNSSEC
+verdict and `alias` a CNAME in the way; `asked` is the address actually asked about,
+which for a tunnel is the v4 it carries. Four questions go out in two rounds, PTR and
+SOA on the reverse name together and then A and AAAA of the hostname: Node, Deno and
+Bun write those onto the wire themselves and send them to every server at once, so the
+machine's own from `node:dns` and 1.1.1.1, 8.8.8.8 and 9.9.9.9, so first real answer
+winning, TCP where one comes back truncated, while a browser or a worker, having no
+datagram, sends the same queries to Cloudflare and Google over DNS-over-HTTPS. Answers
+are kept for an hour, and nothing is asked where the flag is off, which keeps a bundled
+reader as offline as it was.
 
 ## In a browser
 
@@ -332,7 +330,7 @@ the file plus whatever it decoded, around 120 MB of heap with the whole world to
 ## Zstandard
 
 The file is Zstandard with trained dictionaries, which no runtime decompresses on its
-own — `DecompressionStream` has no zstd and Node's `zlib` takes no dictionary. So the
+own, so `DecompressionStream` has no zstd and Node's `zlib` takes no dictionary. So the
 package carries one, condensed from [fzstd](https://github.com/101arrowz/fzstd) (MIT)
 with the dictionary support it leaves out, and verified block for block against
 libzstd over the whole database.

@@ -42,13 +42,19 @@ const database = (environment: Environment): Promise<Plevin> => {
   return opened;
 };
 
+const asking = (url: URL): boolean => {
+  const held = url.searchParams.get("dns");
+  return held !== null && held !== "0" && held !== "false";
+};
+
 const lookup = async (
   environment: Environment,
   address: string,
+  dns: boolean,
 ): Promise<Response> => {
   const plevin = await database(environment);
   try {
-    return answer(plevin.lookup(address));
+    return answer(await plevin.resolve(address, { dns }), 200, dns ? 60 : 300);
   } catch (error) {
     return answer({ error: (error as Error).message }, 400);
   }
@@ -73,12 +79,13 @@ export default {
         });
       }
 
+      const dns = asking(url);
       const asked = path || url.searchParams.get("ip") || "";
-      if (asked && asked !== "me") return lookup(environment, asked);
+      if (asked && asked !== "me") return lookup(environment, asked, dns);
 
       const held = request.headers.get("cf-connecting-ip");
       if (!held) return answer({ error: "no address to look up" }, 400);
-      return lookup(environment, held);
+      return lookup(environment, held, dns);
     } catch (error) {
       return answer({ error: (error as Error).message }, 503);
     }

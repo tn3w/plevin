@@ -188,7 +188,7 @@ Abuse(
 ```
 
 `risk` is 0 to 1 for the address, `network_risk` the same for the whole ASN, `None`
-where nothing has ever been seen — which is not a risk of zero. `evidence` is
+where nothing has ever been seen, so which is not a risk of zero. `evidence` is
 `published`, `measured`, `reported` or `inferred`, strongest first; `service` is
 `tor_exit_node`, `private_relay`, `anonymous_vpn`, `residential_proxy` or
 `public_proxy`, most specific first. A public proxy on a residential or cellular line
@@ -269,20 +269,18 @@ Dns(
 )
 ```
 
-`hostname` is the first PTR name and `hostnames` all of them; `ipv4` and `ipv6` are
-that name resolved forward, `ipv4_addresses` and `ipv6_addresses` all of those, so a v6
-address names its v4 and a v4 address names its v6. `is_confirmed` says the name leads
-back to the address, which is what forward-confirmed reverse DNS means; `zone`,
-`zone_primary` and `zone_contact` come from the reverse zone's SOA, naming who runs the
-range; `is_signed` is the resolver's DNSSEC verdict; `alias` is a CNAME where one
-stands in the way. A tunnel is asked about as the v4 address it carries, which `asked`
-names, since the reverse tree above `::ffff:0:0/96` holds nothing.
-
-Four questions in two rounds: PTR and SOA on the reverse name together, then A and AAAA
-of the hostname. Queries are written onto the wire and sent to every server at once,
-the system's own from `/etc/resolv.conf` or the Windows registry and 1.1.1.1, 8.8.8.8
-and 9.9.9.9, first real answer winning, TCP where one comes back truncated. Answers are
-kept for an hour, so a log with a thousand lines from one address asks once.
+`hostname` is the first PTR name and `hostnames` all of them, `ipv4` and `ipv6` that
+name resolved forward with `ipv4_addresses` and `ipv6_addresses` all of those, so each
+address names its other half; `is_confirmed` says the name leads back to the address,
+which is forward-confirmed reverse DNS; `zone`, `zone_primary` and `zone_contact` come
+from the reverse zone's SOA, naming who runs the range; `is_signed` is the DNSSEC
+verdict and `alias` a CNAME in the way; `asked` is the address actually asked about,
+which for a tunnel is the v4 it carries. Four questions go out in two rounds, PTR and
+SOA on the reverse name together and then A and AAAA of the hostname, written onto the
+wire and sent to every server at once, so the system's own from `/etc/resolv.conf` or the
+Windows registry and 1.1.1.1, 8.8.8.8 and 9.9.9.9, so first real answer winning, TCP
+where one comes back truncated, and kept for an hour, so a log with a thousand lines
+from one address asks once.
 
 ## Good for
 
@@ -336,7 +334,7 @@ with_places.lookup("1.1.1.1").place.city.name
 ```
 
 Read-only and memory-mapped, so processes and threads share one file. For the stored
-rows without any of the shaping above — dictionaries, codes already read as words —
+rows without any of the shaping above, so dictionaries, codes already read as words, so
 `Plevin(path).file.row(value, wide)` is the reader underneath.
 
 ## Builder

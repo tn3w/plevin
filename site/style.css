@@ -3,6 +3,7 @@
   --network: #6f42c1;
   --abuse: #2ea043;
   --address: #7d8894;
+  --dns: #0f8b8d;
   --warn: #bf6a02;
   --bad: #d1242f;
   --ink: #0b1220;
@@ -739,6 +740,7 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
 .panel.network { --kind: var(--network); }
 .panel.abuse { --kind: var(--abuse); }
 .panel.address { --kind: var(--address); }
+.panel.dns { --kind: var(--dns); }
 
 .dot {
   width: 0.55rem;

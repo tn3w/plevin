@@ -12,6 +12,7 @@
 <meta name="theme-color" content="#070b14" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://plevin.tn3w.dev/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://cloudflare-dns.com" crossorigin>
 <link rel="preconnect" href="https://dns.google" crossorigin>
 <link rel="stylesheet" href="style.css">
 
@@ -66,7 +67,7 @@
           "name": "Does the address I type leave the tab?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "The lookup does not: the database file is downloaded once and every answer is read out of it in the browser. Two helpers on the page do call out, both optional - api.ipify.org behind My address, and dns.google for the hostname. The Python and JavaScript libraries call neither."
+            "text": "The lookup does not: the database file is downloaded once and every answer is read out of it in the browser. Two things on the page do call out - api.ipify.org behind My address, and cloudflare-dns.com and dns.google over DNS-over-HTTPS for the DNS card, which names the host and the operator of the reverse zone. The Python and JavaScript libraries ask neither unless a dns flag says so."
           }
         },
         {
@@ -252,14 +253,20 @@
 found = plevin.<span class="f">lookup</span>(<span class="s">"1.1.1.1"</span>)
 found.place.city.name        <span class="c"># 'Brisbane'</span>
 found.network.operator.brand <span class="c"># 'Cloudflare'</span>
-found.abuse.risk             <span class="c"># 0.97 on a tor exit</span></pre>
+found.abuse.risk             <span class="c"># 0.97 on a tor exit</span>
+
+found = plevin.<span class="f">lookup</span>(<span class="s">"1.1.1.1"</span>, dns=<span class="k">True</span>)
+found.dns.hostname           <span class="c"># 'one.one.one.one'</span></pre>
 
           <pre data-panel="node" hidden><span class="c">// npm install plevinjs</span>
 <span class="k">import</span> { open } <span class="k">from</span> <span class="s">"plevinjs/node"</span>;
 
 <span class="k">const</span> db = <span class="k">await</span> <span class="f">open</span>(<span class="s">"plevin.plv"</span>);
 db.<span class="f">lookup</span>(<span class="s">"1.1.1.1"</span>).network.operator.brand;
-db.<span class="f">lookup</span>(<span class="s">"1.1.1.1"</span>).place.country.flag;</pre>
+db.<span class="f">lookup</span>(<span class="s">"1.1.1.1"</span>).place.country.flag;
+
+<span class="k">const</span> named = <span class="k">await</span> db.<span class="f">resolve</span>(<span class="s">"1.1.1.1"</span>, { dns: <span class="k">true</span> });
+named.dns.hostname;  <span class="c">// 'one.one.one.one'</span></pre>
 
           <pre data-panel="browser" hidden><span class="c">// no install, no bundler</span>
 <span class="k">import</span> { open } <span class="k">from</span> <span class="s">"https://esm.sh/plevinjs"</span>;
@@ -271,7 +278,8 @@ db.<span class="f">lookup</span>(<span class="s">"2606:4700::1111"</span>).place
           <pre data-panel="worker" hidden><span class="c"># nothing to install, the same answers</span>
 curl https://plevin.tn3w.dev/api/<span class="s">1.1.1.1</span>
 curl https://plevin.tn3w.dev/api/<span class="s">me</span>
-curl https://plevin.tn3w.dev/api/<span class="s">about</span></pre>
+curl https://plevin.tn3w.dev/api/<span class="s">about</span>
+curl <span class="s">"https://plevin.tn3w.dev/api/1.1.1.1?dns=1"</span></pre>
         </div>
       </div>
     </section>
@@ -378,9 +386,11 @@ curl https://plevin.tn3w.dev/api/<span class="s">about</span></pre>
         <article>
           <h3>Does the address I type leave the tab?</h3>
           <p>The lookup does not: the database file is downloaded once and every answer is
-            read out of it here. Two helpers on this page do call out, both optional -
+            read out of it here. Two things on this page do call out -
             <code>api.ipify.org</code> behind <em>My address</em>, and
-            <code>dns.google</code> for the hostname. The libraries call neither.</p>
+            <code>cloudflare-dns.com</code> and <code>dns.google</code> over
+            DNS-over-HTTPS for the DNS card. The libraries ask neither unless a
+            <code>dns</code> flag says so.</p>
         </article>
         <article>
           <h3>What does a lookup return?</h3>

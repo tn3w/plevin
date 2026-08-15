@@ -1,4 +1,4 @@
-import { Plevin } from "./plevin/index.js";
+import { ask, Plevin, records } from "./plevin/index.js";
 import { SAMPLE } from "./sample.js";
 import { LAND } from "./world.js";
 
@@ -7,7 +7,6 @@ const SAMPLED = "1.1.1.1";
 
 const DATABASE = "db/plevin.plv";
 const OWN_ADDRESS = "https://api.ipify.org?format=json";
-const RESOLVER = "https://dns.google/resolve";
 const STORE = "plevin";
 
 const node = (id) => document.getElementById(id);
@@ -390,6 +389,37 @@ const abusePanel = (abuse) => {
   return section;
 };
 
+const SHOWN = 4;
+
+/** The address asked about first, since it is the one a reader came to check. */
+const leading = (values, held) =>
+  values.includes(held) ? [held, ...values.filter((one) => one !== held)] : values;
+
+const some = (values) => {
+  if (!values.length) return null;
+  const rest = values.length - SHOWN;
+  return rest > 0
+    ? `${values.slice(0, SHOWN).join(", ")} (+${rest} more)`
+    : values.join(", ");
+};
+
+const dnsPanel = (dns) => {
+  const [section, body] = panel("dns", "DNS", dns.is_confirmed ? "confirmed" : "");
+  body.append(fields([
+    ["Hostname", dns.hostname, true],
+    ["Also", some(dns.hostnames.slice(1)), true],
+    ["Alias", dns.alias, true],
+    ["IPv4", some(leading(dns.ipv4_addresses, dns.asked)), true],
+    ["IPv6", some(leading(dns.ipv6_addresses, dns.asked)), true],
+    ["Forward confirmed", dns.hostname ? (dns.is_confirmed ? "yes" : "no") : null],
+    ["DNSSEC", dns.is_signed ? "validated" : "unsigned"],
+    ["Zone", dns.zone, true],
+    ["Zone server", dns.zone_primary, true],
+    ["Zone contact", dns.zone_contact, true],
+  ]));
+  return section;
+};
+
 const addressPanel = (found) => {
   const [section, body] = panel("address", "Address", `IPv${found.version}`);
   body.append(groups(found));
@@ -400,6 +430,10 @@ const addressPanel = (found) => {
     ["Scope", found.is_global ? "global unicast" : "not the public internet"],
     ["Tunnel", found.tunnel],
     ["Carries", found.embedded_ipv4, true],
+    ["Reads as", found.decimal_ipv4, true],
+    ["As mapped", found.as_ipv4_mapped, true],
+    ["As 6to4", found.as_6to4, true],
+    ["As NAT64", found.as_nat64, true],
     ["Reverse", found.arpa, true],
   ]));
   return section;
@@ -426,27 +460,12 @@ const written = (found) =>
   JSON.stringify(found, (_, value) =>
     typeof value === "bigint" ? value.toString() : value, 2);
 
-const hostname = async (arpa) => {
-  try {
-    const response = await fetch(`${RESOLVER}?name=${arpa}&type=PTR`, {
-      headers: { accept: "application/dns-json" },
-    });
-    const held = await response.json();
-    return held.Answer?.find((row) => row.type === 12)?.data?.replace(/\.$/, "") ?? "";
-  } catch {
-    return "";
-  }
-};
-
 const HOSTNAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9-]+)*\.[a-z]{2,}$/i;
 
 const resolved = async (name) => {
-  for (const type of ["A", "AAAA"]) {
-    const response = await fetch(`${RESOLVER}?name=${encodeURIComponent(name)}&type=${type}`,
-      { headers: { accept: "application/dns-json" } });
-    const held = await response.json();
-    const answer = held.Answer?.find((row) => row.type === 1 || row.type === 28);
-    if (answer) return answer.data;
+  for (const kind of ["A", "AAAA"]) {
+    const found = records(await ask([name, kind, null]), kind);
+    if (found.length) return found[0].data;
   }
   return "";
 };
@@ -486,6 +505,7 @@ const render = (found) => {
   if (found.place) cards.append(placePanel(found.place));
   if (found.network) cards.append(networkPanel(found));
   if (told(found.abuse)) cards.append(abusePanel(found.abuse));
+  if (found.dns) cards.append(dnsPanel(found.dns));
   cards.append(addressPanel(found));
 };
 
@@ -530,8 +550,13 @@ const show = async (address) => {
   if (asked !== address) return;
 
   render(found);
-  const held = name || (await hostname(found.arpa));
-  if (held && asked === address) marks(found, held);
+  say("asking dns");
+  const withNames = await db.resolve(found.ip, { dns: true });
+  if (asked !== address) return;
+
+  render(withNames);
+  const held = name || withNames.dns?.hostname || "";
+  if (held) marks(withNames, held);
 };
 
 const home = () => {

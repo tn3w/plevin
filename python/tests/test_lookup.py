@@ -10,9 +10,8 @@ from types import ModuleType
 import pytest
 
 import plevin
-from plevin import Dns
 from conftest import HOST_V4, HOST_V6
-from plevin import reader
+from plevin import Dns, reader
 
 MOMENT = datetime(2026, 8, 13, 12, tzinfo=timezone.utc)
 
