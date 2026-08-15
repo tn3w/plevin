@@ -44,7 +44,7 @@ found.network.cidr;                       // '1.1.1.0/24'
 
 const exit = db.lookup("185.220.101.1");
 exit.abuse.service;                       // 'tor_exit_node'
-exit.abuse.risk;                          // 0.97
+exit.abuse.risk;                          // 0.98
 exit.abuse.is_tor_exit_node;              // true
 ```
 
@@ -168,8 +168,8 @@ read `Google`.
 ```js
 db.lookup("185.220.101.1").abuse;
 {
-  name: 'Tor', service: 'tor_exit_node', evidence: 'measured', risk: 0.97,
-  network_risk: null, last_seen_days: 1, is_anycast: false, is_satellite: false,
+  name: 'Tor', service: 'tor_exit_node', evidence: 'measured', risk: 0.98,
+  network_risk: 0.82, last_seen_days: 1, is_anycast: false, is_satellite: false,
   is_hosting_provider: true, is_proxy: false, is_public_proxy: false,
   is_residential_proxy: false, is_anonymous_vpn: false, is_tor_exit_node: true,
   is_private_relay: false, is_anonymous: true,
@@ -177,7 +177,9 @@ db.lookup("185.220.101.1").abuse;
 ```
 
 `risk` is 0 to 1 for the address, `network_risk` the same for the whole ASN, `null`
-where nothing has ever been seen, so which is not a risk of zero.
+where nothing has ever been seen, so which is not a risk of zero. An address running an
+anonymity service carries at least that service's own risk, so a Tor exit no feed has
+reported still reads high.
 
 ## What an address says on its own
 

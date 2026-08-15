@@ -178,8 +178,17 @@ boundaries in the AS's own country, APNIC users, eyeball network.
 
 **4 abuse.** One record per span plus an ASN baseline. Feeds assert in
 `data/feeds.json`. Strongest type, best evidence then most specific service, `weak`
-last. Risk is max within a `group`, noisy-OR across groups. `last_seen_days` is the
-tightest window that hit. Spans equal to their ASN default store nothing.
+last. Risk is max within a `group`, noisy-OR across groups, and never under what the
+service itself is worth: a Tor exit reads 0.85, a public proxy 0.75, a residential
+proxy 0.70, a VPN 0.50, a private relay 0.15, times 0.85 where the claim was reported
+and 0.6 where it was inferred. `last_seen_days` is the tightest window that hit. Spans
+equal to their ASN default store nothing.
+
+An ASN's baseline risk is what its own feeds assert, noisy-OR the risk its addresses
+carry. That share is the risk-weighted part of the announced space that was reported,
+v4 counted in addresses and v6 in the /64 a host is given, each half scored against
+itself and the worse of the two standing for the network. The share is square-rooted,
+since almost every network sits near zero, and under 0.01 the network stays unseen.
 
 **5 spine.** One boundary set carrying place, network and abuse. Ids ranked by hit
 count. Record 0 is the empty record.

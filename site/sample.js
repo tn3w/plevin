@@ -143,7 +143,7 @@ export const SAMPLE = {
     "service": null,
     "evidence": null,
     "risk": null,
-    "network_risk": null,
+    "network_risk": 0.14,
     "last_seen_days": null,
     "is_anycast": true,
     "is_satellite": false,

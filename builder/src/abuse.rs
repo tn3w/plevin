@@ -1,7 +1,7 @@
 //! The feeds as data, folded into one record per span, per host and per ASN.
 
 use crate::gazetteer::fold;
-use crate::network::Systems;
+use crate::network::{Route, Systems};
 use crate::read::{self, two};
 use crate::{CATEGORIES, EVIDENCE, SERVICES, SPECIFIC, UNSEEN, word, worded};
 use regex::Regex;
@@ -100,6 +100,27 @@ const PROXIES: &[(&str, &str)] = &[
     ("PUB", "public_proxy"),
     ("WEB", "public_proxy"),
 ];
+
+/// An address that anonymises traffic is a risk of its own, whatever a feed saw on it.
+const EXPOSURE: &[(&str, f32)] = &[
+    ("tor_exit_node", 0.85),
+    ("public_proxy", 0.75),
+    ("residential_proxy", 0.7),
+    ("anonymous_vpn", 0.5),
+    ("private_relay", 0.15),
+];
+
+/// How much of that stands, by how the service was come by: an inference stands least.
+const STANDING: &[f32] = &[0.85, 1.0, 1.0, 0.85, 0.6];
+
+fn exposure(service: u8, evidence: u8) -> f32 {
+    let named = SERVICES[service as usize];
+    let standing = STANDING.get(evidence as usize).copied().unwrap_or(0.85);
+    match EXPOSURE.iter().find(|(name, _)| *name == named) {
+        Some((_, risk)) => risk * standing,
+        None => 0.0,
+    }
+}
 
 const USAGE: &[(&str, &str)] = &[
     ("DCH", "hosting"),
@@ -478,8 +499,13 @@ impl Folded {
         (evidence, rank(service)) < (self.evidence, rank(self.service))
     }
 
-    fn record(&self) -> Record {
+    /// What the feeds saw, noisy-OR across groups, never under what the service is worth.
+    fn share(&self) -> f32 {
         let left = self.risks.iter().fold(1.0f32, |held, (_, risk)| held * (1.0 - risk));
+        (1.0 - left).max(exposure(self.service, self.evidence))
+    }
+
+    fn record(&self) -> Record {
         Record {
             name: self.provider.clone(),
             user_type: self.user,
@@ -487,9 +513,9 @@ impl Folded {
             evidence: self.evidence,
             anycast: self.anycast as u8,
             satellite: self.satellite as u8,
-            risk: match self.risks.is_empty() {
+            risk: match self.risks.is_empty() && self.service == 0 {
                 true => UNSEEN,
-                false => ((1.0 - left) * 100.0).round() as u8,
+                false => (self.share() * 100.0).round() as u8,
             },
             last_seen: self.window,
         }
@@ -499,6 +525,11 @@ impl Folded {
 impl Records {
     pub fn fold(feeds: &Feeds, systems: &mut Systems) -> Records {
         let mut pool = Pool::new();
+        let sweeps = [
+            overlay(&feeds.spans[0], &feeds.sources, u32::MAX as u128),
+            overlay(&feeds.spans[1], &feeds.sources, u128::MAX),
+        ];
+        let reported = spread(feeds, &sweeps, systems);
         let mut folded: HashMap<u32, Folded> = HashMap::new();
         for (asn, source) in &feeds.asn {
             folded.entry(*asn).or_default().take(&feeds.sources[*source as usize]);
@@ -524,6 +555,9 @@ impl Records {
             if system.network_risk != UNSEEN {
                 held.risk(0, system.network_risk as f32 / 100.0);
             }
+            if let Some(risk) = reported.get(&system.asn) {
+                held.risk(0, *risk);
+            }
             system.record = pool.link(&held);
         }
         drop(folded);
@@ -531,14 +565,88 @@ impl Records {
         let mut effective = [Vec::new(), Vec::new()];
         let mut hosts = [Vec::new(), Vec::new()];
         for family in 0..2 {
-            let ceiling = if family == 1 { u128::MAX } else { u32::MAX as u128 };
-            let sweep = overlay(&feeds.spans[family], &feeds.sources, ceiling);
-            let (runs, whole) = carried(&sweep, systems, &mut pool, family);
+            let (runs, whole) = carried(&sweeps[family], systems, &mut pool, family);
             hosts[family] = single(&feeds.hosts[family], feeds, &whole, &mut pool);
             effective[family] = whole.iter().map(|(at, _, row)| (*at, *row)).collect();
             spans[family] = runs;
         }
         Records { rows: pool.rows, spans, effective, hosts }
+    }
+}
+
+/// v4 counts addresses, v6 counts the /64 a host is given, so the two scales compare.
+fn units(first: u128, last: u128, family: usize) -> f64 {
+    let width = (last - first) as f64 + 1.0;
+    match family {
+        0 => width,
+        _ => width / 2f64.powi(64),
+    }
+}
+
+/// Below this the reports are too few to say anything, so the network keeps its silence.
+const QUIET: f32 = 0.01;
+
+/// The reported share of one half of a network, square-rooted so the low end is legible.
+fn shaped((reported, announced): &(f64, f64)) -> f32 {
+    match *announced > 0.0 {
+        true => (reported.min(*announced) / announced).sqrt() as f32,
+        false => 0.0,
+    }
+}
+
+fn asn_of(systems: &Systems, route: Route) -> Option<u32> {
+    let held = systems.rows.get(route.system.wrapping_sub(1) as usize)?;
+    Some(held.asn)
+}
+
+/// A network is as risky as the addresses in it, weighted by how much of it was reported.
+fn spread(
+    feeds: &Feeds,
+    sweeps: &[Vec<(u128, Folded)>; 2],
+    systems: &Systems,
+) -> HashMap<u32, f32> {
+    let mut seen: HashMap<u32, [(f64, f64); 2]> = HashMap::new();
+    for (family, sweep) in sweeps.iter().enumerate() {
+        let ceiling = if family == 1 { u128::MAX } else { u32::MAX as u128 };
+        let mut runs: Vec<(u128, f32, Option<u32>)> = Vec::new();
+        together(sweep, &systems.runs[family], |at, held, route| {
+            runs.push((at, held.share(), asn_of(systems, route)));
+        });
+        for (at, (first, risk, asn)) in runs.iter().copied().enumerate() {
+            let Some(asn) = asn else { continue };
+            let last = runs.get(at + 1).map(|held| held.0 - 1).unwrap_or(ceiling);
+            let width = units(first, last, family);
+            let held = &mut seen.entry(asn).or_default()[family];
+            held.0 += width * risk as f64;
+            held.1 += width;
+        }
+        named(&feeds.hosts[family], &feeds.sources, |address, folded| {
+            let spot = systems.runs[family].partition_point(|(at, _)| *at <= address);
+            let route = systems.runs[family][spot.saturating_sub(1)].1;
+            if let Some(asn) = asn_of(systems, route) {
+                seen.entry(asn).or_default()[family].0 += folded.share() as f64;
+            }
+        });
+    }
+    seen.into_iter()
+        .map(|(asn, held)| (asn, held.iter().map(shaped).fold(0.0f32, f32::max)))
+        .filter(|(_, risk)| *risk >= QUIET)
+        .collect()
+}
+
+/// Each address a feed names on its own, once, with every claim made on it folded in.
+fn named(claims: &[(u128, u16)], sources: &[Source], mut each: impl FnMut(u128, Folded)) {
+    let mut held: Vec<(u128, u16)> = claims.to_vec();
+    held.sort_unstable();
+    let mut at = 0;
+    while at < held.len() {
+        let address = held[at].0;
+        let mut folded = Folded::default();
+        while at < held.len() && held[at].0 == address {
+            folded.take(&sources[held[at].1 as usize]);
+            at += 1;
+        }
+        each(address, folded);
     }
 }
 
@@ -589,17 +697,8 @@ fn single(
     whole: &[(u128, Folded, u32)],
     pool: &mut Pool,
 ) -> Vec<(u128, u32)> {
-    let mut held: Vec<(u128, u16)> = claims.to_vec();
-    held.sort_unstable();
     let mut out: Vec<(u128, u32)> = Vec::new();
-    let mut at = 0;
-    while at < held.len() {
-        let address = held[at].0;
-        let mut folded = Folded::default();
-        while at < held.len() && held[at].0 == address {
-            folded.take(&feeds.sources[held[at].1 as usize]);
-            at += 1;
-        }
+    named(claims, &feeds.sources, |address, mut folded| {
         let spot = whole.partition_point(|(start, _, _)| *start <= address);
         let standing = match spot {
             0 => 0,
@@ -612,7 +711,7 @@ fn single(
         if row != standing {
             out.push((address, row));
         }
-    }
+    });
     out
 }
 

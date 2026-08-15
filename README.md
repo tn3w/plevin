@@ -48,7 +48,7 @@ an integer reads as v6 only above `0xFFFFFFFF`, so `lookup(1)` is `0.0.0.1`.
 
 >>> exit_node = plevin.lookup("185.220.101.1")
 >>> exit_node.abuse.service, exit_node.abuse.risk, exit_node.abuse.is_tor_exit_node
-('tor_exit_node', 0.97, True)
+('tor_exit_node', 0.98, True)
 ```
 
 The database is a separate wheel, found without being given a path. Install one, or
@@ -179,8 +179,8 @@ Abuse(
     name='Tor',
     service='tor_exit_node',
     evidence='measured',
-    risk=0.97,
-    network_risk=None,
+    risk=0.98,
+    network_risk=0.82,
     last_seen_days=1,
     is_anycast=False,
     is_satellite=False,
@@ -196,7 +196,9 @@ Abuse(
 ```
 
 `risk` is 0 to 1 for the address, `network_risk` the same for the whole ASN, `None`
-where nothing has ever been seen, so which is not a risk of zero. `evidence` is
+where nothing has ever been seen, so which is not a risk of zero. An address running an
+anonymity service carries at least that service's own risk, so a Tor exit no feed has
+reported still reads high. `evidence` is
 `published`, `measured`, `reported` or `inferred`, strongest first; `service` is
 `tor_exit_node`, `private_relay`, `anonymous_vpn`, `residential_proxy` or
 `public_proxy`, most specific first. A public proxy on a residential or cellular line

@@ -355,10 +355,11 @@ const told = (abuse) =>
     abuse.network_risk, abuse.last_seen_days].some((value) => value !== null);
 
 const ADDRESS_TIP = "How often this single address itself was reported by the abuse " +
-  "feeds. 0% is never seen, 100% is seen in every recent feed.";
+  "feeds, and never under what the anonymity service it runs is worth on its own. " +
+  "0% is never seen, 100% is seen in every recent feed.";
 
-const NETWORK_TIP = "The same score for the whole ASN this address sits in. A high " +
-  "address risk with a low network risk means one bad address on an otherwise " +
+const NETWORK_TIP = "How much of the whole ASN this address sits in was reported. A " +
+  "high address risk with a low network risk means one bad address on an otherwise " +
   "quiet network.";
 
 const abusePanel = (abuse) => {

@@ -87,15 +87,21 @@ def parse(value: Value) -> tuple[int, bool]:
 def written(value: int, wide: bool) -> str:
     """An address as text: v4 from its octets, v6 through the shortening rules."""
     if wide:
-        return str(IPv6Address(value))
+        return _short(IPv6Address(value))
     return f"{value >> 24}.{value >> 16 & 255}.{value >> 8 & 255}.{value & 255}"
+
+
+def _short(address: IPv6Address) -> str:
+    """Python spells a mapped address in dotted octets only from 3.13, so spell it."""
+    mapped = address.ipv4_mapped
+    return str(address) if mapped is None else f"::ffff:{mapped}"
 
 
 def spelled(value: int, wide: bool) -> tuple[str, str, str]:
     """How the address reads short and in full, and the name a resolver asks by."""
     if wide:
         address = IPv6Address(value)
-        return str(address), address.exploded, address.reverse_pointer
+        return _short(address), address.exploded, address.reverse_pointer
     octets = [str(value >> shift & 255) for shift in (24, 16, 8, 0)]
     text = ".".join(octets)
     return text, text, ".".join(reversed(octets)) + ".in-addr.arpa"
