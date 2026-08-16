@@ -1,6 +1,5 @@
 import { ask, Plevin, records } from "./plevin/index.js";
 import { SAMPLE } from "./sample.js";
-import { LAND } from "./world.js";
 
 const API = "https://plevin.tn3w.dev/api";
 const SAMPLED = "1.1.1.1";
@@ -149,37 +148,92 @@ const panel = (kind, title, note) => {
   return [section, body];
 };
 
-const graticule = () => {
-  const held = [];
-  for (let at = 30; at < 360; at += 30)
-    held.push(`<line class="grid" x1="${at}" y1="0" x2="${at}" y2="180"/>`);
-  for (let at = 30; at < 180; at += 30)
-    held.push(`<line class="grid" x1="0" y1="${at}" x2="360" y2="${at}"/>`);
-  return held.join("");
+const TILES = {
+  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
 };
 
-const globe = (place) => {
-  const x = (place.lon + 180).toFixed(2);
-  const y = (90 - place.lat).toFixed(2);
-  const holder = make("div", "graphic map");
-  holder.append(drawn(`<svg class="globe" viewBox="0 0 360 180" role="img"
-      aria-label="${place.lat}, ${place.lon} on a world map">
-      <rect class="sea" x="0" y="0" width="360" height="180" rx="6"/>
-      ${graticule()}
-      <path class="land" d="${LAND}"/>
-      <line class="ray" x1="0" y1="${y}" x2="360" y2="${y}"/>
-      <line class="ray" x1="${x}" y1="0" x2="${x}" y2="180"/>
-      <circle class="halo" cx="${x}" cy="${y}" r="16"/>
-      <circle class="pin" cx="${x}" cy="${y}" r="4.5"/>
-    </svg>`));
+const TILE_OPTIONS = {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">' +
+    'OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  maxZoom: 20,
+  subdomains: "abcd",
+};
 
-  const caption = make("div", "caption");
+const THEME = window.matchMedia("(prefers-color-scheme: dark)");
+const maps = new Set();
+
+const tileUrl = () => TILES[THEME.matches ? "dark" : "light"];
+
+const tileLayer = () => window.L.tileLayer(tileUrl(), TILE_OPTIONS);
+
+const tuneMap = (map) => {
+  map.scrollWheelZoom.disable();
+  map.touchZoom.enable();
+  map.doubleClickZoom.enable();
+};
+
+const switchTiles = (held) => {
+  if (!held.root.isConnected) {
+    held.map.remove();
+    maps.delete(held);
+    return;
+  }
+
+  const next = tileLayer().addTo(held.map);
+  held.layer.remove();
+  held.layer = next;
+};
+
+THEME.addEventListener("change", () => {
+  for (const held of maps) switchTiles(held);
+});
+
+const openMap = (root, place) => {
+  if (!root.isConnected || !window.L) return;
+
+  const center = [place.lat, place.lon];
+  const map = window.L.map(root, { zoomControl: false }).setView(
+    center,
+    4,
+  );
+  const layer = tileLayer().addTo(map);
+  const radius = (place.accuracy ?? 12) * 1000;
+
+  tuneMap(map);
+  window.L.control.zoom({ position: "bottomright" }).addTo(map);
+  window.L.circle(center, {
+    color: "var(--place)",
+    fillColor: "var(--place)",
+    fillOpacity: 0.14,
+    radius,
+    weight: 2,
+  }).addTo(map);
+  window.L.marker(center).addTo(map);
+  maps.add({ layer, map, root });
+
+  requestAnimationFrame(() => map.flyTo(
+    [place.lat, place.lon],
+    11,
+    { duration: 1.2 },
+  ));
+};
+
+const locationMap = (place) => {
+  const holder = make("div", "graphic map");
+  const root = make("div", "leaflet-map");
+  root.setAttribute("aria-label", `${place.lat}, ${place.lon} on a city map`);
+  holder.append(root);
+
+  const caption = make("div", "map-caption");
   const spot = `${place.lat.toFixed(4)}, ${place.lon.toFixed(4)}`;
   const around = [place.confidence === null ? null : `${place.confidence}% sure`,
     place.accuracy === null ? null : `${place.accuracy} km radius`]
     .filter(Boolean).join(", ");
   caption.append(make("span", "", spot), make("span", "", around));
   holder.append(caption);
+
+  requestAnimationFrame(() => openMap(root, place));
   return holder;
 };
 
@@ -297,7 +351,7 @@ const clock = (time) =>
 
 const placePanel = (place) => {
   const [section, body] = panel("place", "Place", place.granularity ?? "");
-  if (place.lat !== null && place.lon !== null) body.append(globe(place));
+  if (place.lat !== null && place.lon !== null) body.append(locationMap(place));
 
   const city = place.city ?? {};
   body.append(fields([

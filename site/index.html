@@ -14,6 +14,10 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://cloudflare-dns.com" crossorigin>
 <link rel="preconnect" href="https://dns.google" crossorigin>
+<link rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin="">
 <link rel="stylesheet" href="style.css">
 
 <meta property="og:type" content="website">
@@ -67,7 +71,7 @@
           "name": "Does the address I type leave the tab?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "The lookup does not: the database file is downloaded once and every answer is read out of it in the browser. Two things on the page do call out - api.ipify.org behind My address, and cloudflare-dns.com and dns.google over DNS-over-HTTPS for the DNS card, which names the host and the operator of the reverse zone. The Python and JavaScript libraries ask neither unless a dns flag says so."
+            "text": "Lookups are local. My address, DNS, and map tiles call out."
           }
         },
         {
@@ -386,11 +390,11 @@ curl <span class="s">"https://plevin.tn3w.dev/api/1.1.1.1?dns=1"</span></pre>
         <article>
           <h3>Does the address I type leave the tab?</h3>
           <p>The lookup does not: the database file is downloaded once and every answer is
-            read out of it here. Two things on this page do call out -
+            read out of it here. Three things on this page do call out -
             <code>api.ipify.org</code> behind <em>My address</em>, and
             <code>cloudflare-dns.com</code> and <code>dns.google</code> over
-            DNS-over-HTTPS for the DNS card. The libraries ask neither unless a
-            <code>dns</code> flag says so.</p>
+            DNS-over-HTTPS for the DNS card, and CARTO for the map tiles. The
+            libraries ask none of those unless a <code>dns</code> flag says so.</p>
         </article>
         <article>
           <h3>What does a lookup return?</h3>
@@ -481,6 +485,10 @@ curl <span class="s">"https://plevin.tn3w.dev/api/1.1.1.1?dns=1"</span></pre>
   </div>
 </footer>
 
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""></script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

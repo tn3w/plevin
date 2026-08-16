@@ -804,18 +804,73 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
   }
 }
 
-.globe { width: 100%; height: auto; display: block; }
-.globe .sea { fill: color-mix(in srgb, var(--place) 7%, var(--surface)); }
-.globe .grid { stroke: color-mix(in srgb, var(--soft) 22%, transparent); stroke-width: 0.4; }
-.globe .land {
-  fill: color-mix(in srgb, var(--soft) 26%, transparent);
-  stroke: color-mix(in srgb, var(--soft) 45%, transparent);
-  stroke-width: 0.4;
+.map {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  padding: 0;
+  overflow: hidden;
 }
-.globe .edge { stroke: color-mix(in srgb, var(--place) 45%, var(--line)); stroke-width: 1; fill: none; }
-.globe .halo { fill: var(--place); opacity: 0.18; }
-.globe .pin { fill: var(--place); }
-.globe .ray { stroke: color-mix(in srgb, var(--place) 55%, transparent); stroke-width: 1; stroke-dasharray: 3 3; }
+
+.leaflet-map {
+  width: 100%;
+  height: 240px;
+  background: var(--panel);
+  isolation: isolate;
+  z-index: 0;
+}
+
+.leaflet-container {
+  z-index: 0;
+  color: var(--ink);
+  background: var(--panel);
+  font-family: var(--sans);
+}
+
+.leaflet-bar {
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+.leaflet-bar a,
+.leaflet-bar a:hover {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.leaflet-control-attribution {
+  background: color-mix(in srgb, var(--surface) 92%, transparent) !important;
+  color: var(--soft);
+}
+
+.leaflet-control-attribution a {
+  color: var(--place);
+}
+
+.map-caption {
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  top: 0.65rem;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  pointer-events: none;
+  font: 600 0.74rem/1.2 var(--mono);
+  color: var(--ink);
+}
+
+.map-caption span {
+  max-width: 50%;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--surface) 84%, transparent);
+  padding: 0.35rem 0.45rem;
+  overflow-wrap: anywhere;
+  box-shadow: var(--shadow);
+}
 
 .span-bar {
   position: relative;
@@ -999,4 +1054,3 @@ pre.json .str { color: var(--abuse); }
 pre.json .num { color: var(--network); }
 pre.json .bool { color: var(--warn); }
 pre.json .null { color: var(--faint); }
-
