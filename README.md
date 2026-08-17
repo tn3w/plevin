@@ -12,8 +12,8 @@ No API, no rate limit, no lookup leaving the machine.
 [![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)](https://pypi.org/project/plevin)
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2&label=npm)](https://www.npmjs.com/package/plevinjs)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](LICENSE)
-[![Fields](https://img.shields.io/badge/fields-98-6f42c1)](#every-field)
-[![Boundaries](https://img.shields.io/badge/boundaries-2.6M-6f42c1)](#data)
+[![Fields](https://img.shields.io/badge/fields-99-6f42c1)](#every-field)
+[![Boundaries](https://img.shields.io/badge/boundaries-3.0M-6f42c1)](#data)
 [![Warm](https://img.shields.io/badge/warm%20lookups-2M%2Fs-2ea043)](#speed)
 
 </div>
@@ -56,8 +56,8 @@ several and the richest wins.
 
 |                                 |         |                                          |
 | ------------------------------- | ------- | ---------------------------------------- |
-| `pip install "plevin[db]"`      | 16.9 MB | every field                              |
-| `pip install "plevin[place]"`   | 6.3 MB  | city, region, postal, coordinates, metro |
+| `pip install "plevin[db]"`      | 19.3 MB | every field                              |
+| `pip install "plevin[place]"`   | 6.6 MB  | city, region, postal, coordinates, metro |
 | `pip install "plevin[network]"` | 10.3 MB | ASN, operator, routing, abuse            |
 | `pip install "plevin[country]"` | 423 KB  | the country code                         |
 
@@ -138,6 +138,7 @@ Network(
     cidr='1.1.1.0/24',
     start='1.1.1.0',
     end='1.1.1.255',
+    rir='apnic',
     rpki='valid',
     roas=1,
     operator=Operator(
@@ -164,8 +165,28 @@ Network(
 ```
 
 `cidr` is the announcement the address falls in, masked out of the address itself, so
-`1.1.1.1` and `1.0.0.1` reach one operator through two prefixes. `rpki` is `valid`,
-`invalid` or `unknown` and `roas` how many ROAs agree. `brand` drops the legal form and
+`1.1.1.1` and `1.0.0.1` reach one operator through two prefixes. `rir` is the registry
+that holds the address, which is the registry of the address and not of the ASN, so a
+block APNIC gave out can be announced by an operator ARIN registered. `rpki` is `valid`,
+`invalid` or `unknown` and `roas` how many ROAs agree.
+
+Where nothing is announced, the registries still answer. `asn`, `rpki` and `roas` fall
+silent, `cidr` becomes the block a registry gave out rather than one a router carries,
+and `handle` and `operator` name whoever holds it.
+
+```python
+>>> found = plevin.lookup("36.50.238.1")
+>>> found.network.asn, found.network.cidr, found.network.rir
+(None, '36.50.238.0/23', 'apnic')
+
+>>> found.network.handle, found.network.operator.company
+('GMTECH-BD', 'GM Tech')
+```
+
+RIPE, APNIC and AFRINIC publish the holder of every block they gave out; ARIN and
+LACNIC publish none, so an unannounced address in either region answers `rir` and
+`cidr` but no name. Roughly a seventh of routable IPv4 is announced by no one.
+ `brand` drops the legal form and
 the words every network carries, so `GOOGLE` and `Google LLC` both read `Google`;
 `domain` is the host of `website`, else of `abuse_email`. `tier` is 1 transit-free, 2
 has customers, 3 edge; `peering` the exchange count; `category` one of `residential`,
@@ -196,9 +217,13 @@ Abuse(
 ```
 
 `risk` is 0 to 1 for the address, `network_risk` the same for the whole ASN, `None`
-where nothing has ever been seen, so which is not a risk of zero. An address running an
-anonymity service carries at least that service's own risk, so a Tor exit no feed has
-reported still reads high. `evidence` is
+where nothing has ever been seen, so which is not a risk of zero. It is a total, not a
+verdict any one source hands down: what the service the address runs is worth on its
+own, and what every feed that named it scored it, combined so each agreeing source
+raises the total and none of them replaces the rest. Feeds sharing an upstream count
+once, and the scale stops at 0.99, since enough feeds agreeing still is not proof. A
+Tor exit no feed has reported still reads high on the service alone; the same exit on
+four blocklists reads higher. `evidence` is
 `published`, `measured`, `reported` or `inferred`, strongest first; `service` is
 `tor_exit_node`, `private_relay`, `anonymous_vpn`, `residential_proxy` or
 `public_proxy`, most specific first. A public proxy on a residential or cellular line
@@ -304,16 +329,17 @@ from one address asks once.
 
 |                   |                                     |
 | ----------------- | ----------------------------------- |
-| v4 boundaries     | 2,182,442, plus 3,832,016 host rows |
-| v6 boundaries     | 375,752                             |
+| v4 boundaries     | 2,629,342, plus 3,902,469 host rows |
+| v6 boundaries     | 396,430                             |
 | cities            | 76,805 in 3,177 regions             |
 | districts, metros | 19,941 and 210                      |
-| ASNs, operators   | 86,237 and 80,354                   |
+| ASNs, operators   | 86,237 and 147,621, registry holders included |
 | timezones         | 394                                 |
-| abuse records     | 2,147 over 156 feeds                |
+| abuse records     | 2,556 over 156 feeds                |
 
 Rebuilt daily from MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, a
-RIPE RIS RIB, RPKI ROAs, the NRO delegations, CAIDA, PeeringDB,
+RIPE RIS RIB, RPKI ROAs, the NRO delegations, the RIPE, APNIC and AFRINIC whois
+dumps, CAIDA, PeeringDB,
 [asn-abuse](https://github.com/tn3w/asn-abuse) and the feeds in
 [`builder/data/feeds.json`](https://github.com/tn3w/plevin/blob/master/builder/README.md#sources). `Plevin(path).built` dates your
 copy, `.selection` names which fields it carries and `.fields` lists them.
@@ -398,8 +424,8 @@ downloads do not carry:
 
 | | |
 | --- | --- |
-| `https://plevin.tn3w.dev/db/plevin.plv` | every field, 16.9 MB |
-| `https://plevin.tn3w.dev/db/plevin.metro-place.plv` | city, region, postal, coordinates, metro, 6.3 MB |
+| `https://plevin.tn3w.dev/db/plevin.plv` | every field, 19.3 MB |
+| `https://plevin.tn3w.dev/db/plevin.metro-place.plv` | city, region, postal, coordinates, metro, 6.6 MB |
 | `https://plevin.tn3w.dev/db/plevin.abuse-network.plv` | ASN, operator, routing, abuse, 10.3 MB |
 | `https://plevin.tn3w.dev/db/plevin.place-country-code.plv` | the country code, 423 KB |
 | `https://plevin.tn3w.dev/db/index.json` | the tag and what it carries |

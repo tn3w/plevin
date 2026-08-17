@@ -27,11 +27,12 @@ const CACHED = 1 << 14;
 const DEGREES = 10000;
 const UNSEEN = 255;
 const RECORDS = 1 << 14;
-const CARRIED = ["place", "network", "abuse", "prefix", "rpki", "roas"];
+const CARRIED = ["place", "network", "abuse", "prefix", "rpki", "roas", "rir"];
 const LINKED = new Set(["place", "network", "abuse"]);
 const SPAN = "network";
 const BOOKS: Record<string, string> = {
   rpki: "rpki",
+  rir: "rirs",
   "place.granularity": "granularity",
   "city.timezone": "timezones",
   "city.type": "place_types",

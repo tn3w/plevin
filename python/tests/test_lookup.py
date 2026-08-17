@@ -76,6 +76,7 @@ def test_a_network_carries_the_announcement_it_falls_in(opened: Path) -> None:
     assert (network.cidr, network.start, network.end) == (
         "8.8.8.0/24", "8.8.8.0", "8.8.8.255")
     assert (network.rpki, network.roas, network.prefix) == ("valid", 1, 24)
+    assert network.rir == "arin"
 
 
 def test_an_operator_is_named_by_the_shorter_of_its_names(opened: Path) -> None:

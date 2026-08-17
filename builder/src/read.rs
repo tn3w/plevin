@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 
 /// One row of an IP geolocation database: a span, where it lands, how well it knows.
@@ -32,6 +32,24 @@ pub fn raw(path: &Path) -> Vec<u8> {
 
 pub fn slurp(path: &Path) -> String {
     String::from_utf8_lossy(&raw(path)).into_owned()
+}
+
+/// A line at a time and lossily, for the registry dumps too large to hold whole and
+/// old enough to still carry bytes that are not UTF-8.
+pub fn lines(path: &Path) -> impl Iterator<Item = String> {
+    let handle = File::open(path).ok();
+    if handle.is_none() {
+        eprintln!("missing {}", path.display());
+    }
+    let mut reader = handle.map(|held| BufReader::with_capacity(1 << 22, held));
+    let mut raw = Vec::new();
+    std::iter::from_fn(move || {
+        raw.clear();
+        match reader.as_mut()?.read_until(b'\n', &mut raw) {
+            Ok(0) | Err(_) => None,
+            Ok(_) => Some(String::from_utf8_lossy(raw.trim_ascii_end()).into_owned()),
+        }
+    })
 }
 
 /// One of the builder's own tables, which are JSON and live beside its source.

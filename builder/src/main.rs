@@ -160,7 +160,8 @@ pub const TABLES: &[&str] = &[
 ];
 
 /// What a boundary carries, the first three as rows and the rest as values.
-pub const CARRIED: &[&str] = &["place", "network", "abuse", "prefix", "rpki", "roas"];
+pub const CARRIED: &[&str] =
+    &["place", "network", "abuse", "prefix", "rpki", "roas", "rir"];
 
 const COUNTRY: &[&str] = &["place.city", "city.country"];
 
@@ -217,6 +218,7 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("network.operator.tier", &["network.operator", "operator.tier"]),
     ("network.operator.website", &["network.operator", "operator.website"]),
     ("network.prefix", &["spine.prefix"]),
+    ("network.rir", &["spine.rir"]),
     ("network.roas", &["spine.roas"]),
     ("network.rpki", &["spine.rpki"]),
     ("place.city.ascii", &["place.city", "city.ascii"]),
@@ -297,6 +299,7 @@ pub const SERVICES: &[&str] = &[
 pub const EVIDENCE: &[&str] = &["", "published", "measured", "reported", "inferred"];
 pub const GRANULARITY: &[&str] = &["city", "region", "country"];
 pub const RPKI: &[&str] = &["unknown", "valid", "invalid"];
+pub const RIRS: &[&str] = &["", "afrinic", "apnic", "arin", "lacnic", "ripencc"];
 pub const PLACE_TYPES: &[&str] = &[
     "city",
     "regional capital",
@@ -355,6 +358,7 @@ pub fn vocabularies(zones: Option<&[String]>) -> Vec<(&'static str, Vec<String>)
         ("evidence", named(EVIDENCE)),
         ("granularity", named(GRANULARITY)),
         ("rpki", named(RPKI)),
+        ("rirs", named(RIRS)),
         ("place_types", named(PLACE_TYPES)),
     ];
     if let Some(zones) = zones {

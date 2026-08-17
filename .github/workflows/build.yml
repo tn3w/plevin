@@ -51,6 +51,17 @@ jobs:
           do
             get -O "$url"
           done
+          ripe=https://ftp.ripe.net/ripe/dbase/split
+          apnic=https://ftp.apnic.net/apnic/whois
+          keys='^(inetnum|inet6num|netname|descr|country|org|organisation|org-name):|^$'
+          whois() { get "$2" | gzip -dc | grep -E "$keys" > "$1"; }
+          whois ripe_inetnum $ripe/ripe.db.inetnum.gz
+          whois ripe_inet6num $ripe/ripe.db.inet6num.gz
+          whois ripe_organisation $ripe/ripe.db.organisation.gz
+          whois apnic_inetnum $apnic/apnic.db.inetnum.gz
+          whois apnic_inet6num $apnic/apnic.db.inet6num.gz
+          whois apnic_organisation $apnic/apnic.db.organisation.gz
+          whois afrinic_db https://ftp.afrinic.net/dbase/afrinic.db.gz
           get -o DB11LITEBINIPV6.zip \
             "https://www.ip2location.com/download/?token=$IP2LOCATION_TOKEN&file=DB11LITEBINIPV6"
           for endpoint in net org netixlan; do
@@ -106,7 +117,7 @@ jobs:
           {
             echo "Location, network and abuse information for any IP address in one"
             echo "offline file, built $(date -u '+%Y-%m-%d %H:%M UTC') from"
-            echo "$(jq length data/feeds.json) abuse feeds and 17 source files."
+            echo "$(jq length data/feeds.json) abuse feeds and 24 source files."
             echo
             echo "| file | size | bytes |"
             echo "|---|---|---|"

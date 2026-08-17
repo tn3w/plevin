@@ -7,6 +7,9 @@ const PATH = process.env.PLEVIN_DB ?? "../plevin.plv";
 const missing = !existsSync(PATH);
 const db = missing ? null : await openFile(PATH);
 const held = { skip: missing && "no database beside the package" };
+const registry = {
+  skip: held.skip || (!db?.fields.includes("network.rir") && "a build before rir"),
+};
 
 test("opens a database and says what it carries", held, () => {
   assert.match(db?.built ?? "", /^\d{4}-\d{2}-\d{2}$/);
@@ -30,6 +33,15 @@ test("answers who announces an address", held, () => {
   assert.equal(found?.network?.operator?.brand, "Cloudflare");
   assert.equal(found?.network?.cidr, "1.1.1.0/24");
   assert.equal(found?.network?.operator?.domain, "cloudflare.com");
+});
+
+test("names who a registry gave a span to where no one announces it", registry, () => {
+  assert.equal(db?.lookup("1.1.1.1").network?.rir, "apnic");
+  const found = db?.lookup("36.50.238.1");
+  assert.equal(found?.network?.asn, null);
+  assert.equal(found?.network?.rir, "apnic");
+  assert.equal(found?.network?.handle, "GMTECH-BD");
+  assert.equal(found?.network?.operator?.company, "GM Tech");
 });
 
 test("answers what has been seen from an address", held, () => {

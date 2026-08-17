@@ -40,6 +40,7 @@ VOCABULARIES = {
     "granularity": ["city", "region", "country"],
     "place_types": ["city", "national capital", "regional capital"],
     "rpki": ["unknown", "valid", "invalid"],
+    "rirs": ["", "afrinic", "apnic", "arin", "lacnic", "ripencc"],
     "timezones": ["America/Los_Angeles", "UTC", "Nowhere/Nothing"],
 }
 
@@ -137,6 +138,7 @@ def _spines(writer: Writer) -> None:
     writer.column("spine.v4.prefix", [0, 8, 24, 8] + [0] * (rows - 4))
     writer.column("spine.v4.rpki", [0, 1, 1, 0] + [0] * (rows - 4))
     writer.column("spine.v4.roas", [0, 0, 1, 0] + [0] * (rows - 4))
+    writer.column("spine.v4.rir", [0, 3, 3, 0] + [0] * (rows - 4))
     writer.index("hosts.v4", [HOST_V4], wide=False)
     writer.column("hosts.v4.abuse", [2])
 
@@ -147,6 +149,7 @@ def _spines(writer: Writer) -> None:
     writer.column("spine.v6.prefix", [0, 32])
     writer.column("spine.v6.rpki", [0, 2])
     writer.column("spine.v6.roas", [0, 3])
+    writer.column("spine.v6.rir", [0, 3])
     writer.index("hosts.v6", [HOST_V6], wide=True)
     writer.column("hosts.v6.abuse", [1])
 

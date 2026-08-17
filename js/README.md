@@ -12,8 +12,8 @@ No API, no rate limit, no lookup leaving the machine, or the browser tab.
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2)](https://www.npmjs.com/package/plevinjs)
 [![Types](https://img.shields.io/badge/types-included-1868f2)](https://www.npmjs.com/package/plevinjs?activeTab=code)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](https://github.com/tn3w/plevin/blob/master/LICENSE)
-[![Fields](https://img.shields.io/badge/fields-98-6f42c1)](#every-field)
-[![Boundaries](https://img.shields.io/badge/boundaries-2.6M-6f42c1)](https://github.com/tn3w/plevin/blob/master/README.md#data)
+[![Fields](https://img.shields.io/badge/fields-99-6f42c1)](#every-field)
+[![Boundaries](https://img.shields.io/badge/boundaries-3.0M-6f42c1)](https://github.com/tn3w/plevin/blob/master/README.md#data)
 [![Warm](https://img.shields.io/badge/warm%20lookups-4M%2Fs-2ea043)](#speed)
 
 </div>
@@ -80,8 +80,8 @@ read once.
 
 | file | size | carries |
 | --- | --- | --- |
-| `plevin.plv` | 16.9 MB | every field |
-| `plevin.metro-place.plv` | 6.3 MB | city, region, postal, coordinates, metro |
+| `plevin.plv` | 19.3 MB | every field |
+| `plevin.metro-place.plv` | 6.6 MB | city, region, postal, coordinates, metro |
 | `plevin.abuse-network.plv` | 10.3 MB | ASN, operator, routing, abuse |
 | `plevin.place-country-code.plv` | 423 KB | the country code |
 
@@ -147,7 +147,7 @@ one the Python package reads, a daylight boundary may move by a transition.
 ```js
 {
   asn: 13335, handle: 'CLOUDFLARENET', prefix: 24, cidr: '1.1.1.0/24',
-  start: '1.1.1.0', end: '1.1.1.255', rpki: 'valid', roas: 1,
+  start: '1.1.1.0', end: '1.1.1.255', rir: 'apnic', rpki: 'valid', roas: 1,
   operator: {
     company: 'Cloudflare, Inc.', brand: 'Cloudflare', domain: 'cloudflare.com',
     website: 'https://www.cloudflare.com', category: 'content', tier: 2,
@@ -161,9 +161,20 @@ one the Python package reads, a daylight boundary may move by a transition.
 ```
 
 `cidr` is the announcement the address falls in, masked out of the address itself.
-`rpki` is `valid`, `invalid` or `unknown` and `roas` how many ROAs agree. `brand` drops
-the legal form and the words every network carries, so `GOOGLE` and `Google LLC` both
-read `Google`.
+`rir` is the registry that holds the address rather than the one that registered the
+ASN. `rpki` is `valid`, `invalid` or `unknown` and `roas` how many ROAs agree. `brand`
+drops the legal form and the words every network carries, so `GOOGLE` and `Google LLC`
+both read `Google`.
+
+Where nothing is announced, the registries still answer: `asn`, `rpki` and `roas` fall
+silent, `cidr` becomes the block a registry gave out, and `handle` and `operator` name
+whoever holds it.
+
+```js
+db.lookup("36.50.238.1").network;
+{ asn: null, handle: 'GMTECH-BD', cidr: '36.50.238.0/23', rir: 'apnic',
+  operator: { company: 'GM Tech', ... }, ... }
+```
 
 ```js
 db.lookup("185.220.101.1").abuse;
@@ -177,9 +188,10 @@ db.lookup("185.220.101.1").abuse;
 ```
 
 `risk` is 0 to 1 for the address, `network_risk` the same for the whole ASN, `null`
-where nothing has ever been seen, so which is not a risk of zero. An address running an
-anonymity service carries at least that service's own risk, so a Tor exit no feed has
-reported still reads high.
+where nothing has ever been seen, so which is not a risk of zero. It is a total of what
+the service the address runs is worth on its own and what every feed that named it
+scored it, combined so each agreeing source raises the total and none of them replaces
+the rest, capped at 0.99.
 
 ## What an address says on its own
 
@@ -281,7 +293,7 @@ CDN serves it as it is.
 ```
 
 Open the smallest build a page actually needs: `plevin.place-country-code.plv` is
-423 KB against the 16.9 MB of `plevin.plv`, so the first lookup lands in a moment
+423 KB against the 19.3 MB of `plevin.plv`, so the first lookup lands in a moment
 rather than a download.
 
 | | |

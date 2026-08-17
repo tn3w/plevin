@@ -122,6 +122,7 @@ export type Network = {
   cidr: string | null;
   start: string | null;
   end: string | null;
+  rir: string | null;
   rpki: string | null;
   roas: number | null;
   operator: Operator | null;

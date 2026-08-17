@@ -138,6 +138,7 @@ class Network:
     cidr: str | None = None
     start: str | None = None
     end: str | None = None
+    rir: str | None = None
     rpki: str | None = None
     roas: int | None = None
     operator: Operator | None = None

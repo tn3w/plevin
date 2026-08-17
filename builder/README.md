@@ -7,14 +7,14 @@ No API, no rate limit, no lookup leaving the machine.
 
 ![Rust 2024](https://img.shields.io/badge/rust-2024-CE422B?logo=rust&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
-![Full build](https://img.shields.io/badge/full%20build-17.4%20MB-2ea043)
+![Full build](https://img.shields.io/badge/full%20build-19.3%20MB-2ea043)
 ![Lookup](https://img.shields.io/badge/lookup-250k%2Fs-2ea043)
-![Fields](https://img.shields.io/badge/fields-98-6f42c1)
-![Sources](https://img.shields.io/badge/sources-17%20files%20%2B%20156%20feeds-6f42c1)
+![Fields](https://img.shields.io/badge/fields-99-6f42c1)
+![Sources](https://img.shields.io/badge/sources-24%20files%20%2B%20156%20feeds-6f42c1)
 
 Download the latest build:
-[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 17.4 MB,
-[network](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-network.plv) 10.6 MB,
+[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 19.3 MB,
+[network](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-network.plv) 12.5 MB,
 [location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 6.6 MB,
 [country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 500 KB
 
@@ -22,8 +22,8 @@ Download the latest build:
 
 ```mermaid
 flowchart LR
-    S["17 files and 156 feeds"] --> B[builder]
-    B --> D[("plevin.plv, 17.4 MB")]
+    S["24 files and 156 feeds"] --> B[builder]
+    B --> D[("plevin.plv, 19.3 MB")]
     D --> Q["lookup(8.8.8.8)"]
 ```
 
@@ -81,9 +81,16 @@ Fetched to `inputs/`. Feed URLs live in `data/feeds.json`.
 | `as-rel2.txt`                                       | `publicdata.caida.org/datasets/as-relationships/serial-2/`, newest            | CAIDA AUP         |
 | `peeringdb_net.json` `_org.json` `_netixlan.json`   | `peeringdb.com/api/`, key header                                              | CC BY 4.0         |
 | `abuse-contacts.tsv`                                | `github.com/tn3w/asn-abuse`, latest release                                   | source repository |
+| `ripe_inetnum` `ripe_inet6num` `ripe_organisation`  | `ftp.ripe.net/ripe/dbase/split/`, 3.3 GB inflated                             | RIPE NCC terms    |
+| `apnic_inetnum` `apnic_inet6num` `apnic_organisation` | `ftp.apnic.net/apnic/whois/`                                                | APNIC terms       |
+| `afrinic_db`                                        | `ftp.afrinic.net/dbase/afrinic.db.gz`                                         | AFRINIC terms     |
 | feeds                                               | `data/feeds.json`                                                             | per publisher     |
 
-Gzip inflated, zip takes its largest member. Ids come from no input: countries and
+Gzip inflated, zip takes its largest member. The registry dumps are cut to the seven
+keys the builder reads as they are fetched, which is most of their bulk, and are read a
+line at a time and lossily, since they still carry bytes that are not UTF-8. ARIN and
+LACNIC publish no bulk holder data, so their unannounced space answers a registry and a
+block but no name. Ids come from no input: countries and
 timezones are derived and sorted, and the timezone list is written into the header.
 
 ## Fields
@@ -104,7 +111,7 @@ flowchart LR
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `place`   | `city` name, ascii, id, population, type, postal, postal_partial, timezone, elevation; `point` lat, lon, accuracy, granularity, confidence; `region` name, code, iso, type, id; `district` name, code, id; `country.code` |
 | `metro`   | code, label                                                                                                                                                                                                               |
-| `network` | asn, handle, prefix, rpki, roas; `operator` company, brand, domain, website, category, tier, peering, scope, rir, since, street, city, state, postal, abuse_email, country; `carrier` user_type, user_count, mcc, mnc     |
+| `network` | asn, handle, prefix, rir, rpki, roas; `operator` company, brand, domain, website, category, tier, peering, scope, rir, since, street, city, state, postal, abuse_email, country; `carrier` user_type, user_count, mcc, mnc     |
 | `abuse`   | name, service, evidence, is_anycast, is_satellite, risk, network_risk, last_seen_days                                                                                                                                     |
 
 Derived, not stored: `is_hosting_provider` and `carrier.is_mobile` from
@@ -257,7 +264,7 @@ flowchart LR
 
 |                            |                                           |
 | -------------------------- | ----------------------------------------- |
-| full build                 | 17.4 MB                                   |
+| full build                 | 19.3 MB                                   |
 | open                       | 10 ms full, 2 ms one-field                |
 | cold start to first answer | 30 ms                                     |
 | warm lookups               | 250k/s full record, 700k/s one field      |

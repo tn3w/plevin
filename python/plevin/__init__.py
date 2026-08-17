@@ -92,7 +92,8 @@ ANSWERED = 1 << 10
 
 Rows = dict[str, Any]
 Ground = tuple[Any, Any, Any, Any, str | None, City | None, Country | None]
-Wires = tuple[int | None, str | None, str | None, Any, Operator | None, Carrier | None]
+Wires = tuple[int | None, str | None, str | None, str | None, Any,
+              Operator | None, Carrier | None]
 Stored = tuple[tuple[Ground, str] | None, tuple[Wires, int | None] | None,
                Abuse | None]
 
@@ -253,8 +254,9 @@ def _network(rows: Rows | None, user_type: str) -> tuple[Wires, int | None] | No
     if rows is None:
         return None
     handle = str(rows.get("handle", ""))
-    wires = (_count(rows.get("asn")), _text(handle), _text(rows.get("rpki")),
-             rows.get("roas"), _operator(rows.get("operator"), handle),
+    wires = (_count(rows.get("asn")), _text(handle), _text(rows.get("rir")),
+             _text(rows.get("rpki")), rows.get("roas"),
+             _operator(rows.get("operator"), handle),
              _carrier(rows.get("carrier"), user_type))
     return wires, _count(rows.get("prefix"))
 
@@ -318,10 +320,11 @@ def _result(value: int, wide: bool, stored: Stored | None,
 
 
 def _spanned(wires: Wires, prefix: int | None, value: int, wide: bool) -> Network:
-    asn, handle, rpki, roas, operator, carrier = wires
+    asn, handle, rir, rpki, roas, operator, carrier = wires
     cidr, start, end = (None, None, None) if prefix is None else span(
         value, wide, prefix)
-    return Network(asn, handle, prefix, cidr, start, end, rpki, roas, operator, carrier)
+    return Network(asn, handle, prefix, cidr, start, end, rir, rpki, roas, operator,
+                   carrier)
 
 
 def _found() -> Path:

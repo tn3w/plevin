@@ -211,6 +211,7 @@ const network = (row: Row | undefined, userType: string): Wires | null => {
     {
       asn: count(row.asn),
       handle: text(handle),
+      rir: text(row.rir),
       rpki: text(row.rpki),
       roas: number(row.roas),
       operator: operator(held(row, "operator"), handle),

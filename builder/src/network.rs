@@ -1,9 +1,9 @@
 //! Who announces each span, and everything known about that operator.
 
-use crate::abuse::Feeds;
+use crate::abuse::{Feeds, together};
 use crate::gazetteer::{Gazetteer, fold};
 use crate::read::{self, Announce, two};
-use crate::{CATEGORIES, UNSEEN, word, worded};
+use crate::{CATEGORIES, RIRS, UNSEEN, word, worded};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -39,6 +39,14 @@ pub struct Route {
     pub prefix: u8,
     pub rpki: u8,
     pub roas: u16,
+    pub rir: u8,
+}
+
+/// The registry block an address sits in, which stands where no one announces it.
+#[derive(Clone, Copy, Default, PartialEq)]
+pub struct Block {
+    pub rir: u8,
+    pub prefix: u8,
 }
 
 pub struct Systems {
@@ -85,7 +93,7 @@ impl Systems {
         systems.registries(inputs, gazetteer);
         systems.peers(inputs, gazetteer);
         systems.habits(feeds, gazetteer);
-        systems.routes(inputs, announced);
+        systems.routes(inputs, gazetteer, announced);
         systems
     }
 
@@ -327,8 +335,10 @@ impl Systems {
         }
     }
 
-    fn routes(&mut self, inputs: &Path, announced: Vec<Announce>) {
+    fn routes(&mut self, inputs: &Path, gazetteer: &Gazetteer, announced: Vec<Announce>) {
         let roas = Roas::read(inputs);
+        let allocated = allocations(inputs);
+        let mut announces: [Vec<(u128, Route)>; 2] = [Vec::new(), Vec::new()];
         for (family, wide) in [(0, false), (1, true)] {
             let mut spans: Vec<(u128, u128, u8, u32)> = announced
                 .iter()
@@ -350,6 +360,7 @@ impl Systems {
                             prefix: length,
                             rpki,
                             roas: count,
+                            rir: 0,
                         }
                     }
                 };
@@ -358,9 +369,303 @@ impl Systems {
                     _ => runs.push((at, route)),
                 }
             });
-            self.runs[family] = runs;
+            announces[family] = runs;
+        }
+        let held = self.holders(inputs, gazetteer, &announces, &allocated);
+        for family in 0..2 {
+            self.runs[family] =
+                registered(&announces[family], &allocated[family], &held[family]);
         }
     }
+
+    /// The registry's own record of who holds a span, kept only where BGP says nothing.
+    fn holders(
+        &mut self,
+        inputs: &Path,
+        gazetteer: &Gazetteer,
+        announces: &[Vec<(u128, Route)>; 2],
+        allocated: &[Vec<(u128, Block)>; 2],
+    ) -> [Vec<(u128, Holder)>; 2] {
+        let named = organisations(inputs);
+        let mut spans: [Vec<(u128, u128, u8, u32)>; 2] = [Vec::new(), Vec::new()];
+        let mut seen: HashMap<Whois, u32> = HashMap::new();
+        let mut held: Vec<Whois> = Vec::new();
+        for (name, rir) in WHOIS {
+            let code = word(RIRS, rir);
+            objects(&inputs.join(name), |object| {
+                let Some((first, last, wide)) = object.span() else { return };
+                let family = wide as usize;
+
+                if first + WIDEST < last
+                    || delegated(&allocated[family], first) != code
+                    || covered(&announces[family], first, last)
+                {
+                    return;
+                }
+                let who = object.whois(&named, rir);
+                let at = *seen.entry(who.clone()).or_insert_with(|| {
+                    held.push(who);
+                    held.len() as u32
+                });
+                spans[family].push((first, last, prefix(first, last, wide), at));
+            });
+        }
+        let first = self.rows.len() as u32;
+        self.rows.extend(held.into_iter().map(|who| System {
+            handle: who.netname,
+            company: who.company,
+            country: gazetteer.country(two(&who.country)),
+            rir: who.rir,
+            network_risk: UNSEEN,
+            ..System::default()
+        }));
+        [0, 1].map(|family| {
+            let ceiling = if family == 1 { u128::MAX } else { u32::MAX as u128 };
+            let mut runs: Vec<(u128, Holder)> = Vec::new();
+            partition(&mut spans[family], ceiling, |at, who, prefix| {
+                let holder = match who {
+                    0 => Holder::default(),
+                    _ => Holder { system: first + who, prefix },
+                };
+                match runs.last() {
+                    Some((_, last)) if *last == holder => {}
+                    _ => runs.push((at, holder)),
+                }
+            });
+            runs
+        })
+    }
+}
+
+/// The registry dumps that name who holds a span, and the registry each one speaks for.
+const WHOIS: &[(&str, &str)] = &[
+    ("ripe_inetnum", "ripencc"),
+    ("ripe_inet6num", "ripencc"),
+    ("apnic_inetnum", "apnic"),
+    ("apnic_inet6num", "apnic"),
+    ("afrinic_db", "afrinic"),
+];
+
+/// A registry object wider than this names no one in particular, so it is ignored.
+const WIDEST: u128 = (1 << 24) - 1;
+
+#[derive(Clone, Copy, Default, PartialEq)]
+struct Holder {
+    system: u32,
+    prefix: u8,
+}
+
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
+struct Whois {
+    netname: String,
+    company: String,
+    country: String,
+    rir: String,
+}
+
+/// Every key a registry object is read for, kept as the first value each one carries.
+#[derive(Default)]
+struct Object {
+    inetnum: String,
+    netname: String,
+    descr: String,
+    country: String,
+    org: String,
+    organisation: String,
+    org_name: String,
+}
+
+impl Object {
+    fn take(&mut self, key: &str, value: &str) {
+        let held = match key {
+            "inetnum" | "inet6num" => &mut self.inetnum,
+            "netname" => &mut self.netname,
+            "descr" => &mut self.descr,
+            "country" => &mut self.country,
+            "org" => &mut self.org,
+            "organisation" => &mut self.organisation,
+            "org-name" => &mut self.org_name,
+            _ => return,
+        };
+        if held.is_empty() {
+            *held = value.to_string();
+        }
+    }
+
+    /// A span written as two addresses, or as the prefix an inet6num is given as.
+    fn span(&self) -> Option<(u128, u128, bool)> {
+        let Some((first, last)) = self.inetnum.split_once(" - ") else {
+            return read::span(&self.inetnum);
+        };
+        let (first, _, wide) = read::span(first)?;
+        let (_, last, _) = read::span(last)?;
+        (first <= last).then_some((first, last, wide))
+    }
+
+    /// The holder as a name to show: the organisation where there is one, else the span.
+    fn whois(&self, named: &HashMap<String, String>, rir: &str) -> Whois {
+        let company = named.get(&self.org).unwrap_or(&self.descr);
+        Whois {
+            netname: self.netname.clone(),
+            company: company.clone(),
+            country: self.country.split_whitespace().next().unwrap_or("").to_string(),
+            rir: rir.to_string(),
+        }
+    }
+}
+
+/// Every organisation the registries name, so a span's `org` handle reads as a company.
+fn organisations(inputs: &Path) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    for name in ["ripe_organisation", "apnic_organisation", "afrinic_db"] {
+        objects(&inputs.join(name), |object| {
+            if !object.organisation.is_empty() && !object.org_name.is_empty() {
+                out.insert(object.organisation.clone(), object.org_name.clone());
+            }
+        });
+    }
+    out
+}
+
+/// One registry object per blank line, read streaming: the dumps run to gigabytes.
+fn objects(path: &Path, mut each: impl FnMut(&Object)) {
+    let mut held = Object::default();
+    let mut open = false;
+    for line in read::lines(path) {
+        if line.trim().is_empty() {
+            if open {
+                each(&held);
+                held = Object::default();
+                open = false;
+            }
+            continue;
+        }
+        let Some((key, value)) = line.split_once(':') else { continue };
+        if key.starts_with(['#', ' ', '\t', '+']) {
+            continue;
+        }
+        held.take(key, value.trim());
+        open = true;
+    }
+    if open {
+        each(&held);
+    }
+}
+
+/// The registry the delegation file puts an address under, which a dump must agree with.
+fn delegated(blocks: &[(u128, Block)], at: u128) -> u8 {
+    let spot = blocks.partition_point(|(start, _)| *start <= at);
+    blocks.get(spot.saturating_sub(1)).map(|(_, held)| held.rir).unwrap_or(0)
+}
+
+/// Whether every run over the span already names an announcement of its own.
+fn covered(runs: &[(u128, Route)], first: u128, last: u128) -> bool {
+    let mut at = runs.partition_point(|(start, _)| *start <= first).saturating_sub(1);
+    while let Some((start, route)) = runs.get(at) {
+        if *start > last {
+            break;
+        }
+        if route.system == 0 {
+            return false;
+        }
+        at += 1;
+    }
+    true
+}
+
+/// The prefix that names a span, which is the block it fits in where it is not one.
+fn prefix(first: u128, last: u128, wide: bool) -> u8 {
+    let bits: u32 = if wide { 128 } else { 32 };
+    let spare = (128 - (last - first).leading_zeros()).min(bits);
+    (bits - spare) as u8
+}
+
+/// Who a registry gave the address to, and the block it stands in where BGP is silent.
+fn registered(
+    runs: &[(u128, Route)],
+    blocks: &[(u128, Block)],
+    holders: &[(u128, Holder)],
+) -> Vec<(u128, Route)> {
+    let mut named: Vec<(u128, Route)> = Vec::new();
+    together(runs, holders, |at, route, holder| {
+        let mut held = *route;
+        if held.system == 0 && holder.system != 0 {
+            held.system = holder.system;
+            held.prefix = holder.prefix;
+        }
+        match named.last() {
+            Some((_, last)) if *last == held => {}
+            _ => named.push((at, held)),
+        }
+    });
+    let mut out: Vec<(u128, Route)> = Vec::new();
+    together(&named, blocks, |at, route, block| {
+        let mut held = *route;
+        held.rir = block.rir;
+        if held.prefix == 0 {
+            held.prefix = block.prefix;
+        }
+        match out.last() {
+            Some((_, last)) if *last == held => {}
+            _ => out.push((at, held)),
+        }
+    });
+    out
+}
+
+/// The registry files as blocks a prefix can name, one run list per family.
+fn allocations(inputs: &Path) -> [Vec<(u128, Block)>; 2] {
+    let mut spans: [Vec<(u128, u128, u8, u32)>; 2] = [Vec::new(), Vec::new()];
+    for line in read::slurp(&inputs.join("nro-delegated-stats")).lines() {
+        let row: Vec<&str> = line.split('|').collect();
+        if row.len() < 7 || row[6] != "assigned" {
+            continue;
+        }
+        let rir = word(RIRS, row[0]) as u32;
+        let count: u32 = row[4].parse().unwrap_or(0);
+        match row[2] {
+            "ipv4" => spans[0].extend(cidrs(row[3], count as u128, rir)),
+            "ipv6" if count > 0 && count <= 128 => {
+                let Some((first, _, _)) = read::span(&format!("{}/{count}", row[3]))
+                else {
+                    continue;
+                };
+                let spare = 128 - count;
+                spans[1].push((first, first | read::fill(spare), count as u8, rir));
+            }
+            _ => continue,
+        }
+    }
+    [0, 1].map(|family| {
+        let ceiling = if family == 1 { u128::MAX } else { u32::MAX as u128 };
+        let mut runs: Vec<(u128, Block)> = Vec::new();
+        partition(&mut spans[family], ceiling, |at, rir, prefix| {
+            let block = match rir {
+                0 => Block::default(),
+                _ => Block { rir: rir as u8, prefix },
+            };
+            match runs.last() {
+                Some((_, held)) if *held == block => {}
+                _ => runs.push((at, block)),
+            }
+        });
+        runs
+    })
+}
+
+/// A registry row counts addresses, so a run of them is the aligned blocks it holds.
+fn cidrs(first: &str, count: u128, rir: u32) -> Vec<(u128, u128, u8, u32)> {
+    let Some((mut at, _, _)) = read::span(first) else { return Vec::new() };
+    let (mut left, mut out) = (count, Vec::new());
+    while left > 0 && at <= u32::MAX as u128 {
+        let aligned = if at == 0 { 32 } else { at.trailing_zeros().min(32) };
+        let spare = aligned.min(127 - left.leading_zeros());
+        let width = read::fill(spare) + 1;
+        out.push((at, at + width - 1, (32 - spare) as u8, rir));
+        at += width;
+        left -= width;
+    }
+    out
 }
 
 /// One span per longest match, so the announcement a boundary carries is the tightest.

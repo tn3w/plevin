@@ -16,6 +16,7 @@ pub struct Stop {
     pub prefix: u8,
     pub rpki: u8,
     pub roas: u16,
+    pub rir: u8,
 }
 
 pub struct Sheet {
@@ -421,6 +422,7 @@ impl World {
                     prefix: if selection.has("spine.prefix") { stop.prefix } else { 0 },
                     rpki: if selection.has("spine.rpki") { stop.rpki } else { 0 },
                     roas: if selection.has("spine.roas") { stop.roas } else { 0 },
+                    rir: if selection.has("spine.rir") { stop.rir } else { 0 },
                 };
                 match out.last() {
                     Some((_, last)) if *last == cut => {}
@@ -510,7 +512,8 @@ impl World {
                         "abuse" => stop.abuse as i64,
                         "prefix" => stop.prefix as i64,
                         "rpki" => stop.rpki as i64,
-                        _ => stop.roas as i64,
+                        "roas" => stop.roas as i64,
+                        _ => stop.rir as i64,
                     })
                     .collect();
                 if wanted && values.iter().any(|held| *held != 0) {
@@ -713,6 +716,7 @@ fn assemble(
             prefix: route.prefix,
             rpki: route.rpki,
             roas: route.roas,
+            rir: route.rir,
         };
         match out.last() {
             Some((_, last)) if *last == stop => {}

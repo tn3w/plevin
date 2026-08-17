@@ -113,6 +113,9 @@ const EXPOSURE: &[(&str, f32)] = &[
 /// How much of that stands, by how the service was come by: an inference stands least.
 const STANDING: &[f32] = &[0.85, 1.0, 1.0, 0.85, 0.6];
 
+/// Enough feeds agreeing still is not proof, so the scale stops short of certainty.
+const CERTAIN: u8 = 99;
+
 fn exposure(service: u8, evidence: u8) -> f32 {
     let named = SERVICES[service as usize];
     let standing = STANDING.get(evidence as usize).copied().unwrap_or(0.85);
@@ -499,10 +502,11 @@ impl Folded {
         (evidence, rank(service)) < (self.evidence, rank(self.service))
     }
 
-    /// What the feeds saw, noisy-OR across groups, never under what the service is worth.
+    /// Noisy-OR over every score at once: what the service is worth, and each group.
     fn share(&self) -> f32 {
-        let left = self.risks.iter().fold(1.0f32, |held, (_, risk)| held * (1.0 - risk));
-        (1.0 - left).max(exposure(self.service, self.evidence))
+        let exposed = 1.0 - exposure(self.service, self.evidence);
+        let left = self.risks.iter().fold(exposed, |held, (_, risk)| held * (1.0 - risk));
+        1.0 - left
     }
 
     fn record(&self) -> Record {
@@ -515,7 +519,7 @@ impl Folded {
             satellite: self.satellite as u8,
             risk: match self.risks.is_empty() && self.service == 0 {
                 true => UNSEEN,
-                false => (self.share() * 100.0).round() as u8,
+                false => ((self.share() * 100.0).round() as u8).min(CERTAIN),
             },
             last_seen: self.window,
         }
@@ -539,7 +543,8 @@ impl Records {
             (word(SERVICES, "residential_proxy"), feeds.brands.get("residential_proxy")),
         ];
         for system in &mut systems.rows {
-            let mut held = folded.get(&system.asn).cloned().unwrap_or_default();
+            let claimed = (system.asn > 0).then(|| folded.get(&system.asn)).flatten();
+            let mut held = claimed.cloned().unwrap_or_default();
             let name = fold(&format!("{} {}", system.handle, system.company));
             for (service, brands) in &inferred {
                 let listed = brands.map(|held| held.as_slice()).unwrap_or_default();
@@ -555,7 +560,7 @@ impl Records {
             if system.network_risk != UNSEEN {
                 held.risk(0, system.network_risk as f32 / 100.0);
             }
-            if let Some(risk) = reported.get(&system.asn) {
+            if let Some(risk) = reported.get(&system.asn).filter(|_| system.asn > 0) {
                 held.risk(0, *risk);
             }
             system.record = pool.link(&held);
@@ -594,9 +599,10 @@ fn shaped((reported, announced): &(f64, f64)) -> f32 {
     }
 }
 
+/// A registry row announces nothing, so it is no network to weigh reports against.
 fn asn_of(systems: &Systems, route: Route) -> Option<u32> {
     let held = systems.rows.get(route.system.wrapping_sub(1) as usize)?;
-    Some(held.asn)
+    (held.asn > 0).then_some(held.asn)
 }
 
 /// A network is as risky as the addresses in it, weighted by how much of it was reported.
