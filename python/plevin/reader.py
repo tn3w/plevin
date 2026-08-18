@@ -8,9 +8,9 @@ import struct
 import sys
 from array import array
 from bisect import bisect_right
-from heapq import nsmallest
 from collections.abc import Callable
 from functools import partial
+from heapq import nsmallest
 from itertools import accumulate
 from os import PathLike
 from typing import Any
@@ -460,7 +460,7 @@ class File:
         if self.words is None:
             self.words = self._searchable()
         haystack, starts, weights, rows = self.words
-        found = []
+        found: list[tuple[bool, int, int, int]] = []
         at = haystack.find(needle)
         while at >= 0 and len(found) < MATCHES:
             index = bisect_right(starts, at) - 1
