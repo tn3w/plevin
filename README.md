@@ -317,6 +317,30 @@ Windows registry and 1.1.1.1, 8.8.8.8 and 9.9.9.9, so first real answer winning,
 where one comes back truncated, and kept for an hour, so a log with a thousand lines
 from one address asks once.
 
+## One ASN, and the networks a name belongs to
+
+```python
+>>> found = plevin.system("AS13335")        # 'AS13335', 'as13335' or 13335
+>>> found.handle, found.network.operator.brand, found.abuse.network_risk
+('CLOUDFLARENET', 'Cloudflare', 0.14)
+
+>>> [(one.asn, one.handle) for one in plevin.search("hetzner")]
+[(24940, 'HETZNER-AS'), (212317, 'HETZNER-CLOUD3-AS'), (213230, 'HETZNER-CLOUD2-AS'),
+ (215859, 'HETZNER-CLOUD4-AS')]
+```
+
+`system()` answers a `System`, so the `asn`, the `handle`, the same `network` with its
+operator and carrier, and the ASN's own `abuse` record, without anything only an address
+fixes: no prefix, no CIDR, no RPKI, no place. Falsy where the file carries no such ASN.
+It bisects the network table, so no spine is read and nothing about the address lookup
+changes.
+
+`search(text, limit=20)` matches the text against every handle and every company in the
+file and answers the same `System`, widest network first: a match at the head of a word
+beats one inside it, and then the network that touches most of the internet wins, which
+is its exchanges and its users. `search("13335")` is the ASN itself. The index is one
+lowercase text built on the first search, 0.26 s, and kept from then on.
+
 ## Good for
 
 - Country routing, pricing and compliance without a third-party call
@@ -356,6 +380,8 @@ extra.
 | first answer        | 12 ms                                    |
 | repeats             | 2,060,000/s                              |
 | uniformly random v4 | 16,000/s, every one a fresh block decode |
+| one ASN             | 46,000/s, a bisect of the network table  |
+| search              | 1.2 ms, after 0.26 s building the index  |
 
 Blocks decode on reach and stay decoded, so a real log lands between the two: the
 boundary a lookup found, the rows it linked to and the answer itself are all kept.
@@ -401,6 +427,9 @@ db.lookup("1.1.1.1").network.operator.brand;   // 'Cloudflare'
 
 const named = await db.resolve("1.1.1.1", { dns: true });  // the one call that asks DNS
 named.dns.hostname;                            // 'one.one.one.one'
+
+db.system("AS13335").network.operator.brand;   // 'Cloudflare', no address asked about
+db.search("hetzner")[0].asn;                   // 24940
 ```
 
 A page needs no install: `https://cdn.jsdelivr.net/npm/plevinjs` is the reader, as is
@@ -415,8 +444,10 @@ block for block against libzstd. 4,600,000 warm lookups a second.
 
 [plevin.tn3w.dev](https://plevin.tn3w.dev/) reads the database in the tab
 and answers there: no API, and no address of yours sent anywhere except to the service
-that tells you your own, and to a resolver for the DNS card. It is plain HTML, CSS and
-JavaScript in [`site/`](site), built and deployed by
+that tells you your own, and to a resolver for the DNS card. The one box takes an
+address, a hostname or an ASN as `AS13335`; type a network name instead and the five
+widest matches drop down under the bar. It is plain
+HTML, CSS and JavaScript in [`site/`](site), built and deployed by
 [`pages.yml`](.github/workflows/pages.yml) whenever a database is released.
 
 The same deployment rehosts every release file with open CORS, which the GitHub release

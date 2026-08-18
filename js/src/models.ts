@@ -129,6 +129,15 @@ export type Network = {
   carrier: Carrier | null;
 };
 
+/** One ASN: the network behind it, with no address to give it a span. */
+export type System = {
+  asn: number | null;
+  handle: string | null;
+  found: boolean;
+  network: Network | null;
+  abuse: Abuse | null;
+};
+
 /** What the resolvers say about the address, asked for only where a flag says so. */
 export type Dns = {
   asked: string | null;

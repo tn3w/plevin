@@ -8,6 +8,7 @@ import struct
 import sys
 from array import array
 from bisect import bisect_right
+from heapq import nsmallest
 from collections.abc import Callable
 from functools import partial
 from itertools import accumulate
@@ -25,10 +26,13 @@ Read = Callable[[int], Any]
 Plan = tuple[Any, Any, Any, Any, Any]
 Family = tuple[Any, Any, Any, Any]
 Found = tuple[int, int, int]
+Words = tuple[str, list[int], list[int], list[int]]
 
 MAGIC = b"PLEVIN\0"
 FORMAT = 1
 CACHED = 1 << 14
+MATCHES = 512
+BREAKS = frozenset(" \t-,./()&_+'")
 DEGREES = 10_000
 UNSEEN = 255
 EMPTY: Plan = ((), (), (), (), ())
@@ -298,6 +302,7 @@ class File:
 
         self.tables = self._tables()
         self.rows = Cache(self._linked)
+        self.words: Words | None = None
         self.families = {version: self._family(version) for version in (4, 6)}
         self.located = {version: Cache(partial(self._locate, version))
                         for version in (4, 6)}
@@ -402,3 +407,66 @@ class File:
         """The stored answer, or None where the file covers nothing; do not edit it."""
         found = self.locate(value, wide)
         return None if found is None else self.answers[found]
+
+    def _seek(self, column: Section, value: int) -> int:
+        """The first row of a sorted column that is not below the value asked for."""
+        low, high = 0, column.count
+        while low < high:
+            middle = (low + high) // 2
+            if column[middle] < value:
+                low = middle + 1
+            else:
+                high = middle
+        return low
+
+    def system(self, asn: int) -> Row | None:
+        """The network row one ASN is stored at, no address and no bisecting a spine."""
+        column = self.sections.get("col.network.asn")
+        if column is None or asn <= 0:
+            return None
+        row = self._seek(column, asn)
+        if row >= column.count or column[row] != asn:
+            return None
+        found: Row = self.rows[("network", row)]
+        return found
+
+    def _searchable(self) -> Words:
+        """Every ASN's handle and company in one lowercase text a search scans whole."""
+        asns = self.sections["col.network.asn"]
+        handles = self.sections["col.network.handle"]
+        operators = self.sections["link.network.operator"]
+        carriers = self.sections["link.network.carrier"]
+        companies = self.sections["col.operator.company"]
+        peerings = self.sections["col.operator.peering"]
+        people = self.sections["col.carrier.user_count"]
+        pool = self.sections["strings"]
+        rows, words, weights = [], [], []
+        for row in range(self._seek(asns, 1), asns.count):
+            operator, carrier = operators[row], carriers[row]
+            company = pool[companies[operator - 1]] if operator else ""
+            peering = peerings[operator - 1] if operator else 0
+            users = people[carrier - 1] if carrier else 0
+            rows.append(row)
+            words.append(f"{pool[handles[row]]}\t{company}".lower())
+            weights.append(peering + users.bit_length())
+        starts = list(accumulate((len(word) + 1 for word in words), initial=0))
+        return "\n".join(words), starts, weights, rows
+
+    def find(self, text: str, limit: int) -> list[Row]:
+        """The networks whose handle or company carries the text, widest reach first."""
+        needle = text.strip().lower()
+        if not needle or "col.network.asn" not in self.sections:
+            return []
+        if self.words is None:
+            self.words = self._searchable()
+        haystack, starts, weights, rows = self.words
+        found = []
+        at = haystack.find(needle)
+        while at >= 0 and len(found) < MATCHES:
+            index = bisect_right(starts, at) - 1
+            head, stop = starts[index], starts[index + 1]
+            inside = at > head and haystack[at - 1] not in BREAKS
+            found.append((inside, -weights[index], stop - head, index))
+            at = haystack.find(needle, stop)
+        return [self.rows[("network", rows[index])]
+                for *_, index in nsmallest(limit, found)]

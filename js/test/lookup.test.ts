@@ -75,3 +75,21 @@ test("hands back the stored rows underneath", held, () => {
   const row = db?.row("8.8.8.8") as Record<string, Record<string, unknown>>;
   assert.equal(row.network.asn, 15169);
 });
+
+test("answers one ASN without an address to ask about", held, () => {
+  const found = db?.system("AS13335");
+  assert.equal(found?.found, true);
+  assert.equal(found?.handle, "CLOUDFLARENET");
+  assert.equal(found?.network?.operator?.company, "Cloudflare, Inc.");
+  assert.equal(found?.network?.cidr, null);
+  assert.equal(db?.system(4294967295).found, false);
+  assert.equal(db?.system("nowhere").asn, null);
+});
+
+test("finds the widest networks a name belongs to", held, () => {
+  assert.equal(db?.search("cloudflare")[0]?.asn, 13335);
+  assert.equal(db?.search("google")[0]?.asn, 15169);
+  assert.equal(db?.search("amazon")[0]?.asn, 16509);
+  assert.equal(db?.search("as15169")[0]?.handle, "GOOGLE");
+  assert.deepEqual(db?.search("  "), []);
+});

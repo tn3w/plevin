@@ -416,13 +416,13 @@ const NETWORK_TIP = "How much of the whole ASN this address sits in was reported
   "high address risk with a low network risk means one bad address on an otherwise " +
   "quiet network.";
 
-const abusePanel = (abuse) => {
+const abusePanel = (abuse, address = true) => {
   const risk = abuse.risk ?? 0;
   const [section, body] = panel("abuse", "Abuse", abuse.evidence ?? "");
   section.style.setProperty("--kind", tone(Math.max(risk, abuse.network_risk ?? 0)));
 
   const gauges = make("div", "gauges");
-  gauges.append(gauge("address risk", risk, ADDRESS_TIP));
+  if (address) gauges.append(gauge("address risk", risk, ADDRESS_TIP));
   gauges.append(gauge("network risk", abuse.network_risk ?? 0, NETWORK_TIP));
   body.append(gauges);
 
@@ -525,23 +525,33 @@ const resolved = async (name) => {
   return "";
 };
 
-/** An address as typed, or the one a hostname resolves to. */
+/** An address as typed, the one a hostname resolves to, or nothing to look up. */
 const answered = async (db, asked) => {
   try {
     return [db.lookup(asked), ""];
-  } catch (error) {
-    if (!HOSTNAME.test(asked)) throw error;
+  } catch {
+    if (!HOSTNAME.test(asked)) return [null, ""];
     say(`resolving ${asked}`);
     const address = await resolved(asked);
-    if (!address) throw new Error(`${asked} resolves to no address`);
+    if (!address) return [null, ""];
     return [db.lookup(address), asked];
   }
 };
 
-const render = (found) => {
+const shown = () => {
   node("failed").hidden = true;
   node("loading").classList.add("done");
   node("result").hidden = false;
+};
+
+const kept = (found) => {
+  const raw = written(found);
+  node("json").innerHTML = painted(raw);
+  node("copy").dataset.json = raw;
+};
+
+const render = (found) => {
+  shown();
 
   node("ip").textContent = found.ip;
   node("ip-line").replaceChildren(node("ip"), copier(found.ip, "the address"));
@@ -550,10 +560,7 @@ const render = (found) => {
     ? named(found.place) || found.network?.operator?.brand || "no place stored here"
     : "the database carries nothing for this address";
   marks(found, "");
-
-  const raw = written(found);
-  node("json").innerHTML = painted(raw);
-  node("copy").dataset.json = raw;
+  kept(found);
 
   const cards = node("cards");
   cards.replaceChildren();
@@ -562,6 +569,27 @@ const render = (found) => {
   if (told(found.abuse)) cards.append(abusePanel(found.abuse));
   if (found.dns) cards.append(dnsPanel(found.dns));
   cards.append(addressPanel(found));
+};
+
+const renderSystem = (found, query) => {
+  shown();
+
+  const name = `AS${found.asn}`;
+  node("ip").textContent = found.found ? name : query;
+  node("ip-line").replaceChildren(node("ip"));
+  if (found.found) node("ip-line").append(copier(name, "the ASN"));
+  node("flag").textContent = "";
+  const operator = found.network?.operator;
+  node("where").textContent = found.found
+    ? listed([operator?.brand ?? operator?.company, found.handle])
+    : "the database carries nothing for this ASN";
+  marks(found, "");
+  kept(found);
+
+  const cards = node("cards");
+  cards.replaceChildren();
+  if (found.network) cards.append(networkPanel(found));
+  if (told(found.abuse)) cards.append(abusePanel(found.abuse, false));
 };
 
 let asked = "";
@@ -574,9 +602,11 @@ const described = (text) =>
 const HOME_DESCRIPTION =
   document.querySelector("meta[name=description]").getAttribute("content");
 
+const ASN = /^as\d+$/i;
+
 const show = async (address) => {
   asked = address;
-  document.title = `${address} - IP lookup - plevin`;
+  document.title = `${address} - lookup - plevin`;
   described(`Location, network operator, ASN and abuse risk for ${address}.`);
   document.body.classList.add("answering");
   node("answer").hidden = false;
@@ -595,14 +625,15 @@ const show = async (address) => {
   }
   if (asked !== address) return;
 
-  let found;
-  let name = "";
-  try {
-    [found, name] = await answered(db, address);
-  } catch (error) {
-    return failed(`${error.message} - try 1.1.1.1, 2606:4700::1111 or example.com`);
-  }
+  if (ASN.test(address)) return renderSystem(db.system(address), address);
+
+  const [found, name] = await answered(db, address);
   if (asked !== address) return;
+  if (found === null) {
+    const [best] = db.search(address, 1);
+    if (!best) return failed(`${address} reads as no address, ASN or network name`);
+    return seek(`AS${best.asn}`);
+  }
 
   render(found);
   say("asking dns");
@@ -637,10 +668,61 @@ const seek = (address) => {
   location.hash = next;
 };
 
+const SUGGESTED = 5;
+const TYPING = 150;
+
+/** What the box under the bar offers: never an address, which answers on its own. */
+const looked = (db, query) => {
+  if (ASN.test(query)) return [];
+  try {
+    db.lookup(query);
+    return [];
+  } catch {
+    return db.search(query, SUGGESTED);
+  }
+};
+
+const suggestion = (one) => {
+  const operator = one.network?.operator ?? {};
+  const button = make("button");
+  button.type = "button";
+  button.append(make("b", "", `AS${one.asn}`), make("span", "", one.handle ?? ""),
+    make("em", "", listed([operator.brand ?? operator.company, operator.country])));
+  button.addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    seek(`AS${one.asn}`);
+  });
+  return button;
+};
+
+const suggesting = async (input, box) => {
+  const query = input.value.trim();
+  if (query.length < 2) return;
+  const db = await database();
+  if (input.value.trim() !== query) return;
+  const found = looked(db, query);
+  box.replaceChildren(...found.map(suggestion));
+  box.hidden = !found.length;
+};
+
 for (const form of document.querySelectorAll("[data-ask]")) {
+  const input = form.querySelector("[data-address]");
+  const box = make("div", "hints");
+  box.hidden = true;
+  form.append(box);
+
+  let typed = 0;
+  input.addEventListener("input", () => {
+    box.hidden = true;
+    clearTimeout(typed);
+    typed = setTimeout(() => suggesting(input, box), TYPING);
+  });
+  input.addEventListener("blur", () => setTimeout(() => { box.hidden = true; }, TYPING));
+
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    seek(form.querySelector("[data-address]").value);
+    box.hidden = true;
+    seek(input.value);
   });
 }
 

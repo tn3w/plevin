@@ -24,6 +24,8 @@ type Head = {
 const MAGIC = "PLEVIN\0";
 const FORMAT = 1;
 const CACHED = 1 << 14;
+const MATCHES = 512;
+const BREAKS = new Set(" \t-,./()&_+'");
 const DEGREES = 10000;
 const UNSEEN = 255;
 const RECORDS = 1 << 14;
@@ -53,6 +55,24 @@ const READS: Record<string, Read> = {
 };
 
 const decoder = new TextDecoder();
+const encoder = new TextEncoder();
+
+/** Names are ascii far more often than not, and those read as chars and never bytes. */
+const ascii = (raw: Uint8Array, at: number, stop: number): string | null => {
+  let out = "";
+  for (let held = at; held < stop; held += 1) {
+    if (raw[held] > 0x7f) return null;
+    out += String.fromCharCode(raw[held]);
+  }
+  return out;
+};
+
+const grown = (head: Uint8Array, shared: number, tail: Uint8Array): Uint8Array => {
+  const value = new Uint8Array(shared + tail.length);
+  value.set(head.subarray(0, shared));
+  value.set(tail, shared);
+  return value;
+};
 
 const BIG_ENDIAN = new Uint8Array(Uint16Array.of(1).buffer)[0] === 0;
 
@@ -254,18 +274,26 @@ class Strings extends Section {
     const [raw, starts] = this.cache.get(index) as unknown as [Uint8Array, number[]];
     let cursor = starts[group % this.fanout];
     const values: string[] = [];
-    let previous = new Uint8Array(0);
+    let previous = "";
+    let bytes: Uint8Array | null = null;
     for (let held = 0; held < this.held(group); held += 1) {
       const shared = raw[cursor];
       let fresh = raw[cursor + 1];
       cursor += 2;
       if (fresh > 0x7f) [fresh, cursor] = varint(raw, cursor - 1);
-      const value = new Uint8Array(shared + fresh);
-      value.set(previous.subarray(0, shared));
-      value.set(raw.subarray(cursor, cursor + fresh), shared);
+      const tail = bytes === null ? ascii(raw, cursor, cursor + fresh) : null;
+      if (tail === null) {
+        bytes = grown(
+          bytes ?? encoder.encode(previous),
+          shared,
+          raw.subarray(cursor, cursor + fresh),
+        );
+        previous = decoder.decode(bytes);
+      } else {
+        previous = previous.slice(0, shared) + tail;
+      }
       cursor += fresh;
-      previous = value;
-      values.push(decoder.decode(value));
+      values.push(previous);
     }
     return values;
   }
@@ -385,6 +413,13 @@ type Family = {
   records: Section | null;
 };
 
+type Words = {
+  haystack: string;
+  starts: number[];
+  weights: number[];
+  rows: number[];
+};
+
 /** The database in memory, read a group at a time. */
 export class File {
   readonly head: Head;
@@ -395,6 +430,7 @@ export class File {
   private readonly rows: Record<string, Cache<number, Row>> = {};
   private readonly located: Record<number, Cache<number | bigint, Found | null>>;
   private readonly answers = new Cache((key: number) => this.answer(key));
+  private words: Words | null = null;
 
   constructor(bytes: Uint8Array) {
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -550,5 +586,77 @@ export class File {
   answerFor(found: Found): Row {
     const [version, row, override] = found;
     return this.answers.get((row * RECORDS + override) * 2 + (version === 6 ? 1 : 0));
+  }
+
+  /** The first row of a sorted column that is not below the value asked for. */
+  private seek(column: Section, value: number): number {
+    let low = 0;
+    let high = column.count;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if ((column.at(middle) as number) < value) low = middle + 1;
+      else high = middle;
+    }
+    return low;
+  }
+
+  /** The network row one ASN is stored at, no address and no bisecting a spine. */
+  system(asn: number): Row | null {
+    const column = this.sections["col.network.asn"];
+    if (!column || asn <= 0) return null;
+    const row = this.seek(column, asn);
+    if (row >= column.count || column.at(row) !== asn) return null;
+    return this.linked("network", row);
+  }
+
+  /** Every ASN's handle and company in one lowercase text a search scans whole. */
+  private searchable(): Words {
+    const asns = this.sections["col.network.asn"];
+    const handles = this.sections["col.network.handle"];
+    const operators = this.sections["link.network.operator"];
+    const carriers = this.sections["link.network.carrier"];
+    const companies = this.sections["col.operator.company"];
+    const peerings = this.sections["col.operator.peering"];
+    const people = this.sections["col.carrier.user_count"];
+    const pool = this.sections.strings;
+    const words: string[] = [];
+    const starts = [0];
+    const weights: number[] = [];
+    const rows: number[] = [];
+    for (let row = this.seek(asns, 1); row < asns.count; row += 1) {
+      const operator = operators.at(row) as number;
+      const carrier = carriers.at(row) as number;
+      const company = operator ? pool.at(companies.at(operator - 1) as number) : "";
+      const peering = operator ? (peerings.at(operator - 1) as number) : 0;
+      const users = carrier ? (people.at(carrier - 1) as number) : 0;
+      const word = `${pool.at(handles.at(row) as number)}\t${company}`.toLowerCase();
+      words.push(word);
+      starts.push(starts[starts.length - 1] + word.length + 1);
+      weights.push(peering + 32 - Math.clz32(users));
+      rows.push(row);
+    }
+    return { haystack: words.join("\n"), starts, weights, rows };
+  }
+
+  /** The networks whose handle or company carries the text, widest reach first. */
+  find(text: string, limit: number): Row[] {
+    const needle = text.trim().toLowerCase();
+    if (!needle || !("col.network.asn" in this.sections)) return [];
+    this.words ??= this.searchable();
+    const { haystack, starts, weights, rows } = this.words;
+    const found: number[][] = [];
+    let at = haystack.indexOf(needle);
+    while (at >= 0 && found.length < MATCHES) {
+      const index = bisect(starts, at) - 1;
+      const head = starts[index];
+      const stop = starts[index + 1];
+      const inside = at > head && !BREAKS.has(haystack[at - 1]) ? 1 : 0;
+      found.push([inside, -weights[index], stop - head, index]);
+      at = haystack.indexOf(needle, stop);
+    }
+    found.sort((one, two) => one[0] - two[0] || one[1] - two[1] || one[2] - two[2]);
+    return found
+      .slice(0, limit)
+      .map(([, , , index]) => this.linked("network", rows[index]));
   }
 }

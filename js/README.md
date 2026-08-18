@@ -275,6 +275,30 @@ datagram, sends the same queries to Cloudflare and Google over DNS-over-HTTPS. A
 are kept for an hour, and nothing is asked where the flag is off, which keeps a bundled
 reader as offline as it was.
 
+## One ASN, and the networks a name belongs to
+
+```js
+const found = db.system("AS13335");        // 'AS13335', 'as13335' or 13335
+found.handle;                              // 'CLOUDFLARENET'
+found.network.operator.brand;              // 'Cloudflare'
+found.abuse.network_risk;                  // 0.14
+
+db.search("hetzner").map((one) => one.asn);
+// [24940, 212317, 213230, 215859]
+```
+
+`system()` answers a `System`, so the `asn`, the `handle`, the same `network` with its
+operator and carrier, and the ASN's own `abuse` record, without anything only an address
+fixes: no prefix, no CIDR, no RPKI, no place. `found` is `false` where the file carries
+no such ASN. It bisects the network table, so no spine is read and nothing about the
+address lookup changes.
+
+`search(text, limit = 20)` matches the text against every handle and every company in
+the file and answers the same `System`, widest network first: a match at the head of a
+word beats one inside it, and then the network that touches most of the internet wins,
+which is its exchanges and its users. `search("13335")` is the ASN itself. The index is
+one lowercase text built on the first search, 0.32 s, and kept from then on.
+
 ## In a browser
 
 No build step and no install: the package is plain ESM with no dependencies, so any npm
@@ -337,6 +361,8 @@ Measured on the full file, Node 26, one core:
 | first answer | 44 ms, the blocks it lands in |
 | repeats | 4,600,000/s |
 | uniformly random v4 | 13,000/s cold, 200,000/s over the same log again |
+| one ASN | 350,000/s, a bisect of the network table |
+| search | 1 ms, after 0.32 s building the index |
 
 Blocks decode on reach and stay decoded, so a real log lands between the two. Memory is
 the file plus whatever it decoded, around 120 MB of heap with the whole world touched.

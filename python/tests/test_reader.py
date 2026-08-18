@@ -165,3 +165,30 @@ def test_an_address_the_index_starts_above_answers_nothing(slim: Path) -> None:
     assert index.holds(0x01020304) is None
     assert index.holds(0x0A000000) == 0
     assert index.holds(0x0A000001) is None
+
+
+def test_an_asn_reads_the_network_row_it_is_stored_at(full: Path) -> None:
+    file = reader.File(full)
+    found = file.system(15169)
+    assert found is not None
+    assert found["handle"] == "GOOGLE"
+    assert found["operator"]["company"] == "Google LLC"
+    assert file.system(16509) is not None
+    assert file.system(15170) is None
+    assert file.system(500000) is None
+    assert file.system(0) is None
+
+
+def test_a_file_without_a_network_table_answers_no_asn_and_no_search(slim: Path) -> None:
+    file = reader.File(slim)
+    assert file.system(15169) is None
+    assert file.find("google", 5) == []
+
+
+def test_a_search_reads_the_handles_and_the_companies(full: Path) -> None:
+    file = reader.File(full)
+    assert [row["asn"] for row in file.find("google", 5)] == [15169, 396982]
+    assert [row["asn"] for row in file.find("mazon", 5)] == [16509]
+    assert [row["asn"] for row in file.find("google llc", 5)] == [15169, 396982]
+    assert file.find("  ", 5) == []
+    assert file.find("nothing at all", 5) == []

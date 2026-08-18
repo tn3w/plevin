@@ -36,6 +36,7 @@ import type {
   Place,
   Region,
   Result,
+  System,
 } from "./models.ts";
 import { named } from "./naming.ts";
 import { File, type Found, type Row } from "./reader.ts";
@@ -204,8 +205,7 @@ const place = (row: Row | undefined): Ground | null => {
 };
 
 /** The network without its span, which the address the lookup asked about fixes. */
-const network = (row: Row | undefined, userType: string): Wires | null => {
-  if (!row) return null;
+const network = (row: Row, userType: string): Wires => {
   const handle = String(row.handle ?? "");
   return [
     {
@@ -232,9 +232,41 @@ const stored = (row: Row): Stored => {
   const userType = userTypeOf(held(row, "abuse"), system);
   return [
     place(held(row, "place")),
-    network(wires, userType),
+    wires ? network(wires, userType) : null,
     abuseOf(held(row, "abuse"), system, userType),
   ];
+};
+
+/** One ASN alone: the row the file stores, without what only an address adds. */
+const systemOf = (row: Row): System => {
+  const record = held(row, "abuse");
+  const userType = userTypeOf(undefined, record);
+  const { asn, handle, operator, carrier } = network(row, userType)[0];
+  return {
+    asn,
+    handle,
+    found: true,
+    network: {
+      asn,
+      handle,
+      prefix: null,
+      cidr: null,
+      start: null,
+      end: null,
+      rir: null,
+      rpki: null,
+      roas: null,
+      operator,
+      carrier,
+    },
+    abuse: abuseOf(undefined, record, userType),
+  };
+};
+
+/** An ASN however it is written, as AS15169, as15169 or plainly 15169. */
+const asnOf = (value: number | string): number => {
+  const held = String(value).trim().toLowerCase().replace(/^as/, "");
+  return /^\d+$/.test(held) ? Number(held) : 0;
 };
 
 const spanned = (wires: Wires, value: number | bigint, wide: boolean): Network => {
@@ -356,6 +388,27 @@ export class Plevin {
     if (!options?.dns) return answered;
     const [held, wide] = parse(value);
     return { ...answered, dns: await named(held, wide) };
+  }
+
+  /** One ASN as everything the file stores about the network behind it. */
+  system(asn: number | string): System {
+    const number = asnOf(asn);
+    const row = this.file.system(number);
+    if (row) return systemOf(row);
+    return {
+      asn: number || null,
+      handle: null,
+      found: false,
+      network: null,
+      abuse: null,
+    };
+  }
+
+  /** The networks whose handle or company carries this text, best match first. */
+  search(text: string, limit = 20): System[] {
+    const found = this.system(text);
+    if (found.found) return [found];
+    return this.file.find(text, limit).map(systemOf);
   }
 
   /** The stored rows without any shaping, or null where the file covers nothing. */

@@ -13,8 +13,10 @@ POOL = [
     "1600 Amphitheatre Parkway",
     "94035",
     "94043",
+    "AMAZON-02",
     "California",
     "GOOGLE",
+    "GOOGLE-CLOUD",
     "Google LLC",
     "Mountain View",
     "Mountain Viewer",
@@ -114,11 +116,12 @@ def _tables(writer: Writer) -> None:
     writer.column("col.abuse.last_seen_days", [0, 1, 5])
     writer.column("col.abuse.user_type", [3, 3, 1])
 
-    writer.column("col.network.asn", [15169])
-    writer.column("col.network.handle", [TEXT["GOOGLE"]], read="text")
-    writer.column("link.network.operator", [1])
-    writer.column("link.network.carrier", [1])
-    writer.column("link.network.abuse", [1])
+    writer.column("col.network.asn", [15169, 16509, 396982])
+    writer.column("col.network.handle",
+                  [TEXT["GOOGLE"], TEXT["AMAZON-02"], TEXT["GOOGLE-CLOUD"]], read="text")
+    writer.column("link.network.operator", [1, 0, 1])
+    writer.column("link.network.carrier", [1, 0, 0])
+    writer.column("link.network.abuse", [1, 0, 0])
 
     writer.column("col.place.lat", [373861, 0], read="degrees", signed=True)
     writer.column("col.place.lon", [-1220838, 0], read="degrees", signed=True,

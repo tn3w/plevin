@@ -146,6 +146,20 @@ class Network:
 
 
 @dataclass(slots=True)
+class System:
+    """One ASN: the network behind it, with no address to give it a span."""
+
+    asn: int | None = None
+    handle: str | None = None
+    found: bool = False
+    network: Network | None = None
+    abuse: Abuse | None = None
+
+    def __bool__(self) -> bool:
+        return self.found
+
+
+@dataclass(slots=True)
 class Dns:
     """What the resolvers say about the address, asked for only where a flag says so."""
 

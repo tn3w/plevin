@@ -350,3 +350,33 @@ def test_hextets_that_read_as_decimal_are_guessed_at(opened: Path) -> None:
     assert found.decimal_ipv4 == "192.42.116.55"
     assert (found.tunnel, found.embedded_ipv4) == (None, None)
     assert plevin.lookup("2606:4700::1111").decimal_ipv4 is None
+
+
+def test_an_asn_answers_the_network_behind_it(opened: Path) -> None:
+    found = plevin.system("AS15169")
+    assert found
+    assert (found.asn, found.handle) == (15169, "GOOGLE")
+    assert found.network is not None and found.network.operator is not None
+    assert found.network.operator.company == "Google LLC"
+    assert found.network.carrier is not None and found.network.carrier.mcc == 262
+    assert found.network.cidr is None and found.network.prefix is None
+    assert found.abuse is not None and found.abuse.risk is None
+    assert found.abuse.is_hosting_provider
+
+
+def test_an_asn_the_file_does_not_carry_is_falsy(opened: Path) -> None:
+    found = plevin.system(64512)
+    assert not found
+    assert (found.asn, found.network, found.abuse) == (64512, None, None)
+    assert plevin.system("not an asn").asn is None
+
+
+def test_a_search_answers_the_widest_networks_first(opened: Path) -> None:
+    assert [one.asn for one in plevin.search("google")] == [15169, 396982]
+    assert [one.handle for one in plevin.search("amazon")] == ["AMAZON-02"]
+    assert plevin.search("nothing at all") == []
+
+
+def test_a_search_for_an_asn_answers_that_one_network(opened: Path) -> None:
+    assert [one.asn for one in plevin.search("as396982")] == [396982]
+    assert [one.asn for one in plevin.search("16509")] == [16509]

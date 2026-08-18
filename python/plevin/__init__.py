@@ -49,6 +49,7 @@ from .models import (
     Place,
     Region,
     Result,
+    System,
     Time,
 )
 from .reader import CACHED, Cache, File, Found
@@ -67,10 +68,13 @@ __all__ = [
     "Plevin",
     "Region",
     "Result",
+    "System",
     "Time",
     "address",
     "database",
     "lookup",
+    "search",
+    "system",
     "use",
 ]
 
@@ -249,10 +253,8 @@ def _abuse(record: Rows | None, system: Rows | None, user_type: str) -> Abuse | 
     )
 
 
-def _network(rows: Rows | None, user_type: str) -> tuple[Wires, int | None] | None:
+def _network(rows: Rows, user_type: str) -> tuple[Wires, int | None]:
     """The network without its span, which the address the lookup asked about fixes."""
-    if rows is None:
-        return None
     handle = str(rows.get("handle", ""))
     wires = (_count(rows.get("asn")), _text(handle), _text(rows.get("rir")),
              _text(rows.get("rpki")), rows.get("roas"),
@@ -272,7 +274,8 @@ def _stored(rows: Rows) -> Stored:
     network = rows.get("network")
     system = None if network is None else network.get("abuse")
     user_type = _user_type(rows.get("abuse"), system)
-    return (_place(rows.get("place")), _network(network, user_type),
+    return (_place(rows.get("place")),
+            None if network is None else _network(network, user_type),
             _abuse(rows.get("abuse"), system, user_type))
 
 
@@ -317,6 +320,26 @@ def _result(value: int, wide: bool, stored: Stored | None,
         abuse=abuse,
         dns=dns,
     )
+
+
+def _system(rows: Rows) -> System:
+    """One ASN alone: the row the file stores, without what only an address adds."""
+    record = rows.get("abuse")
+    user_type = _user_type(None, record)
+    asn, handle, _, _, _, operator, carrier = _network(rows, user_type)[0]
+    return System(
+        asn=asn,
+        handle=handle,
+        found=True,
+        network=Network(asn=asn, handle=handle, operator=operator, carrier=carrier),
+        abuse=_abuse(None, record, user_type),
+    )
+
+
+def _asn(value: int | str) -> int:
+    """An ASN however it is written, as AS15169, as15169 or plainly 15169."""
+    text = str(value).strip().lower().removeprefix("as")
+    return int(text) if text.isdigit() else 0
 
 
 def _spanned(wires: Wires, prefix: int | None, value: int, wide: bool) -> Network:
@@ -391,6 +414,19 @@ class Plevin:
         answer: Result = self.results[number + WIDE if wide else number]
         return answer
 
+    def system(self, asn: int | str) -> System:
+        """One ASN as everything the file stores about the network behind it."""
+        number = _asn(asn)
+        rows = self.file.system(number)
+        return System(asn=number or None) if rows is None else _system(rows)
+
+    def search(self, text: str, limit: int = 20) -> list[System]:
+        """The networks whose handle or company carries this text, best match first."""
+        found = self.system(text)
+        if found.found:
+            return [found]
+        return [_system(rows) for rows in self.file.find(text, limit)]
+
 
 _opened: Plevin | None = None
 
@@ -414,3 +450,13 @@ def lookup(value: Value, moment: datetime | None = None,
            dns: bool = False) -> Result:
     """One address as everything the file answers, and DNS only where asked."""
     return database().lookup(value, moment, dns)
+
+
+def system(asn: int | str) -> System:
+    """One ASN as everything the file stores about the network behind it."""
+    return database().system(asn)
+
+
+def search(text: str, limit: int = 20) -> list[System]:
+    """The networks whose handle or company carries this text, best match first."""
+    return database().search(text, limit)

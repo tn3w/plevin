@@ -171,6 +171,7 @@ a:hover { text-decoration: underline; }
 .hero .claim strong { color: var(--ink); font-weight: 700; }
 
 .search {
+  position: relative;
   display: flex;
   gap: 0.5rem;
   margin: 2.4rem auto 0;
@@ -753,6 +754,47 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
   gap: 1.1rem 1.4rem;
+}
+
+.hints {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.35rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  box-shadow: var(--shadow);
+  text-align: left;
+}
+
+.hints button {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.6rem;
+  background: none;
+  color: inherit;
+  font-weight: 500;
+}
+
+.hints button:hover { background: var(--panel); }
+.hints b { font-family: var(--mono); color: var(--network); }
+.hints span { font-family: var(--mono); font-size: 0.85rem; }
+
+.hints em {
+  font-style: normal;
+  color: var(--soft);
+  font-size: 0.85rem;
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .field { min-width: 0; }
