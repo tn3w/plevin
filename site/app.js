@@ -1,3 +1,4 @@
+import { country as homeland } from "./plevin/extra.js";
 import { ask, Plevin, records } from "./plevin/index.js";
 import { SAMPLE } from "./sample.js";
 
@@ -341,6 +342,11 @@ const country = (held) => {
   return `${held.official ?? held.name}${codes ? ` (${codes})` : ""}`;
 };
 
+const based = (code) => {
+  const held = code ? homeland(code) : null;
+  return held?.name ? `${held.flag} ${held.name}` : code;
+};
+
 const region = (city) =>
   city.region ? `${city.region.name}${city.region.iso ? ` (${city.region.iso})` : ""}` : null;
 
@@ -395,11 +401,69 @@ const networkPanel = (found) => {
     ["Website", operator.website, true],
     ["Abuse mailbox", operator.abuse_email, true, "the abuse mailbox"],
     ["User type", network.carrier?.user_type],
+    ["Users", network.carrier?.user_count?.toLocaleString("en-US")],
     ["Mobile codes", network.carrier?.mcc
       ? `MCC ${network.carrier.mcc}, MNC ${network.carrier.mnc}` : null],
     ["Registered", [operator.street, operator.city?.name, operator.state,
-      operator.postal, operator.country].filter(Boolean).join(", ")],
+      operator.postal, based(operator.country)].filter(Boolean).join(", ")],
   ]));
+  return section;
+};
+
+const SPANS = 48;
+const WIDE = 1n << 64n;
+
+const plural = (count, one, many) =>
+  `${count.toLocaleString("en-US")} ${Number(count) === 1 ? one : many}`;
+
+/** A v6 prefix counts in /64 networks, which is the unit routing is talked in. */
+const sized = (count) => {
+  const held = BigInt(count);
+  return held < WIDE
+    ? plural(held, "address", "addresses")
+    : plural(held >> 64n, "/64 network", "/64 networks");
+};
+
+const rangeChip = (one) => {
+  const button = make("button", "range");
+  button.type = "button";
+  button.append(make("b", "", one.cidr), make("span", "", sized(one.addresses)));
+  button.addEventListener("click", () => seek(one.start));
+  return button;
+};
+
+const rangeBlock = (held, label) => {
+  const holder = make("div", "range-block");
+  const list = make("div", "ranges");
+  list.append(...held.slice(0, SPANS).map(rangeChip));
+  holder.append(make("span", "range-label", label), list);
+  if (held.length <= SPANS) return holder;
+
+  const more = make("button", "ghost",
+    `show all ${held.length.toLocaleString("en-US")}`);
+  more.type = "button";
+  more.addEventListener("click", () => {
+    list.append(...held.slice(SPANS).map(rangeChip));
+    more.remove();
+  });
+  holder.append(more);
+  return holder;
+};
+
+const routingPanel = (db, asn) => {
+  const { ipv4, ipv6, ipv4_addresses, ipv6_addresses } = db.routes(asn);
+  if (!ipv4.length && !ipv6.length) return null;
+
+  const [section, body] = panel("routing", "Routes",
+    plural(ipv4.length + ipv6.length, "prefix", "prefixes"));
+  body.append(fields([
+    ["IPv4 prefixes", ipv4.length ? ipv4.length.toLocaleString("en-US") : null],
+    ["IPv4 space", ipv4.length ? sized(ipv4_addresses) : null],
+    ["IPv6 prefixes", ipv6.length ? ipv6.length.toLocaleString("en-US") : null],
+    ["IPv6 space", ipv6.length ? sized(ipv6_addresses) : null],
+  ]));
+  if (ipv4.length) body.append(rangeBlock(ipv4, "IPv4"));
+  if (ipv6.length) body.append(rangeBlock(ipv6, "IPv6"));
   return section;
 };
 
@@ -571,15 +635,17 @@ const render = (found) => {
   cards.append(addressPanel(found));
 };
 
-const renderSystem = (found, query) => {
+const renderSystem = (db, found, query) => {
   shown();
 
   const name = `AS${found.asn}`;
   node("ip").textContent = found.found ? name : query;
   node("ip-line").replaceChildren(node("ip"));
   if (found.found) node("ip-line").append(copier(name, "the ASN"));
-  node("flag").textContent = "";
   const operator = found.network?.operator;
+  node("flag").textContent = operator?.country
+    ? homeland(operator.country).flag ?? ""
+    : "";
   node("where").textContent = found.found
     ? listed([operator?.brand ?? operator?.company, found.handle])
     : "the database carries nothing for this ASN";
@@ -589,6 +655,8 @@ const renderSystem = (found, query) => {
   const cards = node("cards");
   cards.replaceChildren();
   if (found.network) cards.append(networkPanel(found));
+  const routes = found.found ? routingPanel(db, found.asn) : null;
+  if (routes) cards.append(routes);
   if (told(found.abuse)) cards.append(abusePanel(found.abuse, false));
 };
 
@@ -625,7 +693,7 @@ const show = async (address) => {
   }
   if (asked !== address) return;
 
-  if (ASN.test(address)) return renderSystem(db.system(address), address);
+  if (ASN.test(address)) return renderSystem(db, db.system(address), address);
 
   const [found, name] = await answered(db, address);
   if (asked !== address) return;

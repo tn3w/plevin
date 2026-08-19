@@ -742,6 +742,7 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
 .panel.abuse { --kind: var(--abuse); }
 .panel.address { --kind: var(--address); }
 .panel.dns { --kind: var(--dns); }
+.panel.routing { --kind: var(--network); }
 
 .dot {
   width: 0.55rem;
@@ -832,6 +833,39 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
 
 .stack { display: grid; gap: 1.2rem; align-content: start; }
 
+.range-block { display: grid; justify-items: start; gap: 0.6rem; }
+
+.range-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.ranges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.range {
+  display: grid;
+  justify-items: start;
+  gap: 0.1rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: var(--panel);
+  color: inherit;
+  text-align: left;
+}
+
+.range:hover { border-color: var(--network); }
+.range b { font: 600 0.85rem var(--mono); color: var(--network); }
+.range span { font-size: 0.72rem; font-weight: 500; color: var(--faint); }
+
 @media (min-width: 62rem) {
   .panel.place .body {
     grid-template-columns: minmax(0, 25rem) minmax(0, 1fr);
@@ -840,7 +874,7 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
   }
 
   .panel.abuse .body {
-    grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
     gap: 1.8rem;
   }
@@ -945,9 +979,9 @@ dialog pre.json { border: 0; border-radius: 0; box-shadow: none; max-height: 68v
   transform: translateX(-50%);
 }
 
-.gauges { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.gauges { display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem; }
 
-.gauge { text-align: center; position: relative; }
+.gauge { width: 7rem; text-align: center; position: relative; }
 .gauge svg { width: 100%; max-width: 8rem; height: auto; }
 .gauge .rail { stroke: var(--line); }
 .gauge .arc { stroke: var(--tone, var(--abuse)); stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }

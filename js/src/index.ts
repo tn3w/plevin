@@ -36,6 +36,8 @@ import type {
   Place,
   Region,
   Result,
+  Routes,
+  Span,
   System,
 } from "./models.ts";
 import { named } from "./naming.ts";
@@ -263,6 +265,40 @@ const systemOf = (row: Row): System => {
   };
 };
 
+/** A more specific sits inside its own cover, so the sweep counts the space once. */
+const covered = (held: [bigint, number][], bits: bigint): bigint => {
+  let total = 0n;
+  let reach = 0n;
+  for (const [start, prefix] of [...held].sort(([one], [two]) => (one < two ? -1 : 1))) {
+    const end = start + (1n << (bits - BigInt(prefix)));
+    if (end <= reach) continue;
+    total += end - (start > reach ? start : reach);
+    reach = end;
+  }
+  return total;
+};
+
+/** Every prefix one network row is announced as, widest first, and the space covered. */
+const routed = (file: File, row: number, version: number): [Span[], bigint] => {
+  const wide = version === 6;
+  const bits = wide ? 128n : 32n;
+  const held = file.spans(row, version);
+  held.sort((one, two) => one[1] - two[1] || (one[0] < two[0] ? -1 : 1));
+  const spans = held.map(([start, prefix]): Span => {
+    const [cidr, first, last] = span(start, wide, prefix);
+    const addresses = 1n << (bits - BigInt(prefix));
+    return {
+      cidr,
+      start: first,
+      end: last,
+      version,
+      prefix,
+      addresses: wide ? addresses : Number(addresses),
+    };
+  });
+  return [spans, covered(held, bits)];
+};
+
 /** An ASN however it is written, as AS15169, as15169 or plainly 15169. */
 const asnOf = (value: number | string): number => {
   const held = String(value).trim().toLowerCase().replace(/^as/, "");
@@ -332,6 +368,7 @@ export class Plevin {
   readonly file: File;
   private readonly kept = new Map<string, Stored>();
   private readonly results = new Map<bigint, Result>();
+  private readonly announced = new Map<number, Routes>();
   private second = 0;
 
   constructor(bytes: Uint8Array) {
@@ -402,6 +439,37 @@ export class Plevin {
       network: null,
       abuse: null,
     };
+  }
+
+  /** Every prefix one ASN is announced as, widest first, and the space they cover. */
+  routes(asn: number | string): Routes {
+    const number = asnOf(asn);
+    const found = this.announced.get(number);
+    if (found) return found;
+
+    const row = this.file.systemAt(number);
+    if (row < 0) {
+      return {
+        asn: number || null,
+        found: false,
+        ipv4: [],
+        ipv6: [],
+        ipv4_addresses: 0,
+        ipv6_addresses: 0n,
+      };
+    }
+    const [ipv4, four] = routed(this.file, row, 4);
+    const [ipv6, six] = routed(this.file, row, 6);
+    const built: Routes = {
+      asn: number,
+      found: true,
+      ipv4,
+      ipv6,
+      ipv4_addresses: Number(four),
+      ipv6_addresses: six,
+    };
+    this.announced.set(number, built);
+    return built;
   }
 
   /** The networks whose handle or company carries this text, best match first. */

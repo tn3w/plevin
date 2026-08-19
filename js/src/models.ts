@@ -138,6 +138,26 @@ export type System = {
   abuse: Abuse | null;
 };
 
+/** One prefix an ASN is announced as, and how many addresses it holds. */
+export type Span = {
+  cidr: string;
+  start: string;
+  end: string;
+  version: number;
+  prefix: number;
+  addresses: number | bigint;
+};
+
+/** Every prefix one ASN is announced as, widest first, and the space they cover. */
+export type Routes = {
+  asn: number | null;
+  found: boolean;
+  ipv4: Span[];
+  ipv6: Span[];
+  ipv4_addresses: number;
+  ipv6_addresses: bigint;
+};
+
 /** What the resolvers say about the address, asked for only where a flag says so. */
 export type Dns = {
   asked: string | null;

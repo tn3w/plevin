@@ -160,6 +160,33 @@ class System:
 
 
 @dataclass(slots=True)
+class Span:
+    """One prefix an ASN is announced as, and how many addresses it holds."""
+
+    cidr: str
+    start: str
+    end: str
+    version: int
+    prefix: int
+    addresses: int
+
+
+@dataclass(slots=True)
+class Routes:
+    """Every prefix one ASN is announced as, widest first, and the space they cover."""
+
+    asn: int | None = None
+    found: bool = False
+    ipv4: tuple[Span, ...] = ()
+    ipv6: tuple[Span, ...] = ()
+    ipv4_addresses: int = 0
+    ipv6_addresses: int = 0
+
+    def __bool__(self) -> bool:
+        return self.found
+
+
+@dataclass(slots=True)
 class Dns:
     """What the resolvers say about the address, asked for only where a flag says so."""
 

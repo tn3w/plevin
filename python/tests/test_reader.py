@@ -182,7 +182,26 @@ def test_an_asn_reads_the_network_row_it_is_stored_at(full: Path) -> None:
 def test_a_file_without_a_network_table_answers_no_asn_and_no_search(slim: Path) -> None:
     file = reader.File(slim)
     assert file.system(15169) is None
+    assert file.system_row(15169) == -1
+    assert file.spans(0, 4) == []
     assert file.find("google", 5) == []
+
+
+def test_a_network_row_reads_the_prefixes_it_is_announced_as(full: Path) -> None:
+    file = reader.File(full)
+    assert file.spans(0, 4) == [(0x01000000, 8), (0x08080800, 24)]
+    assert file.spans(0, 6) == [(CLOUDFLARE, 32)]
+    assert file.spans(1, 4) == []
+
+
+def test_boundaries_inside_one_prefix_read_as_that_prefix_once(tmp_path: Path) -> None:
+    writer = Writer()
+    writer.column("col.network.asn", [64500])
+    writer.index("spine.v4", [0x0A000000, 0x0A000100, 0x0A010000], wide=False)
+    writer.column("spine.v4.network", [1, 1, 1])
+    writer.column("spine.v4.prefix", [8, 8, 16])
+    path = written(tmp_path / "nested.plv", writer.build(selection="network"))
+    assert reader.File(path).spans(0, 4) == [(0x0A000000, 8), (0x0A010000, 16)]
 
 
 def test_a_search_reads_the_handles_and_the_companies(full: Path) -> None:

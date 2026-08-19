@@ -86,6 +86,25 @@ test("answers one ASN without an address to ask about", held, () => {
   assert.equal(db?.system("nowhere").asn, null);
 });
 
+test("answers every prefix an ASN is announced as", held, () => {
+  const found = db?.routes("AS13335");
+  assert.equal(found?.found, true);
+  assert.ok(found?.ipv4.some((one) => one.cidr === "1.1.1.0/24"));
+  assert.ok((found?.ipv6.length ?? 0) > 0);
+  const [widest] = found?.ipv4 ?? [];
+  assert.equal(widest?.addresses, 2 ** (32 - (widest?.prefix ?? 0)));
+  assert.equal(widest?.cidr, `${widest?.start}/${widest?.prefix}`);
+  assert.ok((found?.ipv4_addresses ?? 0) >= Number(widest?.addresses));
+  assert.ok((found?.ipv6_addresses ?? 0n) >= (found?.ipv6[0]?.addresses ?? 0n));
+  assert.deepEqual(
+    found?.ipv4.map((one) => one.prefix),
+    [...(found?.ipv4 ?? [])].map((one) => one.prefix).sort((one, two) => one - two),
+  );
+  assert.equal(db?.routes("AS13335"), found);
+  assert.equal(db?.routes("nowhere").found, false);
+  assert.deepEqual(db?.routes(4294967295).ipv4, []);
+});
+
 test("finds the widest networks a name belongs to", held, () => {
   assert.equal(db?.search("cloudflare")[0]?.asn, 13335);
   assert.equal(db?.search("google")[0]?.asn, 15169);

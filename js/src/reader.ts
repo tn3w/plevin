@@ -254,6 +254,19 @@ class Column extends Section {
     const value = (this.cache.get(index) as unknown as Numbers)[row % this.perBlock];
     return typeof value === "bigint" ? Number(value) : value;
   }
+
+  /** Every row holding this value, searched a block at a time and not a row at a time. */
+  rows(value: number): number[] {
+    const found: number[] = [];
+    for (let index = 0; index < this.blocks; index += 1) {
+      const held = this.cache.get(index) as unknown as Uint32Array;
+      const target = (typeof held[0] === "bigint" ? BigInt(value) : value) as number;
+      for (let at = held.indexOf(target); at >= 0; at = held.indexOf(target, at + 1)) {
+        found.push(index * this.perBlock + at);
+      }
+    }
+    return found;
+  }
 }
 
 /** One pool, front-coded, restarting every group so a group decodes alone. */
@@ -600,13 +613,40 @@ export class File {
     return low;
   }
 
+  /** The row one ASN is stored at, or -1 where the file carries no such network. */
+  systemAt(asn: number): number {
+    const column = this.sections["col.network.asn"];
+    if (!column || asn <= 0) return -1;
+    const row = this.seek(column, asn);
+    return row < column.count && column.at(row) === asn ? row : -1;
+  }
+
   /** The network row one ASN is stored at, no address and no bisecting a spine. */
   system(asn: number): Row | null {
-    const column = this.sections["col.network.asn"];
-    if (!column || asn <= 0) return null;
-    const row = this.seek(column, asn);
-    if (row >= column.count || column.at(row) !== asn) return null;
-    return this.linked("network", row);
+    const row = this.systemAt(asn);
+    return row < 0 ? null : this.linked("network", row);
+  }
+
+  /** Every prefix a network row is announced as, deduped, in the spine's order. */
+  spans(network: number, version: number): [bigint, number][] {
+    const spine = this.sections[`spine.v${version}`] as Index | undefined;
+    const links = this.sections[`spine.v${version}.network`] as Column | undefined;
+    const prefixes = this.sections[`spine.v${version}.prefix`] as Column | undefined;
+    if (!spine || !links || !prefixes) return [];
+
+    const bits = BigInt(version === 6 ? 128 : 32);
+    const seen = new Set<string>();
+    const held: [bigint, number][] = [];
+    for (const row of links.rows(network + 1)) {
+      const prefix = prefixes.at(row);
+      const spare = bits - BigInt(prefix);
+      const start = (BigInt(spine.at(row)) >> spare) << spare;
+      const key = `${start}/${prefix}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      held.push([start, prefix]);
+    }
+    return held;
   }
 
   /** Every ASN's handle and company in one lowercase text a search scans whole. */

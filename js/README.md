@@ -299,6 +299,27 @@ word beats one inside it, and then the network that touches most of the internet
 which is its exchanges and its users. `search("13335")` is the ASN itself. The index is
 one lowercase text built on the first search, 0.32 s, and kept from then on.
 
+## What an ASN announces
+
+```js
+const routes = db.routes("AS13335");       // written however system() takes it
+routes.ipv4.length;                        // 1506
+routes.ipv4[0].cidr;                       // '152.114.0.0/17', the widest first
+routes.ipv4[0].addresses;                  // 32768
+routes.ipv4_addresses;                     // 616704, the space of all of them
+routes.ipv6_addresses >> 64n;              // 75037868032n, as /64 networks
+```
+
+`routes()` answers a `Routes`: every prefix the ASN is announced as, split into `ipv4`
+and `ipv6` and widest first, each one a `Span` with its `cidr`, `start`, `end`,
+`version`, `prefix` and `addresses`. `ipv4_addresses` is a number and `ipv6_addresses` a
+bigint, and both count the space once where a more specific sits inside its own cover.
+`found` is `false` where the file carries no such ASN.
+
+It reads the spine's network column whole, a block at a time, rather than a row at a
+time: 159 ms for the first ASN asked about and 2 to 9 ms for every one after it, each
+answer kept. Nothing an address lookup reads is touched.
+
 ## In a browser
 
 No build step and no install: the package is plain ESM with no dependencies, so any npm
@@ -362,6 +383,7 @@ Measured on the full file, Node 26, one core:
 | repeats | 4,600,000/s |
 | uniformly random v4 | 13,000/s cold, 200,000/s over the same log again |
 | one ASN | 350,000/s, a bisect of the network table |
+| one ASN's prefixes | 159 ms for the first, 2 to 9 ms after, then kept |
 | search | 1 ms, after 0.32 s building the index |
 
 Blocks decode on reach and stay decoded, so a real log lands between the two. Memory is

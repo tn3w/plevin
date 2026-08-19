@@ -10,8 +10,9 @@ from types import ModuleType
 import pytest
 
 import plevin
-from conftest import HOST_V4, HOST_V6
+from conftest import HOST_V4, HOST_V6, written
 from plevin import Dns, reader
+from plv import Writer
 
 MOMENT = datetime(2026, 8, 13, 12, tzinfo=timezone.utc)
 
@@ -369,6 +370,37 @@ def test_an_asn_the_file_does_not_carry_is_falsy(opened: Path) -> None:
     assert not found
     assert (found.asn, found.network, found.abuse) == (64512, None, None)
     assert plevin.system("not an asn").asn is None
+
+
+def test_an_asn_answers_every_prefix_it_is_announced_as(opened: Path) -> None:
+    found = plevin.routes("AS15169")
+    assert found and found.asn == 15169
+    assert [one.cidr for one in found.ipv4] == ["1.0.0.0/8", "8.8.8.0/24"]
+    assert (found.ipv4[0].start, found.ipv4[0].end) == ("1.0.0.0", "1.255.255.255")
+    assert (found.ipv4[0].version, found.ipv4[0].addresses) == (4, 1 << 24)
+    assert [one.cidr for one in found.ipv6] == ["2606:4700::/32"]
+    assert found.ipv4_addresses == (1 << 24) + 256
+    assert found.ipv6_addresses == 1 << 96
+
+
+def test_an_asn_no_boundary_names_is_found_and_announces_nothing(opened: Path) -> None:
+    assert plevin.routes(16509).found
+    assert plevin.routes("AS16509").ipv4 == ()
+    assert not plevin.routes(64512)
+    assert plevin.routes(64512).asn == 64512
+    assert plevin.routes("not an asn").asn is None
+
+
+def test_a_more_specific_inside_its_cover_counts_its_space_once(tmp_path: Path) -> None:
+    writer = Writer()
+    writer.column("col.network.asn", [64500])
+    writer.index("spine.v4", [0x0A000000, 0x0A010000], wide=False)
+    writer.column("spine.v4.network", [1, 1])
+    writer.column("spine.v4.prefix", [8, 16])
+    path = written(tmp_path / "nested.plv", writer.build(selection="network"))
+    found = plevin.Plevin(path).routes(64500)
+    assert [one.cidr for one in found.ipv4] == ["10.0.0.0/8", "10.1.0.0/16"]
+    assert found.ipv4_addresses == 1 << 24
 
 
 def test_a_search_answers_the_widest_networks_first(opened: Path) -> None:

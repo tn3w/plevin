@@ -188,6 +188,20 @@ class Column(Section):
         index, place = divmod(row, self.per_block)
         return self.cache[index][place]
 
+    def rows(self, value: int) -> list[int]:
+        """Every row holding this value, searched a block at a time and not a row."""
+        found: list[int] = []
+        for index in range(self.blocks):
+            values, head, at = self.cache[index], index * self.per_block, 0
+            while True:
+                try:
+                    at = values.index(value, at)
+                except ValueError:
+                    break
+                found.append(head + at)
+                at += 1
+        return found
+
 
 class Strings(Section):
     """One pool, front-coded, restarting every group so a group decodes alone."""
@@ -419,16 +433,42 @@ class File:
                 high = middle
         return low
 
-    def system(self, asn: int) -> Row | None:
-        """The network row one ASN is stored at, no address and no bisecting a spine."""
+    def system_row(self, asn: int) -> int:
+        """The row one ASN is stored at, or -1 where the file carries no such network."""
         column = self.sections.get("col.network.asn")
         if column is None or asn <= 0:
-            return None
+            return -1
         row = self._seek(column, asn)
-        if row >= column.count or column[row] != asn:
+        return row if row < column.count and column[row] == asn else -1
+
+    def system(self, asn: int) -> Row | None:
+        """The network row one ASN is stored at, no address and no bisecting a spine."""
+        row = self.system_row(asn)
+        if row < 0:
             return None
         found: Row = self.rows[("network", row)]
         return found
+
+    def spans(self, network: int, version: int) -> list[tuple[int, int]]:
+        """Every prefix a network row is announced as, deduped, in the spine's order."""
+        spine = self.sections.get(f"spine.v{version}")
+        links = self.sections.get(f"spine.v{version}.network")
+        prefixes = self.sections.get(f"spine.v{version}.prefix")
+        if spine is None or prefixes is None or not isinstance(links, Column):
+            return []
+
+        bits = 128 if version == 6 else 32
+        seen: set[tuple[int, int]] = set()
+        held: list[tuple[int, int]] = []
+        for row in links.rows(network + 1):
+            prefix = prefixes[row]
+            spare = bits - prefix
+            found = (spine[row] >> spare << spare, prefix)
+            if found in seen:
+                continue
+            seen.add(found)
+            held.append(found)
+        return held
 
     def _searchable(self) -> Words:
         """Every ASN's handle and company in one lowercase text a search scans whole."""

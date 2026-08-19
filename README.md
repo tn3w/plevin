@@ -341,6 +341,31 @@ beats one inside it, and then the network that touches most of the internet wins
 is its exchanges and its users. `search("13335")` is the ASN itself. The index is one
 lowercase text built on the first search, 0.26 s, and kept from then on.
 
+## What an ASN announces
+
+```python
+>>> routes = plevin.routes("AS13335")       # written however system() takes it
+>>> len(routes.ipv4), len(routes.ipv6)
+(1506, 915)
+
+>>> routes.ipv4[0]                          # the widest first
+Span(cidr='152.114.0.0/17', start='152.114.0.0', end='152.114.127.255', version=4,
+     prefix=17, addresses=32768)
+
+>>> routes.ipv4_addresses, routes.ipv6_addresses >> 64
+(616704, 75037868032)
+```
+
+`routes()` answers a `Routes`: every prefix the ASN is announced as, split into `ipv4`
+and `ipv6` and widest first, each one a `Span` with its `cidr`, `start`, `end`,
+`version`, `prefix` and `addresses`. `ipv4_addresses` and `ipv6_addresses` count the
+space once where a more specific sits inside its own cover, the second one large enough
+that `>> 64` reads it as /64 networks. Falsy where the file carries no such ASN.
+
+It reads the spine's network column whole, a block at a time, rather than a row at a
+time: 83 ms for the first ASN asked about and 40 ms for every one after it, each answer
+kept. Nothing an address lookup reads is touched.
+
 ## Good for
 
 - Country routing, pricing and compliance without a third-party call
@@ -381,6 +406,7 @@ extra.
 | repeats             | 2,060,000/s                              |
 | uniformly random v4 | 16,000/s, every one a fresh block decode |
 | one ASN             | 46,000/s, a bisect of the network table  |
+| one ASN's prefixes  | 83 ms for the first, 40 ms after, then kept |
 | search              | 1.2 ms, after 0.26 s building the index  |
 
 Blocks decode on reach and stay decoded, so a real log lands between the two: the
@@ -430,6 +456,7 @@ named.dns.hostname;                            // 'one.one.one.one'
 
 db.system("AS13335").network.operator.brand;   // 'Cloudflare', no address asked about
 db.search("hetzner")[0].asn;                   // 24940
+db.routes("AS13335").ipv4.length;              // 1506 prefixes it announces
 ```
 
 A page needs no install: `https://cdn.jsdelivr.net/npm/plevinjs` is the reader, as is
@@ -446,7 +473,9 @@ block for block against libzstd. 4,600,000 warm lookups a second.
 and answers there: no API, and no address of yours sent anywhere except to the service
 that tells you your own, and to a resolver for the DNS card. The one box takes an
 address, a hostname or an ASN as `AS13335`; type a network name instead and the five
-widest matches drop down under the bar. It is plain
+widest matches drop down under the bar. An ASN answers with the registered country in
+the headline and a routes card: how many prefixes it announces, how much space they
+cover, and every prefix as a chip that looks its first address up. It is plain
 HTML, CSS and JavaScript in [`site/`](site), built and deployed by
 [`pages.yml`](.github/workflows/pages.yml) whenever a database is released.
 

@@ -49,6 +49,8 @@ from .models import (
     Place,
     Region,
     Result,
+    Routes,
+    Span,
     System,
     Time,
 )
@@ -68,11 +70,14 @@ __all__ = [
     "Plevin",
     "Region",
     "Result",
+    "Routes",
+    "Span",
     "System",
     "Time",
     "address",
     "database",
     "lookup",
+    "routes",
     "search",
     "system",
     "use",
@@ -336,6 +341,29 @@ def _system(rows: Rows) -> System:
     )
 
 
+def _covered(held: list[tuple[int, int]], bits: int) -> int:
+    """A more specific sits inside its own cover, so the sweep counts the space once."""
+    total = reach = 0
+    for start, prefix in sorted(held):
+        end = start + (1 << (bits - prefix))
+        if end <= reach:
+            continue
+        total += end - max(start, reach)
+        reach = end
+    return total
+
+
+def _routed(file: File, row: int, version: int) -> tuple[tuple[Span, ...], int]:
+    """Every prefix one network row is announced as, widest first, and its space."""
+    wide = version == 6
+    bits = 128 if wide else 32
+    held = file.spans(row, version)
+    widest = sorted(held, key=lambda one: (one[1], one[0]))
+    spans = tuple(Span(*span(start, wide, prefix), version, prefix, 1 << (bits - prefix))
+                  for start, prefix in widest)
+    return spans, _covered(held, bits)
+
+
 def _asn(value: int | str) -> int:
     """An ASN however it is written, as AS15169, as15169 or plainly 15169."""
     text = str(value).strip().lower().removeprefix("as")
@@ -371,6 +399,7 @@ class Plevin:
         self.file = File(_found() if path is None else path)
         self.stored = Cache(self._stored)
         self.results = Cache(self._result, ANSWERED)
+        self.announced = Cache(self._routes)
         self.second = 0
 
     @property
@@ -420,6 +449,19 @@ class Plevin:
         rows = self.file.system(number)
         return System(asn=number or None) if rows is None else _system(rows)
 
+    def _routes(self, asn: int) -> Routes:
+        row = self.file.system_row(asn)
+        if row < 0:
+            return Routes(asn=asn or None)
+        ipv4, four = _routed(self.file, row, 4)
+        ipv6, six = _routed(self.file, row, 6)
+        return Routes(asn, True, ipv4, ipv6, four, six)
+
+    def routes(self, asn: int | str) -> Routes:
+        """Every prefix one ASN is announced as, widest first, and the space covered."""
+        found: Routes = self.announced[_asn(asn)]
+        return found
+
     def search(self, text: str, limit: int = 20) -> list[System]:
         """The networks whose handle or company carries this text, best match first."""
         found = self.system(text)
@@ -455,6 +497,11 @@ def lookup(value: Value, moment: datetime | None = None,
 def system(asn: int | str) -> System:
     """One ASN as everything the file stores about the network behind it."""
     return database().system(asn)
+
+
+def routes(asn: int | str) -> Routes:
+    """Every prefix one ASN is announced as, widest first, and the space covered."""
+    return database().routes(asn)
 
 
 def search(text: str, limit: int = 20) -> list[System]:

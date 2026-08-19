@@ -91,6 +91,16 @@ def test_every_address_of_a_sample_answers_without_raising(
     assert seen > SAMPLED // 2
 
 
+def test_an_asn_reads_every_prefix_it_is_announced_as(built: plevin.Plevin) -> None:
+    found = built.routes("AS13335")
+    assert found and found.ipv4 and found.ipv6
+    assert any(one.cidr == "1.1.1.0/24" for one in found.ipv4)
+    assert [one.prefix for one in found.ipv4] == sorted(one.prefix for one in found.ipv4)
+    assert found.ipv4_addresses >= found.ipv4[0].addresses
+    assert built.lookup("1.1.1.1").network is not None
+    assert found is built.routes(13335)
+
+
 def test_one_address_read_twice_answers_the_same(built: plevin.Plevin) -> None:
     assert built.lookup("9.9.9.9") == built.lookup("9.9.9.9")
     assert built.lookup("2001:4860:4860::8888") == built.lookup("2001:4860:4860::8888")
