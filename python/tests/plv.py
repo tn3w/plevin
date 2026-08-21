@@ -37,6 +37,11 @@ def chunks(values: list[Any], size: int) -> list[list[Any]]:
     return [values[at:at + size] for at in range(0, len(values), size)]
 
 
+def stepped(values: list[int]) -> list[int]:
+    """A block of deltas, which is what a reader sums back into the values."""
+    return [value - before for before, value in pairwise([0, *values])]
+
+
 def item(values: list[int], signed: bool) -> int:
     low, high = min(values, default=0), max(values, default=0)
     for size in (1, 2, 4, 8):
@@ -77,14 +82,17 @@ class Writer:
         self.sections[name] = (entry, body)
 
     def column(self, name: str, values: list[int], read: str = "",
-               signed: bool = False, dictionary: bool = False) -> None:
-        size = item(values, signed)
-        code = (SIGNED if signed else FORMATS)[size]
-        blocks = [bytes([size]) + array(code, chunk).tobytes()
-                  for chunk in chunks(values, self.block)]
+               signed: bool = False, dictionary: bool = False,
+               delta: bool = False) -> None:
+        held = [stepped(chunk) for chunk in chunks(values, self.block)] if delta else \
+            chunks(values, self.block)
+        size = item([value for chunk in held for value in chunk], signed or delta)
+        code = (SIGNED if signed or delta else FORMATS)[size]
+        blocks = [bytes([size]) + array(code, chunk).tobytes() for chunk in held]
         packed, book = squeeze(blocks or [b""], dictionary)
+        encoding = "delta" if delta else "signed" if signed else ""
         entry = {"count": len(values), "read": read, "block": self.block,
-                 "group": self.group, "encoding": "signed" if signed else ""}
+                 "group": self.group, "encoding": encoding}
         self._add(name, entry, wrap(packed, [], 0, book))
 
     def strings(self, name: str, values: list[str]) -> None:
