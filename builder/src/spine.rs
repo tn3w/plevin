@@ -307,7 +307,9 @@ impl World {
                     }
                 })
                 .collect();
-            if key.iter().all(|held| *held == 0) {
+            // every other stage reads the first abuse row as absence, so it always stays
+            let pinned = slab.name == "abuse" && at == 0;
+            if !pinned && key.iter().all(|held| *held == 0) {
                 continue;
             }
             let next = seen.len() as u32;
@@ -516,7 +518,9 @@ impl World {
                         _ => stop.rir as i64,
                     })
                     .collect();
-                if wanted && values.iter().any(|held| *held != 0) {
+                // a host overrides the boundary's record, so that column stays even empty
+                let held = *name == "abuse" || values.iter().any(|value| *value != 0);
+                if wanted && held {
                     parts.push(Part::Values(Sheet {
                         name: format!("spine.v{version}.{name}"),
                         encoding: "fixed",
