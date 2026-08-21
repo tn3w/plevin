@@ -52,6 +52,13 @@ test("answers what has been seen from an address", held, () => {
   assert.ok((found?.abuse?.risk ?? 0) > 0.5);
 });
 
+test("names who runs an address, the feed's name before the network's", held, () => {
+  const found = db?.lookup("185.220.101.1");
+  assert.equal(found?.abuse?.provider, found?.abuse?.name);
+  const bare = db?.lookup("1.1.1.1");
+  assert.equal(bare?.abuse?.provider, null);
+});
+
 test("answers the same for v6 as for v4", held, () => {
   const found = db?.lookup("2606:4700::1111");
   assert.equal(found?.version, 6);

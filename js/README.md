@@ -61,7 +61,7 @@ document.body.textContent = `${flag} ${name}`;              // '🇺🇸 United 
 </script>
 ```
 
-That build is 423 KB, the country code and nothing else, and the name and flag are
+That build is 390 KB, the country code and nothing else, and the name and flag are
 derived in the reader. `https://esm.sh/plevinjs` serves the same thing. Every database is rehosted with open
 CORS at [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/), because GitHub release
 downloads send no CORS header.
@@ -80,10 +80,10 @@ read once.
 
 | file | size | carries |
 | --- | --- | --- |
-| `plevin.plv` | 19.3 MB | every field |
-| `plevin.metro-place.plv` | 6.6 MB | city, region, postal, coordinates, metro |
-| `plevin.abuse-network.plv` | 10.3 MB | ASN, operator, routing, abuse |
-| `plevin.place-country-code.plv` | 423 KB | the country code |
+| `plevin.plv` | 17.3 MB | every field |
+| `plevin.metro-place.plv` | 5.7 MB | city, region, postal, coordinates, metro |
+| `plevin.abuse-network.plv` | 11.3 MB | ASN, operator, routing, abuse |
+| `plevin.place-country-code.plv` | 390 KB | the country code |
 
 ## The same answers over HTTP
 
@@ -179,11 +179,11 @@ db.lookup("36.50.238.1").network;
 ```js
 db.lookup("185.220.101.1").abuse;
 {
-  name: 'Tor', service: 'tor_exit_node', evidence: 'measured', risk: 0.98,
-  network_risk: 0.82, last_seen_days: 1, is_anycast: false, is_satellite: false,
-  is_hosting_provider: true, is_proxy: false, is_public_proxy: false,
-  is_residential_proxy: false, is_anonymous_vpn: false, is_tor_exit_node: true,
-  is_private_relay: false, is_anonymous: true,
+  name: 'Tor', provider: 'Tor', service: 'tor_exit_node', evidence: 'measured',
+  risk: 0.98, network_risk: 0.82, last_seen_days: 1, is_anycast: false,
+  is_satellite: false, is_hosting_provider: true, is_proxy: false,
+  is_public_proxy: false, is_residential_proxy: false, is_anonymous_vpn: false,
+  is_tor_exit_node: true, is_private_relay: false, is_anonymous: true,
 }
 ```
 
@@ -191,7 +191,9 @@ db.lookup("185.220.101.1").abuse;
 where nothing has ever been seen, so which is not a risk of zero. It is a total of what
 the service the address runs is worth on its own and what every feed that named it
 scored it, combined so each agreeing source raises the total and none of them replaces
-the rest, capped at 0.99.
+the rest, capped at 0.99. `provider` is who runs the service: the feed's `name` where
+one names it, else the brand of the network the address sits in, and `null` where the
+address runs no service at all.
 
 ## What an address says on its own
 
@@ -338,7 +340,7 @@ CDN serves it as it is.
 ```
 
 Open the smallest build a page actually needs: `plevin.place-country-code.plv` is
-423 KB against the 19.3 MB of `plevin.plv`, so the first lookup lands in a moment
+390 KB against the 17.3 MB of `plevin.plv`, so the first lookup lands in a moment
 rather than a download.
 
 | | |
@@ -367,7 +369,7 @@ const held = await store.match(url);
 const db = new Plevin(new Uint8Array(await held.arrayBuffer()));
 ```
 
-`plevin.place-country-code.plv` is 423 KB where the country code is all a page needs.
+`plevin.place-country-code.plv` is 390 KB where the country code is all a page needs.
 [The lookup page](https://plevin.tn3w.dev/) is the whole idea in one file of
 plain JavaScript: it reads the database in the tab and calls out only for the visitor's
 own address and for hostnames.

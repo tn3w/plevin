@@ -7,23 +7,23 @@ No API, no rate limit, no lookup leaving the machine.
 
 ![Rust 2024](https://img.shields.io/badge/rust-2024-CE422B?logo=rust&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
-![Full build](https://img.shields.io/badge/full%20build-19.3%20MB-2ea043)
+![Full build](https://img.shields.io/badge/full%20build-17.3%20MB-2ea043)
 ![Lookup](https://img.shields.io/badge/lookup-250k%2Fs-2ea043)
 ![Fields](https://img.shields.io/badge/fields-99-6f42c1)
 ![Sources](https://img.shields.io/badge/sources-24%20files%20%2B%20156%20feeds-6f42c1)
 
 Download the latest build:
-[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 19.3 MB,
-[network](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-network.plv) 12.5 MB,
-[location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 6.6 MB,
-[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 500 KB
+[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 17.3 MB,
+[network](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-network.plv) 11.3 MB,
+[location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 5.7 MB,
+[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 390 KB
 
 </div>
 
 ```mermaid
 flowchart LR
     S["24 files and 156 feeds"] --> B[builder]
-    B --> D[("plevin.plv, 19.3 MB")]
+    B --> D[("plevin.plv, 17.3 MB")]
     D --> Q["lookup(8.8.8.8)"]
 ```
 
@@ -227,12 +227,18 @@ flowchart LR
 - link 0 absence, string 0 empty, record 0 empty record
 - only the address layer is bisected, columns sit beside it
 
-Packing: fixed-width columns, width byte per block. Strings in one sorted front-coded
-pool, restart 32. Addresses as varint gaps, network half only. zstd level 19 per
-block, trained dictionary per section above 256 KB. Per-block point and ASN
-dictionaries. Shared shift per block for /24 alignment. RPKI verdict implies whether a
-count follows. Blocks 4096 and groups 64, 2048 and 32 for strings. Sections:
-`spine.v4`, `spine.v6`, `hosts.v4`, `hosts.v6`, `col.`, `link.`, `strings`.
+Packing: fixed-width columns, width byte per block, `fixed` or `signed`. A column that
+climbs is written as `delta` instead, the step from the value before, restarting every
+block: a reader sums one block back into values, and a monotone column costs a byte
+where it cost four. Both are chosen by packing the column each way and keeping the
+smaller. Strings in one sorted front-coded pool, restart 32. Addresses as varint gaps,
+network half only. zstd level 19 per block; a trained dictionary is packed against the
+section it came from and kept only where it earns back its own bytes, which on a
+section of thirty blocks it does not. Shared shift per block for /24 alignment. RPKI
+verdict implies whether a count follows. Blocks 8192 for columns, 16384 and groups 64
+for addresses, 8192 and 32 for strings. Vocabularies only for the columns that read
+them. Sections: `spine.v4`, `spine.v6`, `hosts.v4`, `hosts.v6`, `col.`, `link.`,
+`strings`.
 
 Layout, group sizes, codec and the v6 interface half can change: the header names them.
 
@@ -250,8 +256,13 @@ flowchart LR
 - a dropped field drops its column, its strings and its boundaries
 - answers never change with the selection
 - union of two selections is byte-identical to building that union
-- one field builds to kilobytes
+- one field builds to kilobytes: `abuse.is_tor_exit_node` is 34 KB
 - derived booleans narrow their column to the values asked for
+- a field derived from several columns is stored derived where nothing else needs
+  them: `network.operator.brand` alone writes `network.brand` and drops the handle,
+  the operator link and the company it would otherwise be spelled out of
+- `abuse.provider` names the network only where a record with a service reaches it,
+  so a boundary no feed has named carries no network link at all
 - the selection is named in the file and the filename
 
 ## Performance
@@ -264,7 +275,7 @@ flowchart LR
 
 |                            |                                           |
 | -------------------------- | ----------------------------------------- |
-| full build                 | 19.3 MB                                   |
+| full build                 | 17.3 MB                                   |
 | open                       | 10 ms full, 2 ms one-field                |
 | cold start to first answer | 30 ms                                     |
 | warm lookups               | 250k/s full record, 700k/s one field      |

@@ -1,6 +1,7 @@
 //! plevin: one file answering where an address is, who announces it, what it has done.
 
 mod abuse;
+mod derive;
 mod file;
 mod gazetteer;
 mod network;
@@ -148,6 +149,7 @@ pub const COLUMNS: &[Column] = &[
     column("abuse.last_seen_days", Number),
     column("network.asn", Number),
     column("network.handle", Text),
+    column("network.brand", Text),
     column("network.operator", Link),
     column("network.carrier", Link),
     column("network.abuse", Link),
@@ -181,6 +183,7 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("abuse.last_seen_days", &["abuse.last_seen_days"]),
     ("abuse.name", &["abuse.name"]),
     ("abuse.network_risk", &["network.abuse", "abuse.risk"]),
+    ("abuse.provider", &["abuse.name", "abuse.service", "network.brand"]),
     ("abuse.risk", &["abuse.risk"]),
     ("abuse.service", &["abuse.service"]),
     ("metro.code", &["place.city", "city.metro", "metro.code"]),
@@ -193,10 +196,7 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("network.carrier.user_type", &["abuse.user_type", "operator.category"]),
     ("network.handle", &["network.handle"]),
     ("network.operator.abuse_email", &["network.operator", "operator.abuse_email"]),
-    (
-        "network.operator.brand",
-        &["network.handle", "network.operator", "operator.company"],
-    ),
+    ("network.operator.brand", &["network.brand"]),
     ("network.operator.category", &["network.operator", "operator.category"]),
     (
         "network.operator.city",
@@ -350,17 +350,25 @@ pub fn worded(text: &str, needle: &str) -> bool {
 }
 
 /// The vocabularies a file carries, timezones only where a column stores one.
-pub fn vocabularies(zones: Option<&[String]>) -> Vec<(&'static str, Vec<String>)> {
+pub fn vocabularies(
+    selection: &Selection,
+    zones: Option<&[String]>,
+) -> Vec<(&'static str, Vec<String>)> {
     let named = |book: &[&str]| book.iter().map(|held| held.to_string()).collect();
-    let mut books = vec![
-        ("categories", named(CATEGORIES)),
-        ("services", named(SERVICES)),
-        ("evidence", named(EVIDENCE)),
-        ("granularity", named(GRANULARITY)),
-        ("rpki", named(RPKI)),
-        ("rirs", named(RIRS)),
-        ("place_types", named(PLACE_TYPES)),
+    let held: [(&'static str, &[&str], &[&str]); 7] = [
+        ("categories", CATEGORIES, &["abuse.user_type", "operator.category"]),
+        ("services", SERVICES, &["abuse.service"]),
+        ("evidence", EVIDENCE, &["abuse.evidence"]),
+        ("granularity", GRANULARITY, &["place.granularity"]),
+        ("rpki", RPKI, &["spine.rpki"]),
+        ("rirs", RIRS, &["spine.rir"]),
+        ("place_types", PLACE_TYPES, &["city.type"]),
     ];
+    let mut books: Vec<(&'static str, Vec<String>)> = held
+        .iter()
+        .filter(|(_, _, reads)| reads.iter().any(|id| selection.has(id)))
+        .map(|(name, book, _)| (*name, named(book)))
+        .collect();
     if let Some(zones) = zones {
         books.push(("timezones", zones.to_vec()));
     }
@@ -403,6 +411,8 @@ pub struct Selection {
     pub columns: BTreeSet<String>,
     pub narrow: HashMap<String, Option<Vec<i64>>>,
     pub fields: Vec<String>,
+    /// The brand answers a record and not an address, so it is kept where records are.
+    pub sparse: bool,
 }
 
 impl Selection {
@@ -435,6 +445,13 @@ impl Selection {
         {
             columns.insert("region.country".into());
         }
+        // a brand a reader can spell out of the columns beside it is not worth storing
+        if ["network.handle", "network.operator", "operator.company"]
+            .iter()
+            .all(|id| columns.contains(*id))
+        {
+            columns.remove("network.brand");
+        }
         let mut narrow: HashMap<String, Option<Vec<i64>>> = HashMap::new();
         for (field, needs) in FIELDS.iter().filter(|(field, _)| chosen.contains(field)) {
             for need in *needs {
@@ -454,12 +471,15 @@ impl Selection {
                     .is_some_and(|mine| mine.iter().all(|one| kept.contains(one))),
             })
         };
+        let sparse = chosen.contains(&"abuse.provider")
+            && !chosen.contains(&"network.operator.brand");
         let fields = FIELDS
             .iter()
             .filter(|(field, needs)| answers(field, needs))
+            .filter(|(field, _)| !sparse || *field != "network.operator.brand")
             .map(|(field, _)| field.to_string())
             .collect();
-        Selection { name, columns, narrow, fields }
+        Selection { name, columns, narrow, fields, sparse }
     }
 
     pub fn has(&self, id: &str) -> bool {

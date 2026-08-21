@@ -1,6 +1,7 @@
 //! One boundary set carrying place, network and abuse together, cut to a selection.
 
 use crate::abuse::Records;
+use crate::derive::brand;
 use crate::gazetteer::Gazetteer;
 use crate::network::{Route, Systems};
 use crate::place::Places;
@@ -121,12 +122,13 @@ impl World {
 
     pub fn write(&self, selection: &Selection) -> Written {
         let mut words = Words::default();
-        let mut slabs = self.reach(selection);
+        let named = [0, 1].map(|family| self.named(family, selection));
+        let mut slabs = self.reach(selection, &named);
         for at in 0..slabs.len() {
             let (done, rest) = slabs.split_at_mut(at);
             self.collapse(&mut rest[0], done, &mut words, selection);
         }
-        let mut spines = self.trim(selection, &slabs);
+        let mut spines = self.trim(selection, &slabs, &named);
         self.count(&mut slabs, &spines);
         let pool = respell(&mut slabs, &words.pool);
         let mut ranks: Vec<Vec<u32>> = Vec::new();
@@ -180,12 +182,43 @@ impl World {
                 selection.table("abuse"),
             ],
             fields: selection.fields.clone(),
-            books: vocabularies(zones.as_deref()),
+            books: vocabularies(selection, zones.as_deref()),
         }
     }
 
+    /// Where a provider can be named: the boundaries a record with a service reaches.
+    fn named(&self, family: usize, selection: &Selection) -> Vec<bool> {
+        let mut out = vec![true; self.spine[family].len()];
+        if !selection.sparse {
+            return out;
+        }
+        let falls = selection.has("network.abuse");
+        let kept = selection.narrow.get("abuse.service");
+        let serving = |link: u32| match link.checked_sub(1) {
+            None => false,
+            Some(row) => self.records.rows.get(row as usize).is_some_and(|held| {
+                let service = held.service as i64;
+                service != 0
+                    && !matches!(kept, Some(Some(only)) if !only.contains(&service))
+            }),
+        };
+        for (at, (_, stop)) in self.spine[family].iter().enumerate() {
+            out[at] = serving(if falls { stop.abuse } else { stop.whole + 1 });
+        }
+        for (address, row) in &self.records.hosts[family] {
+            if serving(row + 1) {
+                let at =
+                    self.spine[family].partition_point(|(start, _)| start <= address);
+                if let Some(spot) = at.checked_sub(1) {
+                    out[spot] = true;
+                }
+            }
+        }
+        out
+    }
+
     /// Which rows of each table the spine still reaches once the selection is cut.
-    fn reach(&self, selection: &Selection) -> Vec<Slab> {
+    fn reach(&self, selection: &Selection, named: &[Vec<bool>; 2]) -> Vec<Slab> {
         let systems = self.systems.rows.len();
         let sizes: HashMap<&str, usize> = HashMap::from([
             ("region", self.gazetteer.regions.len()),
@@ -215,10 +248,12 @@ impl World {
         let mut wanted: HashMap<&str, Vec<bool>> =
             slabs.iter().map(|slab| (slab.name, slab.keep.clone())).collect();
         touch(wanted.get_mut("abuse").unwrap(), 1);
-        for family in 0..2 {
-            for (_, stop) in &self.spine[family] {
+        for (family, holds) in named.iter().enumerate() {
+            for (at, (_, stop)) in self.spine[family].iter().enumerate() {
                 touch(wanted.get_mut("place").unwrap(), stop.place);
-                touch(wanted.get_mut("network").unwrap(), stop.network);
+                if holds[at] {
+                    touch(wanted.get_mut("network").unwrap(), stop.network);
+                }
                 touch(wanted.get_mut("abuse").unwrap(), stop.abuse);
                 touch(wanted.get_mut("abuse").unwrap(), stop.whole + 1);
             }
@@ -389,6 +424,7 @@ impl World {
             "carrier.mnc" => system.mnc as i64,
             "network.asn" => system.asn as i64,
             "network.handle" => words.id(&system.handle),
+            "network.brand" => words.id(&brand(&system.handle, &system.company)),
             "network.operator" | "network.carrier" => row as i64 + 1,
             "network.abuse" => system.record as i64,
             other => panic!("no column {other}"),
@@ -396,12 +432,17 @@ impl World {
     }
 
     /// The spine as the selection sees it, with neighbours it cannot tell apart merged.
-    fn trim(&self, selection: &Selection, slabs: &[Slab]) -> [Vec<(u128, Stop)>; 2] {
+    fn trim(
+        &self,
+        selection: &Selection,
+        slabs: &[Slab],
+        named: &[Vec<bool>; 2],
+    ) -> [Vec<(u128, Stop)>; 2] {
         let held = |name: &str| slabs.iter().find(|slab| slab.name == name).unwrap();
         let falls = selection.has("network.abuse");
         [0, 1].map(|family| {
             let mut out: Vec<(u128, Stop)> = Vec::new();
-            for (at, stop) in &self.spine[family] {
+            for (spot, (at, stop)) in self.spine[family].iter().enumerate() {
                 let record = match (selection.table("abuse"), falls) {
                     (false, _) => 0,
                     (true, true) => held("abuse").link(stop.abuse),
@@ -412,7 +453,7 @@ impl World {
                         true => held("place").link(stop.place) as u32,
                         false => 0,
                     },
-                    network: match selection.table("network") {
+                    network: match selection.table("network") && named[family][spot] {
                         true => held("network").link(stop.network) as u32,
                         false => 0,
                     },

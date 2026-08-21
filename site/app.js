@@ -469,7 +469,7 @@ const routingPanel = (db, asn) => {
 
 /** The flags alone already ride in the header, so a record of only flags says nothing. */
 const told = (abuse) =>
-  Boolean(abuse) && [abuse.name, abuse.service, abuse.evidence, abuse.risk,
+  Boolean(abuse) && [abuse.provider, abuse.service, abuse.evidence, abuse.risk,
     abuse.network_risk, abuse.last_seen_days].some((value) => value !== null);
 
 const ADDRESS_TIP = "How often this single address itself was reported by the abuse " +
@@ -498,7 +498,7 @@ const abusePanel = (abuse, address = true) => {
   body.append(held);
 
   held.append(fields([
-    ["Seen as", abuse.name ?? abuse.service],
+    ["Seen as", abuse.provider ?? abuse.service],
     ["Service", abuse.service],
     ["Evidence", abuse.evidence],
     ["Last seen", abuse.last_seen_days === null

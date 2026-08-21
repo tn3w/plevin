@@ -412,3 +412,46 @@ def test_a_search_answers_the_widest_networks_first(opened: Path) -> None:
 def test_a_search_for_an_asn_answers_that_one_network(opened: Path) -> None:
     assert [one.asn for one in plevin.search("as396982")] == [396982]
     assert [one.asn for one in plevin.search("16509")] == [16509]
+
+
+def _stored_brand(tmp_path: Path) -> Path:
+    """A build that kept the brand instead of the handle and company it comes from."""
+    writer = Writer()
+    writer.vocabularies = {"services": ["", "public_proxy", "residential_proxy",
+                                        "anonymous_vpn", "tor_exit_node"]}
+    writer.strings("strings", ["Hetzner", "Tor"])
+    writer.column("col.network.brand", [1], read="text")
+    writer.column("col.abuse.name", [0, 2, 0], read="text")
+    writer.column("col.abuse.service", [0, 4, 1])
+    writer.index("spine.v4", [0x0A000000, 0x0B000000], wide=False)
+    writer.column("spine.v4.network", [1, 1])
+    writer.column("spine.v4.abuse", [2, 3])
+    return written(tmp_path / "brand.plv",
+                   writer.build(selection="abuse.provider+network.operator.brand",
+                                fields=["abuse.provider", "network.operator.brand"]))
+
+
+def test_a_stored_brand_is_read_without_the_names_it_comes_from(tmp_path: Path) -> None:
+    found = plevin.Plevin(_stored_brand(tmp_path)).lookup("10.0.0.1")
+    assert found.network is not None
+    assert found.network.operator is not None
+    assert found.network.operator.brand == "Hetzner"
+    assert found.network.operator.company is None
+
+
+def test_a_provider_is_the_record_name_and_falls_back_to_the_brand(
+    tmp_path: Path,
+) -> None:
+    file = plevin.Plevin(_stored_brand(tmp_path))
+    named = file.lookup("10.0.0.1")
+    assert named.abuse is not None
+    assert (named.abuse.name, named.abuse.provider) == ("Tor", "Tor")
+    bare = file.lookup("11.0.0.1")
+    assert bare.abuse is not None
+    assert (bare.abuse.name, bare.abuse.service) == (None, "public_proxy")
+    assert bare.abuse.provider == "Hetzner"
+
+
+def test_a_record_saying_nothing_names_no_provider(opened: Path) -> None:
+    found = plevin.lookup("9.0.0.1")
+    assert found.abuse is None or found.abuse.provider is None

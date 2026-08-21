@@ -98,6 +98,7 @@ export type Carrier = {
 
 export type Abuse = {
   name: string | null;
+  provider: string | null;
   service: string | null;
   evidence: string | null;
   risk: number | null;

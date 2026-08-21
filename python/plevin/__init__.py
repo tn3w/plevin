@@ -192,13 +192,13 @@ def _place(rows: Rows | None) -> tuple[Ground, str] | None:
     return ground, zone
 
 
-def _built_operator(rows: Rows, handle: str) -> Operator:
+def _built_operator(rows: Rows, handle: str, brand: str) -> Operator:
     company = str(rows.get("company", ""))
     website = str(rows.get("website", ""))
     mailbox = str(rows.get("abuse_email", ""))
     return Operator(
         company=_text(company),
-        brand=_text(derive.brand(handle, company)),
+        brand=_text(brand or derive.brand(handle, company)),
         domain=_text(derive.domain(website, mailbox)),
         website=_text(website),
         category=_text(rows.get("category")),
@@ -232,14 +232,17 @@ def _carrier(rows: Rows | None, user_type: str) -> Carrier | None:
     )
 
 
-def _abuse(record: Rows | None, system: Rows | None, user_type: str) -> Abuse | None:
+def _abuse(record: Rows | None, system: Rows | None, user_type: str,
+           brand: str) -> Abuse | None:
     if record is None and system is None:
         return None
     held = record or {}
     named, inferred = derive.service(str(held.get("service", "")), user_type)
     evidence = str(held.get("evidence", "")) or inferred
+    name = str(held.get("name", ""))
     return Abuse(
-        name=_text(held.get("name")),
+        name=_text(name),
+        provider=_text(name or (brand if named else "")),
         service=_text(named),
         evidence=_text(evidence),
         risk=held.get("risk"),
@@ -258,12 +261,21 @@ def _abuse(record: Rows | None, system: Rows | None, user_type: str) -> Abuse | 
     )
 
 
+def _holder(rows: Rows, handle: str, brand: str) -> Operator | None:
+    """The operator row where the file keeps one, else the brand it stored instead."""
+    held = rows.get("operator")
+    if held is None:
+        return None if not brand else Operator(brand=_text(brand))
+    found: Operator = _operator(held, handle, brand)
+    return found
+
+
 def _network(rows: Rows, user_type: str) -> tuple[Wires, int | None]:
     """The network without its span, which the address the lookup asked about fixes."""
     handle = str(rows.get("handle", ""))
     wires = (_count(rows.get("asn")), _text(handle), _text(rows.get("rir")),
              _text(rows.get("rpki")), rows.get("roas"),
-             _operator(rows.get("operator"), handle),
+             _holder(rows, handle, str(rows.get("brand", ""))),
              _carrier(rows.get("carrier"), user_type))
     return wires, _count(rows.get("prefix"))
 
@@ -279,9 +291,11 @@ def _stored(rows: Rows) -> Stored:
     network = rows.get("network")
     system = None if network is None else network.get("abuse")
     user_type = _user_type(rows.get("abuse"), system)
-    return (_place(rows.get("place")),
-            None if network is None else _network(network, user_type),
-            _abuse(rows.get("abuse"), system, user_type))
+    wires = None if network is None else _network(network, user_type)
+    holder = None if wires is None else wires[0][5]
+    brand = "" if holder is None or holder.brand is None else holder.brand
+    return (_place(rows.get("place")), wires,
+            _abuse(rows.get("abuse"), system, user_type, brand))
 
 
 def _result(value: int, wide: bool, stored: Stored | None,
@@ -332,12 +346,13 @@ def _system(rows: Rows) -> System:
     record = rows.get("abuse")
     user_type = _user_type(None, record)
     asn, handle, _, _, _, operator, carrier = _network(rows, user_type)[0]
+    brand = "" if operator is None or operator.brand is None else operator.brand
     return System(
         asn=asn,
         handle=handle,
         found=True,
         network=Network(asn=asn, handle=handle, operator=operator, carrier=carrier),
-        abuse=_abuse(None, record, user_type),
+        abuse=_abuse(None, record, user_type, brand),
     )
 
 

@@ -118,13 +118,13 @@ const city = shaped((row: Row): City => {
   };
 });
 
-const operator = shaped((row: Row, handle: string): Operator => {
+const operator = shaped((row: Row, handle: string, brand: string): Operator => {
   const company = String(row.company ?? "");
   const website = String(row.website ?? "");
   const mailbox = String(row.abuse_email ?? "");
   return {
     company: text(company),
-    brand: text(derive.brand(handle, company)),
+    brand: text(brand || derive.brand(handle, company)),
     domain: text(derive.domain(website, mailbox)),
     website: text(website),
     category: text(row.category),
@@ -158,12 +158,15 @@ const abuseOf = (
   record: Row | undefined,
   system: Row | undefined,
   userType: string,
+  brand: string,
 ): Abuse | null => {
   if (!record && !system) return null;
   const found = record ?? {};
   const [named, inferred] = derive.service(String(found.service ?? ""), userType);
+  const name = String(found.name ?? "");
   return {
-    name: text(found.name),
+    name: text(name),
+    provider: text(name || (named ? brand : "")),
     service: text(named),
     evidence: text(String(found.evidence ?? "") || inferred),
     risk: number(found.risk),
@@ -206,6 +209,13 @@ const place = (row: Row | undefined): Ground | null => {
   ];
 };
 
+/** The operator row where the file keeps one, else the brand it stored instead. */
+const holder = (row: Row, handle: string, brand: string): Operator | null => {
+  const found = held(row, "operator");
+  if (!found && !brand) return null;
+  return operator(found ?? row, handle, brand);
+};
+
 /** The network without its span, which the address the lookup asked about fixes. */
 const network = (row: Row, userType: string): Wires => {
   const handle = String(row.handle ?? "");
@@ -216,7 +226,7 @@ const network = (row: Row, userType: string): Wires => {
       rir: text(row.rir),
       rpki: text(row.rpki),
       roas: number(row.roas),
-      operator: operator(held(row, "operator"), handle),
+      operator: holder(row, handle, String(row.brand ?? "")),
       carrier: carrier(held(row, "carrier"), userType),
     },
     count(row.prefix),
@@ -232,10 +242,12 @@ const stored = (row: Row): Stored => {
   const wires = held(row, "network");
   const system = held(wires, "abuse");
   const userType = userTypeOf(held(row, "abuse"), system);
+  const found = wires ? network(wires, userType) : null;
+  const brand = found?.[0].operator?.brand ?? "";
   return [
     place(held(row, "place")),
-    wires ? network(wires, userType) : null,
-    abuseOf(held(row, "abuse"), system, userType),
+    found,
+    abuseOf(held(row, "abuse"), system, userType, brand),
   ];
 };
 
@@ -244,6 +256,7 @@ const systemOf = (row: Row): System => {
   const record = held(row, "abuse");
   const userType = userTypeOf(undefined, record);
   const { asn, handle, operator, carrier } = network(row, userType)[0];
+  const brand = operator?.brand ?? "";
   return {
     asn,
     handle,
@@ -261,7 +274,7 @@ const systemOf = (row: Row): System => {
       operator,
       carrier,
     },
-    abuse: abuseOf(undefined, record, userType),
+    abuse: abuseOf(undefined, record, userType, brand),
   };
 };
 

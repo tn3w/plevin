@@ -48,10 +48,10 @@ several and the richest wins.
 
 |                                 |         |                                          |
 | ------------------------------- | ------- | ---------------------------------------- |
-| `pip install "plevin[db]"`      | 19.3 MB | every field                              |
-| `pip install "plevin[place]"`   | 6.6 MB  | city, region, postal, coordinates, metro |
-| `pip install "plevin[network]"` | 10.3 MB | ASN, operator, routing, abuse            |
-| `pip install "plevin[country]"` | 423 KB  | the country code                         |
+| `pip install "plevin[db]"`      | 17.3 MB | every field                              |
+| `pip install "plevin[place]"`   | 5.7 MB  | city, region, postal, coordinates, metro |
+| `pip install "plevin[network]"` | 11.3 MB | ASN, operator, routing, abuse            |
+| `pip install "plevin[country]"` | 390 KB  | the country code                         |
 
 `PLEVIN_DB=/path/to/plevin.plv` or `plevin.use("plevin.plv")` reads a file of your own
 instead; `plevin.Plevin(path)` opens one without touching the module's.
@@ -190,6 +190,7 @@ or `non-profit`.
 >>> plevin.lookup("185.220.101.1").abuse
 Abuse(
     name='Tor',
+    provider='Tor',
     service='tor_exit_node',
     evidence='measured',
     risk=0.98,
@@ -215,7 +216,9 @@ own, and what every feed that named it scored it, combined so each agreeing sour
 raises the total and none of them replaces the rest. Feeds sharing an upstream count
 once, and the scale stops at 0.99, since enough feeds agreeing still is not proof. A
 Tor exit no feed has reported still reads high on the service alone; the same exit on
-four blocklists reads higher. `evidence` is
+four blocklists reads higher. `provider` is who runs the service: the feed's `name`
+where one names it, else the brand of the network the address sits in, and `None` where
+the address runs no service at all. `evidence` is
 `published`, `measured`, `reported` or `inferred`, strongest first; `service` is
 `tor_exit_node`, `private_relay`, `anonymous_vpn`, `residential_proxy` or
 `public_proxy`, most specific first. A public proxy on a residential or cellular line

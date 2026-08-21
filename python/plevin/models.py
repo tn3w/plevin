@@ -113,6 +113,7 @@ class Carrier:
 @dataclass(slots=True)
 class Abuse:
     name: str | None = None
+    provider: str | None = None
     service: str | None = None
     evidence: str | None = None
     risk: float | None = None

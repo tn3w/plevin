@@ -135,6 +135,18 @@ def test_a_big_endian_reader_turns_a_column_around() -> None:
     assert reader._kept(array("H", [1])).tolist() == [1]
 
 
+def test_a_stepped_column_sums_back_into_the_values(tmp_path: Path) -> None:
+    """Deltas restart every block, so a block reads without the one before it."""
+    values = [3, 4, 4, 900, 901, 902, 902, 7, 8, 8]
+    writer = Writer()
+    writer.column("col.city.id", values, delta=True)
+    path = written(tmp_path / "stepped.plv", writer.build())
+    column = reader.File(path).sections["col.city.id"]
+    assert isinstance(column, reader.Column)
+    assert [column[row] for row in range(len(values))] == values
+    assert column.rows(902) == [5, 6]
+
+
 def test_varints_read_one_byte_and_many() -> None:
     assert reader._varints(b"\x01\x80\x02\x7f", 0, 3) == ([1, 256, 127], 4)
     assert reader._varint(b"\xff\x01", 0) == (255, 2)
