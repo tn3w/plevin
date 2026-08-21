@@ -8,7 +8,7 @@ import struct
 import sys
 from array import array
 from bisect import bisect_right
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import partial
 from heapq import nsmallest
 from itertools import accumulate
@@ -38,6 +38,7 @@ UNSEEN = 255
 EMPTY: Plan = ((), (), (), (), ())
 FORMATS = {1: "B", 2: "H", 4: "I", 8: "Q"}
 SIGNED = {1: "b", 2: "h", 4: "i", 8: "q"}
+STEPPED = ("signed", "delta")
 CARRIED = ("place", "network", "abuse", "prefix", "rpki", "roas", "rir")
 LINKED = frozenset(("place", "network", "abuse"))
 SPAN = "network"
@@ -178,9 +179,9 @@ class Column(Section):
 
     def __init__(self, view: memoryview, entry: Entry) -> None:
         super().__init__(view, entry)
-        self.formats = SIGNED if entry["encoding"] == "signed" else FORMATS
+        self.formats = SIGNED if entry["encoding"] in STEPPED else FORMATS
 
-    def block(self, index: int) -> array[int]:
+    def block(self, index: int) -> Sequence[int]:
         raw = self.raw(index)
         return ORDERED(array(self.formats[raw[0]], raw[1:]))
 
@@ -201,6 +202,15 @@ class Column(Section):
                 found.append(head + at)
                 at += 1
         return found
+
+
+class Deltas(Column):
+    """The steps between values, summed once a block: monotone columns cost a byte."""
+
+    __slots__ = ()
+
+    def block(self, index: int) -> Sequence[int]:
+        return list(accumulate(super().block(index)))
 
 
 class Strings(Section):
@@ -300,7 +310,7 @@ class File:
         self.path = str(path)
 
         body = head + size
-        kinds = {"index": Index, "front": Strings}
+        kinds = {"index": Index, "front": Strings, "delta": Deltas}
         self.sections: dict[str, Section] = {}
         for name, entry in self.head["sections"].items():
             at = body + entry["offset"]

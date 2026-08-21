@@ -31,6 +31,7 @@ const UNSEEN = 255;
 const RECORDS = 1 << 14;
 const CARRIED = ["place", "network", "abuse", "prefix", "rpki", "roas", "rir"];
 const LINKED = new Set(["place", "network", "abuse"]);
+const STEPPED = new Set(["signed", "delta"]);
 const SPAN = "network";
 const BOOKS: Record<string, string> = {
   rpki: "rpki",
@@ -215,6 +216,7 @@ type Numbers =
   | Uint16Array
   | Int32Array
   | Uint32Array
+  | Float64Array
   | BigInt64Array
   | BigUint64Array;
 
@@ -234,7 +236,7 @@ class Column extends Section {
 
   constructor(view: Uint8Array, entry: Entry) {
     super(view, entry);
-    this.signed = entry.encoding === "signed";
+    this.signed = STEPPED.has(entry.encoding);
   }
 
   protected override block(index: number): Numbers {
@@ -266,6 +268,20 @@ class Column extends Section {
       }
     }
     return found;
+  }
+}
+
+/** The steps between values, summed once a block: monotone columns cost a byte. */
+class Deltas extends Column {
+  protected override block(index: number): Numbers {
+    const steps = super.block(index);
+    const values = new Float64Array(steps.length);
+    let running = 0;
+    for (let at = 0; at < steps.length; at += 1) {
+      running += Number(steps[at]);
+      values[at] = running;
+    }
+    return values;
   }
 }
 
@@ -464,7 +480,9 @@ export class File {
           ? Index
           : entry.encoding === "front"
             ? Strings
-            : Column;
+            : entry.encoding === "delta"
+              ? Deltas
+              : Column;
       this.sections[name] = new kind(held, entry);
     }
 

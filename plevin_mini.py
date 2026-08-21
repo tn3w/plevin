@@ -8,7 +8,7 @@ import struct
 import sys
 from array import array
 from bisect import bisect_right
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import partial
 from itertools import accumulate
 from socket import AF_INET, AF_INET6, inet_pton
@@ -34,6 +34,7 @@ UNSEEN = 255
 EMPTY: Plan = ((), (), (), (), ())
 FORMATS = {1: "B", 2: "H", 4: "I", 8: "Q"}
 SIGNED = {1: "b", 2: "h", 4: "i", 8: "q"}
+STEPPED = ("signed", "delta")
 SWAPPED = sys.byteorder == "big"
 CARRIED = ("place", "network", "abuse", "prefix", "rpki", "roas")
 LINKED = frozenset(("place", "network", "abuse"))
@@ -161,9 +162,9 @@ class Column(Section):
 
     def __init__(self, view: memoryview, entry: Entry) -> None:
         super().__init__(view, entry)
-        self.formats = SIGNED if entry["encoding"] == "signed" else FORMATS
+        self.formats = SIGNED if entry["encoding"] in STEPPED else FORMATS
 
-    def block(self, index: int) -> array[int]:
+    def block(self, index: int) -> Sequence[int]:
         raw = self.raw(index)
         values = array(self.formats[raw[0]], raw[1:])
         if SWAPPED:
@@ -173,6 +174,15 @@ class Column(Section):
     def __getitem__(self, row: int) -> Any:
         index, place = divmod(row, self.per_block)
         return self.cache[index][place]
+
+
+class Deltas(Column):
+    """The steps between values, summed once a block: monotone columns cost a byte."""
+
+    __slots__ = ()
+
+    def block(self, index: int) -> list[int]:
+        return list(accumulate(super().block(index)))
 
 
 class Strings(Section):
@@ -272,7 +282,7 @@ class Plevin:
         self.head: Entry = json.loads(bytes(view[head:head + size]))
 
         body = head + size
-        kinds = {"index": Index, "front": Strings}
+        kinds = {"index": Index, "front": Strings, "delta": Deltas}
         self.sections: dict[str, Section] = {}
         for name, entry in self.head["sections"].items():
             at = body + entry["offset"]

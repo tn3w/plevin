@@ -573,7 +573,7 @@ wheels = [
 
 [[package]]
 name = "plevin"
-version = "0.1.7"
+version = "0.1.8"
 source = { editable = "." }
 dependencies = [
     { name = "pyzstd", marker = "python_full_version < '3.14'" },
