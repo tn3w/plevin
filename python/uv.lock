@@ -573,13 +573,16 @@ wheels = [
 
 [[package]]
 name = "plevin"
-version = "0.1.9"
+version = "0.1.10"
 source = { editable = "." }
 dependencies = [
     { name = "pyzstd", marker = "python_full_version < '3.14'" },
 ]
 
 [package.optional-dependencies]
+abuse = [
+    { name = "plevin-db-abuse" },
+]
 country = [
     { name = "plevin-db-country" },
 ]
@@ -622,6 +625,7 @@ typing = [
 [package.metadata]
 requires-dist = [
     { name = "plevin-db", marker = "extra == 'db'" },
+    { name = "plevin-db-abuse", marker = "extra == 'abuse'" },
     { name = "plevin-db-country", marker = "extra == 'country'" },
     { name = "plevin-db-network", marker = "extra == 'network'" },
     { name = "plevin-db-place", marker = "extra == 'place'" },
@@ -629,7 +633,7 @@ requires-dist = [
     { name = "pyzstd", marker = "python_full_version < '3.14'", specifier = ">=0.19" },
     { name = "tzdata", marker = "sys_platform == 'win32' and extra == 'full'" },
 ]
-provides-extras = ["full", "db", "place", "network", "country"]
+provides-extras = ["full", "db", "place", "network", "abuse", "country"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -659,6 +663,14 @@ version = "2026.8.13.post1"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ed/1b/3110a54ce9f08ed9741db3fbc8801aa16db55234dbd8509b4d483577e104/plevin_db-2026.8.13.post1-py3-none-any.whl", hash = "sha256:700bf7e077dd40dda613ba58cf1caf256617dcae738dc2d17a6b961843000245", size = 16868609, upload-time = "2026-08-13T08:36:49.106Z" },
+]
+
+[[package]]
+name = "plevin-db-abuse"
+version = "2026.8.22.2"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/54/4b/615cfc97f95b79cf826d7f958c560c8d49c12ebf861c4440aac6dfd29709/plevin_db_abuse-2026.8.22.2-py3-none-any.whl", hash = "sha256:97708d754d07072bee44998e7beeae678da9976b50a0b1d852b3a10c6bd9736d", size = 2924173, upload-time = "2026-08-22T20:21:02.447Z" },
 ]
 
 [[package]]

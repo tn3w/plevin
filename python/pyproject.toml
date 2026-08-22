@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plevin"
-version = "0.1.9"
+version = "0.1.10"
 description = "Location, network and abuse information for any IP address in one offline file."
 readme = "README.md"
 license = "Apache-2.0"
@@ -55,6 +55,7 @@ full = ["pycountry>=26.2", "tzdata; sys_platform == 'win32'"]
 db = ["plevin-db"]
 place = ["plevin-db-place"]
 network = ["plevin-db-network"]
+abuse = ["plevin-db-abuse"]
 country = ["plevin-db-country"]
 
 [project.urls]

@@ -50,7 +50,8 @@ several and the richest wins.
 | ------------------------------- | ------- | ---------------------------------------- |
 | `pip install "plevin[db]"`      | 17.3 MB | every field                              |
 | `pip install "plevin[place]"`   | 5.7 MB  | city, region, postal, coordinates, metro |
-| `pip install "plevin[network]"` | 11.3 MB | ASN, operator, routing, abuse            |
+| `pip install "plevin[network]"` | 7.3 MB  | ASN, operator, routing                   |
+| `pip install "plevin[abuse]"`   | 2.8 MB  | abuse service and provider               |
 | `pip install "plevin[country]"` | 390 KB  | the country code                         |
 
 `PLEVIN_DB=/path/to/plevin.plv` or `plevin.use("plevin.plv")` reads a file of your own
