@@ -16,12 +16,9 @@ use std::time::Instant;
 
 fn main() {
     let asked: Vec<String> = std::env::args().skip(1).collect();
-    let blocklist = asked.iter().any(|term| term == "blocklist.netset");
     let terms = match asked.is_empty() {
         true => vec!["full".to_string()],
-        false => {
-            asked.iter().filter(|term| *term != "blocklist.netset").cloned().collect()
-        }
+        false => asked,
     };
     let selections: Vec<Selection> =
         terms.iter().map(|term| Selection::parse(term)).collect();
@@ -45,13 +42,6 @@ fn main() {
 
     let records = abuse::Records::fold(&feeds, &mut systems);
     say(started, &format!("abuse: {} records", records.rows.len()));
-    if blocklist {
-        std::fs::write(
-            dist.join("blocklist.netset"),
-            feeds.netset(&file::today(), &records),
-        )
-        .expect("write blocklist");
-    }
 
     let world = spine::World::new(gazetteer, places, systems, records);
     for selection in &selections {

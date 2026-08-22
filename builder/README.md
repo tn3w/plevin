@@ -17,8 +17,7 @@ Download the latest build:
 [network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.3 MB,
 [abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-provider-abuse-service.plv) 2.8 MB,
 [location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 5.7 MB,
-[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 390 KB,
-[blocklist](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset) 11.3 MB
+[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 390 KB
 
 </div>
 
@@ -40,8 +39,6 @@ cargo build --release
 ./target/release/plevin-builder network      # dist/plevin.network.plv
 ./target/release/plevin-builder abuse.service+abuse.provider
 # dist/plevin.abuse-provider-abuse-service.plv
-./target/release/plevin-builder blocklist.netset
-# dist/blocklist.netset, addresses with abuse.risk > 80/100
 ```
 
 `.github/workflows/build.yml` fetches, builds and releases daily, on secrets

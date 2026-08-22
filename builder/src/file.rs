@@ -172,7 +172,7 @@ fn header(
     .to_string()
 }
 
-pub fn today() -> String {
+fn today() -> String {
     let days = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() / 86400;
     let (mut year, mut left) = (1970i64, days as i64);
     loop {
