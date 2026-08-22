@@ -89,7 +89,8 @@ except PackageNotFoundError:  # pragma: no cover
     __version__ = "0.0.0"
 
 ENVIRONMENT = "PLEVIN_DB"
-PACKAGES = ("plevin_db", "plevin_db_place", "plevin_db_network", "plevin_db_country")
+PACKAGES = ("plevin_db", "plevin_db_place", "plevin_db_network", "plevin_db_abuse",
+            "plevin_db_country")
 MISSING = (
     "no database found: install one of "
     f"{', '.join(name.replace('_', '-') for name in PACKAGES)}, set {ENVIRONMENT},"

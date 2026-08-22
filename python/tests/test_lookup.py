@@ -197,14 +197,15 @@ def test_the_module_reads_one_database_until_told_otherwise(
     assert plevin.use(None).path == str(full)
 
 
+@pytest.mark.parametrize("package", ["plevin_db_country", "plevin_db_abuse"])
 def test_a_database_package_is_found_where_no_path_is_given(
-    full: Path, monkeypatch: pytest.MonkeyPatch
+    full: Path, monkeypatch: pytest.MonkeyPatch, package: str
 ) -> None:
     monkeypatch.setattr(plevin, "_opened", None)
     monkeypatch.delenv(plevin.ENVIRONMENT, raising=False)
-    module = ModuleType("plevin_db_country")
+    module = ModuleType(package)
     module.PATH = full  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "plevin_db_country", module)
+    monkeypatch.setitem(sys.modules, package, module)
     assert plevin.database().path == str(full)
 
 
