@@ -13,7 +13,8 @@ env:
   DATABASES: >-
     plevin-db:plevin.plv
     plevin-db-place:plevin.metro-place.plv
-    plevin-db-network:plevin.abuse-network.plv
+    plevin-db-network:plevin.network.plv
+    plevin-db-abuse:plevin.abuse-provider-abuse-service.plv
     plevin-db-country:plevin.place-country-code.plv
 
 jobs:
@@ -76,7 +77,8 @@ jobs:
             case $package in
               plevin-db) about="every field" ;;
               plevin-db-place) about="city, region, country, postal and coordinates" ;;
-              plevin-db-network) about="ASN, operator, routing and abuse" ;;
+              plevin-db-network) about="ASN, operator and routing" ;;
+              plevin-db-abuse) about="abuse service and provider" ;;
               plevin-db-country) about="the country code" ;;
             esac
             mkdir -p "$held/$module/data"

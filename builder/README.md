@@ -14,7 +14,8 @@ No API, no rate limit, no lookup leaving the machine.
 
 Download the latest build:
 [everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 17.3 MB,
-[network](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-network.plv) 11.3 MB,
+[network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.3 MB,
+[abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-provider-abuse-service.plv) 2.8 MB,
 [location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 5.7 MB,
 [country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 390 KB
 
@@ -35,7 +36,9 @@ cargo build --release
 
 ./target/release/plevin-builder              # dist/plevin.plv, every field
 ./target/release/plevin-builder place+metro  # dist/plevin.metro-place.plv
-./target/release/plevin-builder network+abuse  # dist/plevin.abuse-network.plv
+./target/release/plevin-builder network      # dist/plevin.network.plv
+./target/release/plevin-builder abuse.service+abuse.provider
+# dist/plevin.abuse-provider-abuse-service.plv
 ```
 
 `.github/workflows/build.yml` fetches, builds and releases daily, on secrets
