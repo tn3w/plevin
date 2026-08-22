@@ -234,6 +234,19 @@ the address runs no service at all. `evidence` is
 reads as `residential_proxy` with `evidence='inferred'`. The ten booleans are read off
 `service` and the carrier's type, never stored.
 
+## Blocklist
+
+[Download the latest `blocklist.netset`](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset) (11.3 MB), a CIDR netset of addresses with calculated Plevin abuse risk above 80/100.
+
+```python
+import ipaddress
+
+with open("blocklist.netset") as file:
+    networks = [ipaddress.ip_network(line) for line in file if line.strip() and not line.startswith("#")]
+address = ipaddress.ip_address("1.1.1.1")
+print(any(address in network for network in networks))
+```
+
 ## What an address says on its own
 
 Answered without the database, so they hold for every address:

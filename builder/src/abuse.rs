@@ -6,7 +6,11 @@ use crate::read::{self, two};
 use crate::{CATEGORIES, EVIDENCE, SERVICES, SPECIFIC, UNSEEN, word, worded};
 use regex::Regex;
 use std::collections::HashMap;
+use std::fmt::Write;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::Path;
+
+const CALCULATED_THRESHOLD: u8 = 80;
 
 #[derive(Clone, Default)]
 pub struct Source {
@@ -54,6 +58,61 @@ pub struct Feeds {
     pub satellites: Vec<u32>,
 }
 
+impl Feeds {
+    /// The compact blocklist uses the maximum severity of each source claim, like
+    /// the feed database, rather than expanding ASN risk across every route.
+    pub fn netset(&self, date: &str, records: &Records) -> String {
+        let mut ranges: [Vec<(u128, u128)>; 2] = [Vec::new(), Vec::new()];
+        for (family, family_ranges) in ranges.iter_mut().enumerate() {
+            let effective = &records.effective[family];
+            for (index, &(first, row)) in effective.iter().enumerate() {
+                let last = effective
+                    .get(index + 1)
+                    .map(|(next, _)| next - 1)
+                    .unwrap_or(if family == 0 { u32::MAX as u128 } else { u128::MAX });
+                if records.rows[row as usize].risk > CALCULATED_THRESHOLD {
+                    family_ranges.push((first, last));
+                }
+            }
+            for &(address, row) in &records.hosts[family] {
+                if records.rows[row as usize].risk > CALCULATED_THRESHOLD {
+                    family_ranges.push((address, address));
+                }
+            }
+            family_ranges.sort_unstable();
+            merge_ranges(family_ranges);
+        }
+        let entries: [Vec<String>; 2] = [0, 1].map(|family| {
+            ranges[family]
+                .iter()
+                .flat_map(|(first, last)| netset_blocks(*first, *last, family == 1))
+                .collect()
+        });
+        let mut output = format!(
+            "#\n# blocklist.netset\n#\n# ipv4+ipv6 hash:net netset\n#\n# Calculated Plevin abuse risk above {CALCULATED_THRESHOLD}/100.\n# Suitable for blocking or challenging clients exhibiting\n# bot/abuse behavior.\n#\n# Maintainer      : plevin\n# Maintainer URL  : https://github.com/tn3w/plevin\n# List source URL : https://github.com/tn3w/plevin/tree/master/builder/data/feeds.json\n# Source File Date: {date} 00:00:00 UTC\n# Category        : reputation\n# Version         : 1\n#\n# Threshold       : calculated > {CALCULATED_THRESHOLD}\n# Flags included  : abuse.risk\n# Entries (v4)    : {}\n# Entries (v6)    : {}\n#\n",
+            entries[0].len(),
+            entries[1].len(),
+        );
+        for entry in entries.into_iter().flatten() {
+            writeln!(output, "{entry}").unwrap();
+        }
+        output
+    }
+}
+
+fn merge_ranges(ranges: &mut Vec<(u128, u128)>) {
+    let mut merged: Vec<(u128, u128)> = Vec::with_capacity(ranges.len());
+    for (first, last) in ranges.drain(..) {
+        match merged.last_mut() {
+            Some((_, held)) if first <= held.saturating_add(1) => {
+                *held = (*held).max(last)
+            }
+            _ => merged.push((first, last)),
+        }
+    }
+    *ranges = merged;
+}
+
 #[derive(Default)]
 struct Harvest {
     asn: Vec<(u32, u16)>,
@@ -78,6 +137,49 @@ pub struct Records {
     pub spans: [Vec<(u128, u32)>; 2],
     pub effective: [Vec<(u128, u32)>; 2],
     pub hosts: [Vec<(u128, u32)>; 2],
+}
+
+fn netset_blocks(first: u128, last: u128, wide: bool) -> Vec<String> {
+    let bits = if wide { 128 } else { 32 };
+    let mut at = first;
+    let mut blocks = Vec::new();
+    while at <= last {
+        let aligned = if at == 0 { bits } else { at.trailing_zeros().min(bits) };
+        let available = last - at;
+        let size =
+            if available == u128::MAX { 128 } else { 128 - available.leading_zeros() };
+        let spare = aligned.min(size);
+        let prefix = bits - spare;
+        let address = if wide {
+            Ipv6Addr::from(at).to_string()
+        } else {
+            Ipv4Addr::from(at as u32).to_string()
+        };
+        blocks.push(if spare == 0 { address } else { format!("{address}/{prefix}") });
+        if spare == 128 {
+            break;
+        }
+        if last - at < (1u128 << spare).saturating_sub(1) {
+            break;
+        }
+        at += 1u128 << spare;
+    }
+    blocks
+}
+
+#[cfg(test)]
+mod tests {
+    use super::netset_blocks;
+
+    #[test]
+    fn a_full_ipv6_range_is_one_network() {
+        assert_eq!(netset_blocks(0, u128::MAX, true), ["::/0"]);
+    }
+
+    #[test]
+    fn a_single_address_has_no_prefix() {
+        assert_eq!(netset_blocks(0x01000001, 0x01000001, false), ["1.0.0.1"]);
+    }
 }
 
 #[derive(Clone, Default)]

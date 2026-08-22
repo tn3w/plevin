@@ -102,7 +102,10 @@ jobs:
         run: |
           cargo build --release
           ./target/release/plevin-builder full place+metro network \
-            abuse.service+abuse.provider place.country.code | tee build.log
+            abuse.service+abuse.provider place.country.code blocklist.netset | tee build.log
+          test -s dist/blocklist.netset
+          grep -qx '# blocklist.netset' dist/blocklist.netset
+          grep -q '^# Threshold       : calculated > 80$' dist/blocklist.netset
 
       - name: Publish release
         working-directory: builder
@@ -125,11 +128,15 @@ jobs:
               printf '| `%s` | %s | %s |\n' "${held#dist/}" \
                 "$(du -h "$held" | cut -f1)" "$(stat -c %s "$held")"
             done
+            held=dist/blocklist.netset
+            printf '| `%s` | %s | %s |\n' "${held#dist/}" \
+              "$(du -h "$held" | cut -f1)" "$(stat -c %s "$held")"
             echo
             echo '```bash'
             for held in dist/*.plv; do
               echo "curl -fsSLO https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/${held#dist/}"
             done
+            echo "curl -fsSLO https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/blocklist.netset"
             echo '```'
             echo
             grep -E "^\[" build.log | sed 's/^/    /'
@@ -142,7 +149,7 @@ jobs:
             echo
             echo "</details>"
           } > notes.md
-          gh release create "$tag" dist/*.plv --title "$tag" --notes-file notes.md
+          gh release create "$tag" dist/*.plv dist/blocklist.netset --title "$tag" --notes-file notes.md
 
       - name: Delete dated releases beyond the newest seven
         env:
