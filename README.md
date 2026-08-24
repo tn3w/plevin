@@ -59,7 +59,7 @@ several and the richest wins.
 | `pip install "plevin[db]"`      | 17.3 MB | every field                              |
 | `pip install "plevin[place]"`   | 5.7 MB  | city, region, postal, coordinates, metro |
 | `pip install "plevin[network]"` | 7.3 MB  | ASN, operator, routing                   |
-| `pip install "plevin[abuse]"`   | 3.5 MB  | abuse level, service and provider        |
+| `pip install "plevin[abuse]"`   | 3.7 MB  | abuse level, service and provider        |
 | `pip install "plevin[country]"` | 390 KB  | the country code                         |
 
 `PLEVIN_DB=/path/to/plevin.plv` or `plevin.use("plevin.plv")` reads a file of your own
@@ -499,7 +499,7 @@ downloads do not carry:
 | `https://plevin.tn3w.dev/db/plevin.plv` | every field, 17.3 MB |
 | `https://plevin.tn3w.dev/db/plevin.metro-place.plv` | city, region, postal, coordinates, metro, 5.7 MB |
 | `https://plevin.tn3w.dev/db/plevin.network.plv` | ASN, operator, routing, 7.3 MB |
-| `https://plevin.tn3w.dev/db/plevin.abuse-level-abuse-provider-abuse-service.plv` | abuse level, service and provider, 3.5 MB |
+| `https://plevin.tn3w.dev/db/plevin.abuse-level-abuse-provider-abuse-service.plv` | abuse level, service and provider, 3.7 MB |
 | `https://plevin.tn3w.dev/db/plevin.place-country-code.plv` | the country code, 390 KB |
 | `https://plevin.tn3w.dev/db/index.json` | the tag and what it carries |
 | `https://plevin.tn3w.dev/plevin/plevin.min.js` | the reader, one file |

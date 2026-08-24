@@ -83,7 +83,7 @@ read once.
 | `plevin.plv` | 17.3 MB | every field |
 | `plevin.metro-place.plv` | 5.7 MB | city, region, postal, coordinates, metro |
 | `plevin.network.plv` | 7.3 MB | ASN, operator, routing |
-| `plevin.abuse-level-abuse-provider-abuse-service.plv` | 3.5 MB | abuse level, service and provider |
+| `plevin.abuse-level-abuse-provider-abuse-service.plv` | 3.7 MB | abuse level, service and provider |
 | `plevin.place-country-code.plv` | 390 KB | the country code |
 
 ## The same answers over HTTP

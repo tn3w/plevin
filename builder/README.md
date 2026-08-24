@@ -15,7 +15,7 @@ No API, no rate limit, no lookup leaving the machine.
 Download the latest build:
 [everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 17.3 MB,
 [network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.3 MB,
-[abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 3.5 MB,
+[abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 3.7 MB,
 [location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 5.7 MB,
 [country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 390 KB
 
@@ -263,7 +263,7 @@ flowchart LR
 - union of two selections is byte-identical to building that union
 - one field builds to kilobytes: `abuse.is_tor_exit_node` is 34 KB
 - `abuse.level` is the score coarse enough to build small: one boundary per step
-  instead of one per point, and nothing below 0.40, which is 3.5 MB against 5.5 MB
+  instead of one per point, and nothing below 0.40, which is 3.7 MB against 5.5 MB
   for the same build carrying `abuse.risk`
 - derived booleans narrow their column to the values asked for
 - a field derived from several columns is stored derived where nothing else needs
