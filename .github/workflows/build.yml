@@ -102,8 +102,8 @@ jobs:
         run: |
           cargo build --release
           ./target/release/plevin-builder full place+metro network \
-            abuse.service+abuse.provider+abuse.level place.country.code |
-            tee build.log
+            abuse.service+abuse.provider+abuse.level place.country.code \
+            blocklist.netset | tee build.log
 
       - name: Publish release
         working-directory: builder
@@ -122,13 +122,13 @@ jobs:
             echo
             echo "| file | size | bytes |"
             echo "|---|---|---|"
-            for held in dist/*.plv; do
+            for held in dist/*.plv dist/blocklist.netset; do
               printf '| `%s` | %s | %s |\n' "${held#dist/}" \
                 "$(du -h "$held" | cut -f1)" "$(stat -c %s "$held")"
             done
             echo
             echo '```bash'
-            for held in dist/*.plv; do
+            for held in dist/*.plv dist/blocklist.netset; do
               echo "curl -fsSLO https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/${held#dist/}"
             done
             echo '```'
@@ -143,7 +143,7 @@ jobs:
             echo
             echo "</details>"
           } > notes.md
-          gh release create "$tag" dist/*.plv --title "$tag" --notes-file notes.md
+          gh release create "$tag" dist/*.plv dist/blocklist.netset --title "$tag" --notes-file notes.md
 
       - name: Delete dated releases beyond the newest seven
         env:

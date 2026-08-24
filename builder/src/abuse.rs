@@ -20,6 +20,7 @@ pub struct Source {
     pub group: u16,
     pub window: u16,
     pub weak: bool,
+    pub aggregate: bool,
     pub anycast: bool,
     pub satellite: bool,
 }
@@ -75,6 +76,8 @@ pub struct Record {
 
 pub struct Records {
     pub rows: Vec<Record>,
+    /// The ranges a blocklist takes, kept where the fold still knows what it saw.
+    pub listed: [Vec<(u128, u128)>; 2],
     pub spans: [Vec<(u128, u32)>; 2],
     pub effective: [Vec<(u128, u32)>; 2],
     pub hosts: [Vec<(u128, u32)>; 2],
@@ -87,6 +90,7 @@ struct Folded {
     weak: bool,
     service: u8,
     evidence: u8,
+    aged: bool,
     anycast: bool,
     satellite: bool,
     window: u16,
@@ -113,14 +117,19 @@ const EXPOSURE: &[(&str, f32)] = &[
 /// How much of that stands, by how the service was come by: an inference stands least.
 const STANDING: &[f32] = &[0.85, 1.0, 1.0, 0.85, 0.6];
 
+/// A list that never drops an address saw the service once; it does not stand for the
+/// address now, so what the service is worth is halved where that is all there is.
+const STALE: f32 = 0.5;
+
 /// Enough feeds agreeing still is not proof, so the scale stops short of certainty.
 const CERTAIN: u8 = 99;
 
-fn exposure(service: u8, evidence: u8) -> f32 {
+fn exposure(service: u8, evidence: u8, aged: bool) -> f32 {
     let named = SERVICES[service as usize];
     let standing = STANDING.get(evidence as usize).copied().unwrap_or(0.85);
+    let held = if aged { STALE } else { 1.0 };
     match EXPOSURE.iter().find(|(name, _)| *name == named) {
-        Some((_, risk)) => risk * standing,
+        Some((_, risk)) => risk * standing * held,
         None => 0.0,
     }
 }
@@ -175,6 +184,7 @@ impl Feeds {
                 },
                 window: number("window") as u16,
                 weak: entry["weak"].as_bool().unwrap_or(false),
+                aggregate: entry["aggregate"].as_bool().unwrap_or(false),
                 anycast: marked("is_anycast"),
                 satellite: marked("is_satellite"),
             });
@@ -448,6 +458,7 @@ impl Folded {
         if claim.service > 0 && self.stronger(claim.evidence, claim.service) {
             self.service = claim.service;
             self.evidence = claim.evidence;
+            self.aged = claim.aggregate;
             self.provider = claim.provider.clone();
         }
         self.anycast |= claim.anycast;
@@ -468,6 +479,7 @@ impl Folded {
         if other.service > 0 && self.stronger(other.evidence, other.service) {
             self.service = other.service;
             self.evidence = other.evidence;
+            self.aged = other.aged;
             self.provider = other.provider.clone();
         }
         self.anycast |= other.anycast;
@@ -502,9 +514,21 @@ impl Folded {
         (evidence, rank(service)) < (self.evidence, rank(self.service))
     }
 
+    /// What feeds reported of the address, with the service's own worth left out.
+    fn reported(&self) -> u8 {
+        let left = self.risks.iter().fold(1.0f32, |held, (_, risk)| held * (1.0 - risk));
+        (((1.0 - left) * 100.0).round() as u8).min(CERTAIN)
+    }
+
+    /// Worth turning away: reported often enough, or named by a list standing behind it.
+    fn blocked(&self) -> bool {
+        let listed = self.service > 0 && self.evidence <= crate::netset::LISTED;
+        listed || self.reported() >= crate::netset::FLOOR
+    }
+
     /// Noisy-OR over every score at once: what the service is worth, and each group.
     fn share(&self) -> f32 {
-        let exposed = 1.0 - exposure(self.service, self.evidence);
+        let exposed = 1.0 - exposure(self.service, self.evidence, self.aged);
         let left = self.risks.iter().fold(exposed, |held, (_, risk)| held * (1.0 - risk));
         1.0 - left
     }
@@ -569,13 +593,21 @@ impl Records {
         let mut spans = [Vec::new(), Vec::new()];
         let mut effective = [Vec::new(), Vec::new()];
         let mut hosts = [Vec::new(), Vec::new()];
+        let mut listed = [Vec::new(), Vec::new()];
         for family in 0..2 {
             let (runs, whole) = carried(&sweeps[family], systems, &mut pool, family);
-            hosts[family] = single(&feeds.hosts[family], feeds, &whole, &mut pool);
+            listed[family] = covered(&sweeps[family], family);
+            hosts[family] = single(
+                &feeds.hosts[family],
+                feeds,
+                &whole,
+                &mut pool,
+                &mut listed[family],
+            );
             effective[family] = whole.iter().map(|(at, _, row)| (*at, *row)).collect();
             spans[family] = runs;
         }
-        Records { rows: pool.rows, spans, effective, hosts }
+        Records { rows: pool.rows, listed, spans, effective, hosts }
     }
 }
 
@@ -696,12 +728,29 @@ fn carried(
     (runs, whole)
 }
 
+/// The spans a blocklist takes, read off the fold itself so no two claims share a row.
+fn covered(sweep: &[(u128, Folded)], family: usize) -> Vec<(u128, u128)> {
+    let ceiling = match family {
+        0 => u32::MAX as u128,
+        _ => u128::MAX,
+    };
+    let mut out = Vec::new();
+    for (at, (first, held)) in sweep.iter().enumerate() {
+        let last = sweep.get(at + 1).map(|(next, _)| next - 1).unwrap_or(ceiling);
+        if held.blocked() {
+            out.push((*first, last));
+        }
+    }
+    out
+}
+
 /// One row per address a feed names on its own, where it says more than its span does.
 fn single(
     claims: &[(u128, u16)],
     feeds: &Feeds,
     whole: &[(u128, Folded, u32)],
     pool: &mut Pool,
+    listed: &mut Vec<(u128, u128)>,
 ) -> Vec<(u128, u32)> {
     let mut out: Vec<(u128, u32)> = Vec::new();
     named(claims, &feeds.sources, |address, mut folded| {
@@ -713,6 +762,9 @@ fn single(
                 whole[spot - 1].2
             }
         };
+        if folded.blocked() {
+            listed.push((address, address));
+        }
         let row = pool.intern(&folded);
         if row != standing {
             out.push((address, row));

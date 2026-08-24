@@ -17,7 +17,8 @@ Download the latest build:
 [network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.3 MB,
 [abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 3.7 MB,
 [location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 5.7 MB,
-[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 390 KB
+[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 390 KB,
+[blocklist](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset) 6.8 MB
 
 </div>
 
@@ -39,7 +40,23 @@ cargo build --release
 ./target/release/plevin-builder network      # dist/plevin.network.plv
 ./target/release/plevin-builder abuse.service+abuse.provider+abuse.level
 # dist/plevin.abuse-level-abuse-provider-abuse-service.plv
+./target/release/plevin-builder blocklist.netset  # dist/blocklist.netset
 ```
+
+`blocklist.netset` is a CIDR netset of what feeds reported of an address itself, at 40
+or above, plus the addresses a current list names as running an anonymising service.
+Ranges are merged and written as the fewest aligned networks covering them, reserved
+space cut out. 479k entries, 1.2M v4 addresses, 6.8 MB.
+
+Two things the score fuses are separated here. `abuse.risk` is a noisy-OR over what
+feeds reported *and* what the service an address runs is worth on its own; the second
+half is a property of the address, not a thing it has done. The list reads the
+reported half, so the addresses on it are the ones something was seen from, and the
+floor sits where one feed of standing carries it. Services join on their evidence
+rather than their score: `published` or `measured`, a list that stands behind the
+address today, never `reported`. Both halves are read off the fold itself, where each
+claim is still its own, and not off the record it interns to, where two addresses
+scoring the same by different halves would share a row.
 
 `.github/workflows/build.yml` fetches, builds and releases daily, on secrets
 `IP2LOCATION_TOKEN` and `PEERINGDB_API_KEY`.
@@ -193,8 +210,10 @@ boundaries in the AS's own country, APNIC users, eyeball network.
 last. Risk is max within a `group`, noisy-OR across groups, and never under what the
 service itself is worth: a Tor exit reads 0.85, a public proxy 0.75, a residential
 proxy 0.70, a VPN 0.50, a private relay 0.15, times 0.85 where the claim was reported
-and 0.6 where it was inferred. `last_seen_days` is the tightest window that hit. Spans
-equal to their ASN default store nothing.
+and 0.6 where it was inferred, halved again where the feed is an `aggregate`: a list
+that never drops an address saw the service once and does not stand for it now.
+`last_seen_days` is the tightest window that hit. Spans equal to their ASN default
+store nothing.
 
 An ASN's baseline risk is what its own feeds assert, noisy-OR the risk its addresses
 carry. That share is the risk-weighted part of the announced space that was reported,

@@ -4,6 +4,7 @@ mod abuse;
 mod derive;
 mod file;
 mod gazetteer;
+mod netset;
 mod network;
 mod place;
 mod read;
@@ -16,9 +17,12 @@ use std::time::Instant;
 
 fn main() {
     let asked: Vec<String> = std::env::args().skip(1).collect();
-    let terms = match asked.is_empty() {
+    let listed = asked.iter().any(|term| term == "blocklist.netset");
+    let held: Vec<String> =
+        asked.into_iter().filter(|term| term != "blocklist.netset").collect();
+    let terms = match held.is_empty() && !listed {
         true => vec!["full".to_string()],
-        false => asked,
+        false => held,
     };
     let selections: Vec<Selection> =
         terms.iter().map(|term| Selection::parse(term)).collect();
@@ -42,6 +46,12 @@ fn main() {
 
     let records = abuse::Records::fold(&feeds, &mut systems);
     say(started, &format!("abuse: {} records", records.rows.len()));
+
+    if listed {
+        let text = netset::write(&records, &file::today());
+        std::fs::write(dist.join("blocklist.netset"), text).expect("blocklist.netset");
+        say(started, "wrote blocklist.netset");
+    }
 
     let world = spine::World::new(gazetteer, places, systems, records);
     for selection in &selections {

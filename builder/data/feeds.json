@@ -367,7 +367,8 @@
         "url": "https://iplists.firehol.org/files/firehol_proxies.netset",
         "regex": "^([0-9.]+(?:/\\d+)?)",
         "service": "public_proxy",
-        "evidence": "reported"
+        "evidence": "reported",
+        "aggregate": true
     },
     {
         "name": "thespeedx_http",

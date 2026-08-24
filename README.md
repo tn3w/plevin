@@ -242,6 +242,18 @@ the address runs no service at all. `evidence` is
 reads as `residential_proxy` with `evidence='inferred'`. The ten booleans are read off
 `service` and the carrier's type, never stored.
 
+## Blocklist
+
+[`blocklist.netset`](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset)
+is 6.8 MB of CIDR: every address feeds reported at 40 or above, and every address a
+current list names as running an anonymising service. Only what was said about the
+address itself, so no ASN-wide score, and no reserved space.
+
+```bash
+ipset create plevin hash:net
+awk '!/^#/' blocklist.netset | xargs -n1 ipset add plevin
+```
+
 ## What an address says on its own
 
 Answered without the database, so they hold for every address:
