@@ -43,6 +43,7 @@ const BOOKS: Record<string, string> = {
   "abuse.user_type": "categories",
   "abuse.service": "services",
   "abuse.evidence": "evidence",
+  "abuse.level": "levels",
 };
 
 type Read = (value: number) => unknown;

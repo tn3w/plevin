@@ -102,7 +102,8 @@ jobs:
         run: |
           cargo build --release
           ./target/release/plevin-builder full place+metro network \
-            abuse.service+abuse.provider place.country.code | tee build.log
+            abuse.service+abuse.provider+abuse.level place.country.code |
+            tee build.log
 
       - name: Publish release
         working-directory: builder

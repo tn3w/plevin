@@ -46,7 +46,8 @@ BOOKS = {"rpki": "rpki", "rir": "rirs", "place.granularity": "granularity",
          "city.timezone": "timezones",
          "city.type": "place_types",
          "operator.category": "categories", "abuse.user_type": "categories",
-         "abuse.service": "services", "abuse.evidence": "evidence"}
+         "abuse.service": "services", "abuse.evidence": "evidence",
+         "abuse.level": "levels"}
 
 
 def _kept(values: array[int]) -> array[int]:

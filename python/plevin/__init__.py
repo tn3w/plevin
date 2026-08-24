@@ -241,14 +241,17 @@ def _abuse(record: Rows | None, system: Rows | None, user_type: str,
     named, inferred = derive.service(str(held.get("service", "")), user_type)
     evidence = str(held.get("evidence", "")) or inferred
     name = str(held.get("name", ""))
+    level = str(held.get("level", ""))
     return Abuse(
         name=_text(name),
         provider=_text(name or (brand if named else "")),
         service=_text(named),
         evidence=_text(evidence),
+        level=_text(level),
         risk=held.get("risk"),
         network_risk=None if system is None else system.get("risk"),
         last_seen_days=_count(held.get("last_seen_days")),
+        is_malicious=bool(level),
         is_anycast=bool(held.get("is_anycast")),
         is_satellite=bool(held.get("is_satellite")),
         is_hosting_provider=user_type in derive.SERVERS,

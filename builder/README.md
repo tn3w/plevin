@@ -9,13 +9,13 @@ No API, no rate limit, no lookup leaving the machine.
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
 ![Full build](https://img.shields.io/badge/full%20build-17.3%20MB-2ea043)
 ![Lookup](https://img.shields.io/badge/lookup-250k%2Fs-2ea043)
-![Fields](https://img.shields.io/badge/fields-99-6f42c1)
+![Fields](https://img.shields.io/badge/fields-101-6f42c1)
 ![Sources](https://img.shields.io/badge/sources-24%20files%20%2B%20156%20feeds-6f42c1)
 
 Download the latest build:
 [everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 17.3 MB,
 [network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.3 MB,
-[abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-provider-abuse-service.plv) 2.8 MB,
+[abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 3.5 MB,
 [location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 5.7 MB,
 [country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 390 KB
 
@@ -37,8 +37,8 @@ cargo build --release
 ./target/release/plevin-builder              # dist/plevin.plv, every field
 ./target/release/plevin-builder place+metro  # dist/plevin.metro-place.plv
 ./target/release/plevin-builder network      # dist/plevin.network.plv
-./target/release/plevin-builder abuse.service+abuse.provider
-# dist/plevin.abuse-provider-abuse-service.plv
+./target/release/plevin-builder abuse.service+abuse.provider+abuse.level
+# dist/plevin.abuse-level-abuse-provider-abuse-service.plv
 ```
 
 `.github/workflows/build.yml` fetches, builds and releases daily, on secrets
@@ -115,12 +115,13 @@ flowchart LR
 | `place`   | `city` name, ascii, id, population, type, postal, postal_partial, timezone, elevation; `point` lat, lon, accuracy, granularity, confidence; `region` name, code, iso, type, id; `district` name, code, id; `country.code` |
 | `metro`   | code, label                                                                                                                                                                                                               |
 | `network` | asn, handle, prefix, rir, rpki, roas; `operator` company, brand, domain, website, category, tier, peering, scope, rir, since, street, city, state, postal, abuse_email, country; `carrier` user_type, user_count, mcc, mnc     |
-| `abuse`   | name, service, evidence, is_anycast, is_satellite, risk, network_risk, last_seen_days                                                                                                                                     |
+| `abuse`   | name, service, evidence, is_anycast, is_satellite, risk, level, network_risk, last_seen_days                                                                                                                              |
 
 Derived, not stored: `is_hosting_provider` and `carrier.is_mobile` from
 `carrier.user_type`; `is_proxy`, `is_public_proxy`, `is_residential_proxy`,
 `is_anonymous_vpn`, `is_tor_exit_node`, `is_private_relay`, `is_anonymous` from
-`abuse.service`; `operator.brand` from handle and company. `operator.domain` is stored
+`abuse.service`; `is_malicious` from `abuse.level`; `operator.brand` from handle and
+company. `operator.domain` is stored
 only where the website is absent.
 
 ### Scales
@@ -128,6 +129,7 @@ only where the website is absent.
 |                        |                              |
 | ---------------------- | ---------------------------- |
 | `risk`, `network_risk` | integer percent, 255 unseen  |
+| `level`                | risk in three steps, 0 unset |
 | `point.confidence`     | 0 to 100                     |
 | `point.accuracy`       | km                           |
 | `point.lat`, `lon`     | degrees times 10,000, signed |
@@ -260,6 +262,9 @@ flowchart LR
 - answers never change with the selection
 - union of two selections is byte-identical to building that union
 - one field builds to kilobytes: `abuse.is_tor_exit_node` is 34 KB
+- `abuse.level` is the score coarse enough to build small: one boundary per step
+  instead of one per point, and nothing below 0.40, which is 3.5 MB against 5.5 MB
+  for the same build carrying `abuse.risk`
 - derived booleans narrow their column to the values asked for
 - a field derived from several columns is stored derived where nothing else needs
   them: `network.operator.brand` alone writes `network.brand` and drops the handle,

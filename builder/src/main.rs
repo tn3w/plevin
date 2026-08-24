@@ -146,6 +146,7 @@ pub const COLUMNS: &[Column] = &[
     column("abuse.is_anycast", Number),
     column("abuse.is_satellite", Number),
     column("abuse.risk", Number),
+    column("abuse.level", Number),
     column("abuse.last_seen_days", Number),
     column("network.asn", Number),
     column("network.handle", Text),
@@ -174,6 +175,7 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("abuse.is_anonymous_vpn", &["abuse.service"]),
     ("abuse.is_anycast", &["abuse.is_anycast"]),
     ("abuse.is_hosting_provider", &["abuse.user_type", "operator.category"]),
+    ("abuse.is_malicious", &["abuse.level"]),
     ("abuse.is_private_relay", &["abuse.service"]),
     ("abuse.is_proxy", &["abuse.service"]),
     ("abuse.is_public_proxy", &["abuse.service"]),
@@ -181,6 +183,7 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("abuse.is_satellite", &["network.abuse", "abuse.is_satellite"]),
     ("abuse.is_tor_exit_node", &["abuse.service"]),
     ("abuse.last_seen_days", &["abuse.last_seen_days"]),
+    ("abuse.level", &["abuse.level"]),
     ("abuse.name", &["abuse.name"]),
     ("abuse.network_risk", &["network.abuse", "abuse.risk"]),
     ("abuse.provider", &["abuse.name", "abuse.service", "network.brand"]),
@@ -330,6 +333,19 @@ pub const SPECIFIC: &[&str] = &[
     "public_proxy",
 ];
 
+pub const LEVELS: &[&str] = &["", "low", "medium", "high"];
+
+/// Where a level begins: below the first one the reports are a rumour, not a verdict.
+const CUTS: &[u8] = &[40, 60, 80];
+
+/// Risk as a handful of steps, so a boundary only falls where the reading changes.
+pub fn level(risk: u8) -> u8 {
+    match risk {
+        UNSEEN => 0,
+        risk => CUTS.iter().filter(|cut| risk >= **cut).count() as u8,
+    }
+}
+
 pub const UNSEEN: u8 = 255;
 
 /// Where a word sits in its vocabulary, which is what the file stores.
@@ -355,10 +371,11 @@ pub fn vocabularies(
     zones: Option<&[String]>,
 ) -> Vec<(&'static str, Vec<String>)> {
     let named = |book: &[&str]| book.iter().map(|held| held.to_string()).collect();
-    let held: [(&'static str, &[&str], &[&str]); 7] = [
+    let held: [(&'static str, &[&str], &[&str]); 8] = [
         ("categories", CATEGORIES, &["abuse.user_type", "operator.category"]),
         ("services", SERVICES, &["abuse.service"]),
         ("evidence", EVIDENCE, &["abuse.evidence"]),
+        ("levels", LEVELS, &["abuse.level"]),
         ("granularity", GRANULARITY, &["place.granularity"]),
         ("rpki", RPKI, &["spine.rpki"]),
         ("rirs", RIRS, &["spine.rir"]),

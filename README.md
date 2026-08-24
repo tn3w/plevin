@@ -12,7 +12,7 @@ No API, no rate limit, no lookup leaving the machine.
 [![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)](https://pypi.org/project/plevin)
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2&label=npm)](https://www.npmjs.com/package/plevinjs)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](LICENSE)
-[![Fields](https://img.shields.io/badge/fields-99-6f42c1)](#every-field)
+[![Fields](https://img.shields.io/badge/fields-101-6f42c1)](#every-field)
 [![Boundaries](https://img.shields.io/badge/boundaries-3.0M-6f42c1)](#data)
 [![Warm](https://img.shields.io/badge/warm%20lookups-2M%2Fs-2ea043)](#speed)
 
@@ -59,7 +59,7 @@ several and the richest wins.
 | `pip install "plevin[db]"`      | 17.3 MB | every field                              |
 | `pip install "plevin[place]"`   | 5.7 MB  | city, region, postal, coordinates, metro |
 | `pip install "plevin[network]"` | 7.3 MB  | ASN, operator, routing                   |
-| `pip install "plevin[abuse]"`   | 2.8 MB  | abuse service and provider               |
+| `pip install "plevin[abuse]"`   | 3.5 MB  | abuse level, service and provider        |
 | `pip install "plevin[country]"` | 390 KB  | the country code                         |
 
 `PLEVIN_DB=/path/to/plevin.plv` or `plevin.use("plevin.plv")` reads a file of your own
@@ -202,9 +202,11 @@ Abuse(
     provider='Tor',
     service='tor_exit_node',
     evidence='measured',
+    level='high',
     risk=0.98,
     network_risk=0.82,
     last_seen_days=1,
+    is_malicious=True,
     is_anycast=False,
     is_satellite=False,
     is_hosting_provider=True,
@@ -217,6 +219,12 @@ Abuse(
     is_anonymous=True,
 )
 ```
+
+`level` is `low`, `medium` or `high`, the same reading in three steps: `low` from 0.40,
+`medium` from 0.60, `high` from 0.80, and `None` below that, where the reports are too
+thin to call. `is_malicious` is true wherever a level stands. Coarse on purpose, so a
+build that carries the level and not the score keeps one boundary per step instead of
+one per point; the exact score stays in the full file.
 
 `risk` is 0 to 1 for the address, `network_risk` the same for the whole ASN, `None`
 where nothing has ever been seen, so which is not a risk of zero. It is a total, not a
@@ -491,7 +499,7 @@ downloads do not carry:
 | `https://plevin.tn3w.dev/db/plevin.plv` | every field, 17.3 MB |
 | `https://plevin.tn3w.dev/db/plevin.metro-place.plv` | city, region, postal, coordinates, metro, 5.7 MB |
 | `https://plevin.tn3w.dev/db/plevin.network.plv` | ASN, operator, routing, 7.3 MB |
-| `https://plevin.tn3w.dev/db/plevin.abuse-provider-abuse-service.plv` | abuse service and provider, 2.8 MB |
+| `https://plevin.tn3w.dev/db/plevin.abuse-level-abuse-provider-abuse-service.plv` | abuse level, service and provider, 3.5 MB |
 | `https://plevin.tn3w.dev/db/plevin.place-country-code.plv` | the country code, 390 KB |
 | `https://plevin.tn3w.dev/db/index.json` | the tag and what it carries |
 | `https://plevin.tn3w.dev/plevin/plevin.min.js` | the reader, one file |

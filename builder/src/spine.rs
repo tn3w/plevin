@@ -397,6 +397,7 @@ impl World {
             "abuse.is_anycast" => self.records.rows[row].anycast as i64,
             "abuse.is_satellite" => self.records.rows[row].satellite as i64,
             "abuse.risk" => self.records.rows[row].risk as i64,
+            "abuse.level" => crate::level(self.records.rows[row].risk) as i64,
             "abuse.last_seen_days" => self.records.rows[row].last_seen as i64,
             other => self.holder(other, row, words),
         }

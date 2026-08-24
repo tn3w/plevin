@@ -101,9 +101,11 @@ export type Abuse = {
   provider: string | null;
   service: string | null;
   evidence: string | null;
+  level: string | null;
   risk: number | null;
   network_risk: number | null;
   last_seen_days: number | null;
+  is_malicious: boolean;
   is_anycast: boolean;
   is_satellite: boolean;
   is_hosting_provider: boolean;

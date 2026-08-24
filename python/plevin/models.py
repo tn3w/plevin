@@ -116,9 +116,11 @@ class Abuse:
     provider: str | None = None
     service: str | None = None
     evidence: str | None = None
+    level: str | None = None
     risk: float | None = None
     network_risk: float | None = None
     last_seen_days: int | None = None
+    is_malicious: bool = False
     is_anycast: bool = False
     is_satellite: bool = False
     is_hosting_provider: bool = False

@@ -164,14 +164,17 @@ const abuseOf = (
   const found = record ?? {};
   const [named, inferred] = derive.service(String(found.service ?? ""), userType);
   const name = String(found.name ?? "");
+  const level = String(found.level ?? "");
   return {
     name: text(name),
     provider: text(name || (named ? brand : "")),
     service: text(named),
     evidence: text(String(found.evidence ?? "") || inferred),
+    level: text(level),
     risk: number(found.risk),
     network_risk: system ? number(system.risk) : null,
     last_seen_days: count(found.last_seen_days),
+    is_malicious: Boolean(level),
     is_anycast: Boolean(found.is_anycast),
     is_satellite: Boolean(found.is_satellite),
     is_hosting_provider: derive.SERVERS.has(userType),

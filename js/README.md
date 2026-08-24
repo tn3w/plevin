@@ -12,7 +12,7 @@ No API, no rate limit, no lookup leaving the machine, or the browser tab.
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2)](https://www.npmjs.com/package/plevinjs)
 [![Types](https://img.shields.io/badge/types-included-1868f2)](https://www.npmjs.com/package/plevinjs?activeTab=code)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](https://github.com/tn3w/plevin/blob/master/LICENSE)
-[![Fields](https://img.shields.io/badge/fields-99-6f42c1)](#every-field)
+[![Fields](https://img.shields.io/badge/fields-101-6f42c1)](#every-field)
 [![Boundaries](https://img.shields.io/badge/boundaries-3.0M-6f42c1)](https://github.com/tn3w/plevin/blob/master/README.md#data)
 [![Warm](https://img.shields.io/badge/warm%20lookups-4M%2Fs-2ea043)](#speed)
 
@@ -83,7 +83,7 @@ read once.
 | `plevin.plv` | 17.3 MB | every field |
 | `plevin.metro-place.plv` | 5.7 MB | city, region, postal, coordinates, metro |
 | `plevin.network.plv` | 7.3 MB | ASN, operator, routing |
-| `plevin.abuse-provider-abuse-service.plv` | 2.8 MB | abuse service and provider |
+| `plevin.abuse-level-abuse-provider-abuse-service.plv` | 3.5 MB | abuse level, service and provider |
 | `plevin.place-country-code.plv` | 390 KB | the country code |
 
 ## The same answers over HTTP
@@ -181,12 +181,17 @@ db.lookup("36.50.238.1").network;
 db.lookup("185.220.101.1").abuse;
 {
   name: 'Tor', provider: 'Tor', service: 'tor_exit_node', evidence: 'measured',
-  risk: 0.98, network_risk: 0.82, last_seen_days: 1, is_anycast: false,
+  level: 'high', risk: 0.98, network_risk: 0.82, last_seen_days: 1,
+  is_malicious: true, is_anycast: false,
   is_satellite: false, is_hosting_provider: true, is_proxy: false,
   is_public_proxy: false, is_residential_proxy: false, is_anonymous_vpn: false,
   is_tor_exit_node: true, is_private_relay: false, is_anonymous: true,
 }
 ```
+
+`level` is `low`, `medium` or `high`, the same reading in three steps: `low` from 0.40,
+`medium` from 0.60, `high` from 0.80, and `null` below that, where the reports are too
+thin to call. `is_malicious` is true wherever a level stands.
 
 `risk` is 0 to 1 for the address, `network_risk` the same for the whole ASN, `null`
 where nothing has ever been seen, so which is not a risk of zero. It is a total of what
