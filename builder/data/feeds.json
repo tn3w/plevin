@@ -195,8 +195,8 @@
     {
         "name": "protonvpn",
         "provider": "ProtonVPN",
-        "url": "https://raw.githubusercontent.com/tn3w/ProtonVPN-IPs/refs/heads/master/protonvpn_ips.json",
-        "regex": "\"([0-9a-fA-F:.]+)\"",
+        "url": "https://raw.githubusercontent.com/tn3w/ProtonVPN-IPs/master/protonvpn_ip_ranges.txt",
+        "regex": "^([0-9.]+/\\d+)",
         "service": "anonymous_vpn",
         "evidence": "published"
     },
