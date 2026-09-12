@@ -149,24 +149,33 @@ const panel = (kind, title, note) => {
   return [section, body];
 };
 
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
+
 const TILES = {
-  light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  light: `${ESRI}/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`,
+  dark: `${ESRI}/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`,
+};
+
+const LABELS = {
+  light: `${ESRI}/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}`,
+  dark: `${ESRI}/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}`,
 };
 
 const TILE_OPTIONS = {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">' +
-    'OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  maxZoom: 20,
-  subdomains: "abcd",
+  attribution: '&copy; <a href="https://www.esri.com">Esri</a>, HERE, Garmin, ' +
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 16,
 };
 
 const THEME = window.matchMedia("(prefers-color-scheme: dark)");
 const maps = new Set();
 
-const tileUrl = () => TILES[THEME.matches ? "dark" : "light"];
+const shade = () => (THEME.matches ? "dark" : "light");
 
-const tileLayer = () => window.L.tileLayer(tileUrl(), TILE_OPTIONS);
+const tileLayer = () => window.L.layerGroup([
+  window.L.tileLayer(TILES[shade()], TILE_OPTIONS),
+  window.L.tileLayer(LABELS[shade()], { maxZoom: TILE_OPTIONS.maxZoom }),
+]);
 
 const tuneMap = (map) => {
   map.scrollWheelZoom.disable();
@@ -469,8 +478,8 @@ const routingPanel = (db, asn) => {
 
 /** The flags alone already ride in the header, so a record of only flags says nothing. */
 const told = (abuse) =>
-  Boolean(abuse) && [abuse.provider, abuse.service, abuse.evidence, abuse.risk,
-    abuse.network_risk, abuse.last_seen_days].some((value) => value !== null);
+  Boolean(abuse) && [abuse.name, abuse.service, abuse.evidence, abuse.risk,
+    abuse.network_risk, abuse.last_seen_days].some((value) => value != null);
 
 const ADDRESS_TIP = "How often this single address itself was reported by the abuse " +
   "feeds, and never under what the anonymity service it runs is worth on its own. " +
@@ -498,7 +507,7 @@ const abusePanel = (abuse, address = true) => {
   body.append(held);
 
   held.append(fields([
-    ["Seen as", abuse.provider ?? abuse.service],
+    ["Seen as", abuse.name ?? abuse.service],
     ["Service", abuse.service],
     ["Evidence", abuse.evidence],
     ["Last seen", abuse.last_seen_days === null
