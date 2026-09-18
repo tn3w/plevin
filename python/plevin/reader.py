@@ -7,7 +7,7 @@ import mmap
 import struct
 import sys
 from array import array
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections.abc import Callable, Sequence
 from functools import partial
 from heapq import nsmallest
@@ -50,17 +50,14 @@ BOOKS = {"rpki": "rpki", "rir": "rirs", "place.granularity": "granularity",
          "abuse.level": "levels"}
 
 
-def _kept(values: array[int]) -> array[int]:
-    return values
+SWAPPED = sys.byteorder == "big"
 
 
-def _turned(values: array[int]) -> array[int]:
+def _ordered(values: array[int]) -> array[int]:
     """Every column is little endian, so a big endian reader turns it around."""
-    values.byteswap()
+    if SWAPPED:
+        values.byteswap()
     return values
-
-
-ORDERED = _turned if sys.byteorder == "big" else _kept
 
 
 def _risk(value: int) -> float | None:
@@ -143,12 +140,12 @@ class Section:
         self.per_block: int = entry["block"]
         self.per_group: int = entry["group"]
         self.fanout = self.per_block // self.per_group
-        blocks, self.width, book = struct.unpack_from("<III", view, 0)
+        blocks, width, book = struct.unpack_from("<III", view, 0)
         self.blocks: int = blocks
+        self.width: int = width
         at = 12
         self.offsets: tuple[int, ...] = struct.unpack_from(f"<{blocks + 1}I", view, at)
         at += 4 * (blocks + 1)
-        width: int = self.width
         self.keys = [int.from_bytes(view[head:head + width], "big")
                      for head in range(at, at + width * blocks, width or 1)]
         at += width * blocks
@@ -184,7 +181,7 @@ class Column(Section):
 
     def block(self, index: int) -> Sequence[int]:
         raw = self.raw(index)
-        return ORDERED(array(self.formats[raw[0]], raw[1:]))
+        return _ordered(array(self.formats[raw[0]], raw[1:]))
 
     def __getitem__(self, row: int) -> Any:
         index, place = divmod(row, self.per_block)
@@ -378,9 +375,6 @@ class File:
     def _linked(self, key: tuple[str, int]) -> Row:
         """A row of a table, kept: a city is read once however many link to it."""
         table, row = key
-        return self._row(table, row)
-
-    def _row(self, table: str, row: int) -> Row:
         plain, text, degrees, coded, links = self.tables.get(table, EMPTY)
         out: Row = {}
         for field, section in plain:
@@ -435,14 +429,7 @@ class File:
 
     def _seek(self, column: Section, value: int) -> int:
         """The first row of a sorted column that is not below the value asked for."""
-        low, high = 0, column.count
-        while low < high:
-            middle = (low + high) // 2
-            if column[middle] < value:
-                low = middle + 1
-            else:
-                high = middle
-        return low
+        return bisect_left(column, value, hi=column.count)
 
     def system_row(self, asn: int) -> int:
         """The row one ASN is stored at, or -1 where the file carries no such network."""
@@ -469,17 +456,11 @@ class File:
             return []
 
         bits = 128 if version == 6 else 32
-        seen: set[tuple[int, int]] = set()
-        held: list[tuple[int, int]] = []
+        masked: list[tuple[int, int]] = []
         for row in links.rows(network + 1):
-            prefix = prefixes[row]
-            spare = bits - prefix
-            found = (spine[row] >> spare << spare, prefix)
-            if found in seen:
-                continue
-            seen.add(found)
-            held.append(found)
-        return held
+            spare = bits - prefixes[row]
+            masked.append((spine[row] >> spare << spare, prefixes[row]))
+        return list(dict.fromkeys(masked))
 
     def _searchable(self) -> Words:
         """Every ASN's handle and company in one lowercase text a search scans whole."""
@@ -491,13 +472,13 @@ class File:
         peerings = self.sections["col.operator.peering"]
         people = self.sections["col.carrier.user_count"]
         pool = self.sections["strings"]
-        rows, words, weights = [], [], []
-        for row in range(self._seek(asns, 1), asns.count):
+        rows = list(range(self._seek(asns, 1), asns.count))
+        words, weights = [], []
+        for row in rows:
             operator, carrier = operators[row], carriers[row]
             company = pool[companies[operator - 1]] if operator else ""
             peering = peerings[operator - 1] if operator else 0
             users = people[carrier - 1] if carrier else 0
-            rows.append(row)
             words.append(f"{pool[handles[row]]}\t{company}".lower())
             weights.append(peering + users.bit_length())
         starts = list(accumulate((len(word) + 1 for word in words), initial=0))

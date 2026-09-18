@@ -129,10 +129,12 @@ def test_the_one_scale_where_zero_is_a_verdict() -> None:
     assert reader._risk(reader.UNSEEN) is None
 
 
-def test_a_big_endian_reader_turns_a_column_around() -> None:
-    values = array("H", [1, 256])
-    assert reader._turned(values).tolist() == [256, 1]
-    assert reader._kept(array("H", [1])).tolist() == [1]
+def test_a_big_endian_reader_turns_a_column_around(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert reader._ordered(array("H", [1, 256])).tolist() == [1, 256]
+    monkeypatch.setattr(reader, "SWAPPED", True)
+    assert reader._ordered(array("H", [1, 256])).tolist() == [256, 1]
 
 
 def test_a_stepped_column_sums_back_into_the_values(tmp_path: Path) -> None:

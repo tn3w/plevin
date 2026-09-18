@@ -26,22 +26,16 @@ Plan = tuple[Any, Any, Any, Any, Any]
 Family = tuple[Any, Any, Any, Any]
 Found = tuple[int, int, int]
 
-MAGIC = b"PLEVIN\0"
-FORMAT = 1
-CACHED = 1 << 14
-DEGREES = 10_000
-UNSEEN = 255
-EMPTY: Plan = ((), (), (), (), ())
+MAGIC, FORMAT = b"PLEVIN\0", 1
+CACHED, DEGREES, UNSEEN, SPAN = 1 << 14, 10_000, 255, "network"
 FORMATS = {1: "B", 2: "H", 4: "I", 8: "Q"}
 SIGNED = {1: "b", 2: "h", 4: "i", 8: "q"}
-STEPPED = ("signed", "delta")
-SWAPPED = sys.byteorder == "big"
+STEPPED, SWAPPED = ("signed", "delta"), sys.byteorder == "big"
+EMPTY: Plan = ((), (), (), (), ())
 CARRIED = ("place", "network", "abuse", "prefix", "rpki", "roas")
 LINKED = frozenset(("place", "network", "abuse"))
-SPAN = "network"
 BOOKS = {"rpki": "rpki", "place.granularity": "granularity",
-         "city.timezone": "timezones",
-         "city.type": "place_types",
+         "city.timezone": "timezones", "city.type": "place_types",
          "operator.category": "categories", "abuse.user_type": "categories",
          "abuse.service": "services", "abuse.evidence": "evidence"}
 
@@ -57,17 +51,6 @@ def _word(book: list[str], code: int) -> str:
 
 READS: dict[str, Read] = {"abuse.risk": _risk, "abuse.is_anycast": bool,
                           "abuse.is_satellite": bool}
-
-
-def _varint(data: bytes, at: int) -> tuple[int, int]:
-    value = shift = 0
-    while True:
-        byte = data[at]
-        at += 1
-        value |= (byte & 0x7F) << shift
-        if byte < 0x80:
-            return value, at
-        shift += 7
 
 
 def _varints(data: bytes, at: int, count: int) -> tuple[list[int], int]:
@@ -92,18 +75,27 @@ def _varints(data: bytes, at: int, count: int) -> tuple[list[int], int]:
     return values, at
 
 
+def _varint(data: bytes, at: int) -> tuple[int, int]:
+    value = shift = 0
+    while True:
+        byte = data[at]
+        at += 1
+        value |= (byte & 0x7F) << shift
+        if byte < 0x80:
+            return value, at
+        shift += 7
+
+
 def _unpacker(dictionary: memoryview) -> Callable[[Any], bytes]:
     if not dictionary:
         return decompress
-    book = ZstdDict(bytes(dictionary))
-    return lambda block: decompress(block, zstd_dict=book)
+    return partial(decompress, zstd_dict=ZstdDict(bytes(dictionary)))
 
 
 class Cache(dict[Any, Any]):
     """What a reader would otherwise rebuild, kept until there is too much of it."""
 
     def __init__(self, build: Callable[[Any], Any]) -> None:
-        super().__init__()
         self.build = build
 
     def __missing__(self, key: Any) -> Any:
@@ -116,21 +108,22 @@ class Cache(dict[Any, Any]):
 class Section:
     """A block is what the codec packed; a group is all of one a lookup decodes."""
 
-    __slots__ = ("blocks", "cache", "count", "data", "fanout", "groups", "keys",
-                 "offsets", "per_block", "per_group", "read", "unpack", "width")
+    __slots__ = ("blocks", "cache", "count", "data", "encoding", "fanout", "groups",
+                 "keys", "offsets", "per_block", "per_group", "read", "unpack", "width")
 
     def __init__(self, view: memoryview, entry: Entry) -> None:
         self.count: int = entry["count"]
         self.read: str = entry["read"]
+        self.encoding: str = entry["encoding"]
         self.per_block: int = entry["block"]
         self.per_group: int = entry["group"]
         self.fanout = self.per_block // self.per_group
-        blocks, self.width, book = struct.unpack_from("<III", view, 0)
+        blocks, width, book = struct.unpack_from("<III", view, 0)
         self.blocks: int = blocks
+        self.width: int = width
         at = 12
         self.offsets: tuple[int, ...] = struct.unpack_from(f"<{blocks + 1}I", view, at)
         at += 4 * (blocks + 1)
-        width: int = self.width
         self.keys = [int.from_bytes(view[head:head + width], "big")
                      for head in range(at, at + width * blocks, width or 1)]
         at += width * blocks
@@ -158,31 +151,20 @@ class Section:
 class Column(Section):
     """A block is one array: reading a value is a subscript, and never a decode."""
 
-    __slots__ = ("formats",)
-
-    def __init__(self, view: memoryview, entry: Entry) -> None:
-        super().__init__(view, entry)
-        self.formats = SIGNED if entry["encoding"] in STEPPED else FORMATS
+    __slots__ = ()
 
     def block(self, index: int) -> Sequence[int]:
+        """Stepped columns restart every block, so a block sums without the one before."""
         raw = self.raw(index)
-        values = array(self.formats[raw[0]], raw[1:])
+        formats = SIGNED if self.encoding in STEPPED else FORMATS
+        values = array(formats[raw[0]], raw[1:])
         if SWAPPED:
             values.byteswap()
-        return values
+        return list(accumulate(values)) if self.encoding == "delta" else values
 
     def __getitem__(self, row: int) -> Any:
         index, place = divmod(row, self.per_block)
         return self.cache[index][place]
-
-
-class Deltas(Column):
-    """The steps between values, summed once a block: monotone columns cost a byte."""
-
-    __slots__ = ()
-
-    def block(self, index: int) -> list[int]:
-        return list(accumulate(super().block(index)))
 
 
 class Strings(Section):
@@ -222,12 +204,7 @@ class Strings(Section):
 class Index(Section):
     """The one section a lookup bisects: block keys, group heads, then gaps."""
 
-    __slots__ = ("host_bits",)
-
-    def __init__(self, view: memoryview, entry: Entry) -> None:
-        super().__init__(view, entry)
-        # a v6 address is an ordered network and an unordered interface, stored apart
-        self.host_bits = 0 if self.width == 4 else 64
+    __slots__ = ()
 
     def block(self, index: int) -> tuple[list[int], list[int], bytes]:
         raw = self.raw(index)
@@ -239,15 +216,17 @@ class Index(Section):
         return heads, list(accumulate(lengths, initial=at)), raw
 
     def values(self, group: int) -> list[int]:
+        """A v6 address is an ordered network and an unordered interface, stored apart."""
         index, at = divmod(group, self.fanout)
         heads, starts, raw = self.cache[index]
         size = self.held(group)
+        host_bits = 0 if self.width == 4 else 64
         gaps, cursor = _varints(raw, starts[at], size - 1)
-        networks = accumulate(gaps, initial=heads[at] >> self.host_bits)
-        if not self.host_bits:
+        networks = accumulate(gaps, initial=heads[at] >> host_bits)
+        if not host_bits:
             return list(networks)
         hosts, _ = _varints(raw, cursor, size)
-        return [network << self.host_bits | host
+        return [network << host_bits | host
                 for network, host in zip(networks, hosts, strict=True)]
 
     def __getitem__(self, row: int) -> Any:
@@ -282,7 +261,7 @@ class Plevin:
         self.head: Entry = json.loads(bytes(view[head:head + size]))
 
         body = head + size
-        kinds = {"index": Index, "front": Strings, "delta": Deltas}
+        kinds = {"index": Index, "front": Strings}
         self.sections: dict[str, Section] = {}
         for name, entry in self.head["sections"].items():
             at = body + entry["offset"]
@@ -293,12 +272,9 @@ class Plevin:
         self.reads: dict[str, Read] = {
             **READS,
             **{field: partial(_word, books[book])
-               for field, book in BOOKS.items() if book in books},
-        }
-
+               for field, book in BOOKS.items() if book in books}}
         self.tables = self._tables()
         self.families = {version: self._family(version) for version in (4, 6)}
-        # a log reading the same address twice bisects for it once
         self.located = {version: Cache(partial(self._locate, version))
                         for version in (4, 6)}
         self.answers = Cache(self._answer)
@@ -383,6 +359,7 @@ class Plevin:
         found = self.located[6 if wide else 4][address]
         return None if found is None else self.answers[found]
 
+
 if __name__ == "__main__":
     import argparse
 
@@ -390,7 +367,4 @@ if __name__ == "__main__":
     parser.add_argument("path", help="the database file to read")
     parser.add_argument("address", help="the address to look up")
     args = parser.parse_args()
-
-    plevin = Plevin(args.path)
-    result = plevin.lookup(args.address)
-    print(json.dumps(result, indent=2))
+    print(json.dumps(Plevin(args.path).lookup(args.address), indent=2))
