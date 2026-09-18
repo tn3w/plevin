@@ -45,7 +45,7 @@ import { File, type Found, type Row } from "./reader.ts";
 
 export type { Value } from "./address.ts";
 export * from "./models.ts";
-export { ask, facts, named, records } from "./naming.ts";
+export { ask, facts, named, publicAddress, records } from "./naming.ts";
 export { File } from "./reader.ts";
 export { decompress, loadDictionary } from "./zstd.ts";
 
@@ -259,7 +259,6 @@ const systemOf = (row: Row): System => {
   const record = held(row, "abuse");
   const userType = userTypeOf(undefined, record);
   const { asn, handle, operator, carrier } = network(row, userType)[0];
-  const brand = operator?.brand ?? "";
   return {
     asn,
     handle,
@@ -277,7 +276,7 @@ const systemOf = (row: Row): System => {
       operator,
       carrier,
     },
-    abuse: abuseOf(undefined, record, userType, brand),
+    abuse: abuseOf(undefined, record, userType, operator?.brand ?? ""),
   };
 };
 
@@ -413,13 +412,15 @@ export class Plevin {
     return built;
   }
 
+  private answerFor(held: number | bigint, wide: boolean, moment?: Date): Result {
+    const found = this.file.locate(held, wide);
+    return result(held, wide, found && this.storedFor(found), moment);
+  }
+
   /** One address, however it is written, as everything the file answers. */
   lookup(value: Value, moment?: Date | null): Result {
     const [held, wide] = parse(value);
-    if (moment) {
-      const found = this.file.locate(held, wide);
-      return result(held, wide, found && this.storedFor(found), moment);
-    }
+    if (moment) return this.answerFor(held, wide, moment);
     const second = Math.floor(Date.now() / 1000);
     if (second !== this.second) {
       this.second = second;
@@ -429,8 +430,7 @@ export class Plevin {
     const answered = this.results.get(key);
     if (answered !== undefined) return answered;
     if (this.results.size >= ANSWERED) this.results.clear();
-    const found = this.file.locate(held, wide);
-    const built = result(held, wide, found && this.storedFor(found));
+    const built = this.answerFor(held, wide);
     this.results.set(key, built);
     return built;
   }

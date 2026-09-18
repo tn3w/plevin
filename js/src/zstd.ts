@@ -15,53 +15,19 @@ const bitsToBase = (bits: Uint8Array, first: number): Int32Array => {
   return base;
 };
 
-const LITERAL_BITS = new Uint8Array([
-  ...Array<number>(16).fill(0),
-  1,
-  1,
-  1,
-  1,
-  2,
-  2,
-  3,
-  3,
-  4,
-  6,
-  7,
-  8,
-  9,
-  10,
-  11,
-  12,
-  13,
-  14,
-  15,
-  16,
-]);
-const MATCH_BITS = new Uint8Array([
-  ...Array<number>(32).fill(0),
-  1,
-  1,
-  1,
-  1,
-  2,
-  2,
-  3,
-  3,
-  4,
-  4,
-  5,
-  7,
-  8,
-  9,
-  10,
-  11,
-  12,
-  13,
-  14,
-  15,
-  16,
-]);
+const repeated = (value: number, count: number): number[] =>
+  Array<number>(count).fill(value);
+
+const LITERAL_BITS = Uint8Array.from(
+  repeated(0, 16).concat([
+    1, 1, 1, 1, 2, 2, 3, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+  ]),
+);
+const MATCH_BITS = Uint8Array.from(
+  repeated(0, 32).concat([
+    1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+  ]),
+);
 const LITERAL_BASE = bitsToBase(LITERAL_BITS, 0);
 const MATCH_BASE = bitsToBase(MATCH_BITS, 3);
 
@@ -69,19 +35,10 @@ const LITERAL_DEFAULT = [
   4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 2, 1, 1,
   1, 1, 1, -1, -1, -1, -1,
 ];
-const MATCH_DEFAULT = [
-  1,
-  4,
-  3,
-  2,
-  2,
-  2,
-  2,
-  2,
-  2,
-  ...Array<number>(37).fill(1),
-  ...Array<number>(7).fill(-1),
-];
+const MATCH_DEFAULT = [1, 4, 3, 2, 2, 2, 2, 2, 2].concat(
+  repeated(1, 37),
+  repeated(-1, 7),
+);
 const OFFSET_DEFAULT = [
   1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1,
   -1,
@@ -114,11 +71,7 @@ export type Dictionary = {
   offsets: number[];
 };
 
-type Entropy = {
-  huffman: HuffmanTable | null;
-  tables: SequenceTables | null;
-  offsets: Int32Array;
-};
+type Entropy = Pick<Dictionary, "huffman" | "tables"> & { offsets: Int32Array };
 
 const fail = (reason: string): never => {
   throw new Error(`zstd: ${reason}`);
@@ -347,25 +300,20 @@ const decodeLiterals = (
   }
 };
 
-const DEFAULT_TABLES = (): SequenceTables => {
-  const build = (counts: number[], log: number): FseTable => {
-    const held = new Int16Array(256);
-    held.set(counts);
-    return spread(held, counts.length, log);
-  };
-  return {
-    literal: build(LITERAL_DEFAULT, 6),
-    match: build(MATCH_DEFAULT, 6),
-    offset: build(OFFSET_DEFAULT, 5),
-  };
+const defaultTable = (counts: number[], log: number): FseTable => {
+  const held = new Int16Array(256);
+  held.set(counts);
+  return spread(held, counts.length, log);
 };
 
-const PREDEFINED = DEFAULT_TABLES();
-
-const rleTable = (symbol: number): FseTable => {
-  const table = spread(Int16Array.of(...Array<number>(symbol).fill(0), 1), symbol + 1, 0);
-  return table;
+const PREDEFINED: SequenceTables = {
+  literal: defaultTable(LITERAL_DEFAULT, 6),
+  match: defaultTable(MATCH_DEFAULT, 6),
+  offset: defaultTable(OFFSET_DEFAULT, 5),
 };
+
+const rleTable = (symbol: number): FseTable =>
+  spread(Int16Array.from(repeated(0, symbol).concat(1)), symbol + 1, 0);
 
 type Literals = { data: Uint8Array; size: number };
 
@@ -433,13 +381,8 @@ const readTables = (
   const modes = data[at];
   if (modes & 3) fail("a sequence header reserves bits that are set");
   const held = entropy.tables;
-  const held3: (FseTable | null)[] = [
-    held?.match ?? null,
-    held?.offset ?? null,
-    held?.literal ?? null,
-  ];
-  const fallbacks = [PREDEFINED.match, PREDEFINED.offset, PREDEFINED.literal];
-  const tables: FseTable[] = [...fallbacks];
+  const repeats = [held?.match, held?.offset, held?.literal];
+  const tables = [PREDEFINED.match, PREDEFINED.offset, PREDEFINED.literal];
   let byte = at + 1;
 
   for (let which = 2; which > -1; which -= 1) {
@@ -452,7 +395,7 @@ const readTables = (
       tables[which] = table;
       byte = after;
     } else if (mode === 3) {
-      tables[which] = held3[which] ?? fail("a repeated table was never sent");
+      tables[which] = repeats[which] ?? fail("a repeated table was never sent");
     }
   }
   const built = { match: tables[0], offset: tables[1], literal: tables[2] };

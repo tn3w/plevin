@@ -283,6 +283,29 @@ datagram, sends the same queries to Cloudflare and Google over DNS-over-HTTPS. A
 are kept for an hour, and nothing is asked where the flag is off, which keeps a bundled
 reader as offline as it was.
 
+## The address this machine is seen as
+
+A lookup needs an address, and the client's own is the one the client cannot read off
+itself. `publicAddress` asks a STUN server for it: one 20-byte binding request, one
+datagram back carrying the address the server saw, no TLS handshake and no HTTP, which
+answers in tens of milliseconds:
+
+```js
+import { publicAddress } from "plevinjs";
+
+const own = await publicAddress();  // '203.0.113.42', or null where nothing answers
+own && db.lookup(own);
+```
+
+Node, Deno and Bun send the datagram over `node:dgram`; a browser has no datagram, so
+the same question goes through `RTCPeerConnection` against the same STUN server and the
+address is read off the server-reflexive ICE candidate. Where neither is there, or
+neither answers within two seconds, `https://api.ipify.org` and then `icanhazip.com`
+echo it back instead. Whatever answers is parsed as an address before it is believed,
+so a broken echo reads as `null` rather than as text. STUN servers, echoes and the
+minute an answer is kept for are `STUN_SERVERS` and `ECHOES`; both are plain arrays,
+and a deployment that would rather ask its own can replace them.
+
 ## One ASN, and the networks a name belongs to
 
 ```js
@@ -356,7 +379,7 @@ rather than a download.
 | `https://esm.sh/plevinjs` | the modules as published, imports rewritten |
 | `https://plevin.tn3w.dev/plevin/plevin.min.js` | the reader beside the databases |
 
-jsDelivr and unpkg serve the bundle named by the `jsdelivr`/`unpkg` fields, 44 kB of
+jsDelivr and unpkg serve the bundle named by the `jsdelivr`/`unpkg` fields, 55 kB of
 JavaScript with no further requests. The bare `dist/index.js` is not usable from those
 URLs: it imports `./reader.js` and neighbours, which resolve against `/npm/` there and
 404. Pin a version for anything that ships: `cdn.jsdelivr.net/npm/plevinjs@0.1.2`.
@@ -413,6 +436,20 @@ decompress(frame, loadDictionary(trained)); // with a trained dictionary
 ```
 
 ## Development
+
+`src` is flat, every module one job:
+
+| | |
+| --- | --- |
+| `index.ts` | `Plevin`, `open`, and the models a lookup answers with |
+| `reader.ts` | the file format: sections, blocks, groups, the spine a lookup bisects |
+| `zstd.ts` | decompression with trained dictionaries |
+| `address.ts` | parsing, spelling and the special ranges, before any file is opened |
+| `naming.ts` | DNS, and the address this machine is seen as, over datagrams first |
+| `extra.ts` | what a country code and a timezone imply, off `countries.ts`/`zones.ts` |
+| `derive.ts` | the answers the file does not store: brand, domain, capital |
+| `models.ts` | the published types |
+| `node.ts` | `openFile`, the one entry that touches `node:fs` |
 
 ```bash
 cd js

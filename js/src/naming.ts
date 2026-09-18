@@ -8,6 +8,8 @@ export const RESOLVERS = [
   "https://cloudflare-dns.com/dns-query",
   "https://dns.google/dns-query",
 ];
+export const STUN_SERVERS = ["stun.l.google.com:19302", "stun.cloudflare.com:3478"];
+export const ECHOES = ["https://api.ipify.org", "https://icanhazip.com"];
 
 const TIMEOUT = 2000;
 const KEPT = 4096;
@@ -358,6 +360,146 @@ export const facts = async (value: number | bigint, wide: boolean): Promise<Dns>
 
   const back = [...found.ipv4_addresses, ...found.ipv6_addresses];
   found.is_confirmed = back.some((one) => BigInt(parse(one)[0]) === BigInt(held));
+  return found;
+};
+
+const STUN_COOKIE = 0x2112a442;
+const STUN_REPLY = 0x0101;
+const XOR_MAPPED = 0x0020;
+const MAPPED = 0x0001;
+const SRFLX = /^candidate:\S+ \S+ \S+ \S+ (\S+) \S+ typ srflx/;
+const OWN_FOR = 60_000;
+
+/** A binding request: twenty bytes, the cookie the reply xors the address with. */
+export const bindingRequest = (): Uint8Array => {
+  const message = new Uint8Array(20);
+  const view = new DataView(message.buffer);
+  view.setUint16(0, 1);
+  view.setUint32(4, STUN_COOKIE);
+  crypto.getRandomValues(message.subarray(8));
+  return message;
+};
+
+/** The address a binding reply carries, xored back with the cookie and transaction. */
+export const bindingAddress = (reply: Uint8Array): string | null => {
+  const view = new DataView(reply.buffer, reply.byteOffset, reply.byteLength);
+  if (reply.length < 20 || view.getUint16(0) !== STUN_REPLY) return null;
+  let at = 20;
+  while (at + 4 <= reply.length) {
+    const kind = view.getUint16(at);
+    const length = view.getUint16(at + 2);
+    const body = at + 4;
+    const xored = kind === XOR_MAPPED;
+    if ((xored || kind === MAPPED) && body + length <= reply.length) {
+      const family = reply[body + 1];
+      if (family === 1) {
+        return written(
+          (view.getUint32(body + 4) ^ (xored ? STUN_COOKIE : 0)) >>> 0,
+          false,
+        );
+      }
+      if (family === 2) {
+        let held = 0n;
+        for (let step = 0; step < 16; step += 1) {
+          const mask = xored ? reply[4 + step] : 0;
+          held = (held << 8n) | BigInt(reply[body + 4 + step] ^ mask);
+        }
+        return written(held, true);
+      }
+    }
+    at = body + length + ((4 - (length % 4)) % 4);
+  }
+  return null;
+};
+
+/** Whichever comes first settles and shuts: an address, an error, or the timeout. */
+const settler = (
+  settle: (found: string | null) => void,
+  shut: () => void,
+): ((found: string | null) => void) => {
+  let done = false;
+  const finish = (found: string | null) => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    shut();
+    settle(found);
+  };
+  const timer = setTimeout(() => finish(null), TIMEOUT);
+  return finish;
+};
+
+/** One binding request over a datagram, which is a round trip and no handshake. */
+const overStun = async (server: string): Promise<string | null> => {
+  const { createSocket } = await builtin<{ createSocket: (kind: string) => Datagram }>(
+    "node:dgram",
+  );
+  const [host, port] = server.split(":");
+  return new Promise((settle) => {
+    const socket = createSocket("udp4");
+    const done = settler(settle, () => socket.close());
+    socket.on("error", () => done(null));
+    socket.on("message", (reply: Uint8Array) => done(bindingAddress(reply)));
+    socket.send(bindingRequest(), Number(port), host);
+  });
+};
+
+/** The same question in a browser, where ICE asks it and reports back a candidate. */
+const overIce = (server: string): Promise<string | null> => {
+  const Peer = globalThis.RTCPeerConnection;
+  if (!Peer) return Promise.resolve(null);
+  return new Promise((settle) => {
+    const peer = new Peer({ iceServers: [{ urls: `stun:${server}` }] });
+    const done = settler(settle, () => peer.close());
+    peer.onicecandidate = (event) => {
+      const found = SRFLX.exec(event.candidate?.candidate ?? "");
+      if (found) done(found[1]);
+      else if (!event.candidate) done(null);
+    };
+    peer.createDataChannel("");
+    peer
+      .createOffer()
+      .then((offer) => peer.setLocalDescription(offer))
+      .catch(() => done(null));
+  });
+};
+
+/** An echo over HTTPS, for a runtime with neither a datagram nor a peer connection. */
+const overEcho = async (): Promise<string | null> => {
+  for (const echo of ECHOES) {
+    try {
+      const response = await fetch(echo, { signal: AbortSignal.timeout(TIMEOUT) });
+      if (response.ok) return (await response.text()).trim();
+    } catch {
+      /* the next echo answers, and where none does the address is unknown */
+    }
+  }
+  return null;
+};
+
+/** An echo is a stranger's word for the address, so it counts only where it parses. */
+const address = (found: string | null): string | null => {
+  if (!found) return null;
+  try {
+    const [held, wide] = parse(found);
+    return written(held, wide);
+  } catch {
+    return null;
+  }
+};
+
+let own: [number, string | null] | null = null;
+
+/** This machine's public address, off a STUN server where one answers, else an echo. */
+export const publicAddress = async (): Promise<string | null> => {
+  if (own && own[0] > Date.now()) return own[1];
+  let found: string | null = null;
+  for (const server of STUN_SERVERS) {
+    found = address(onNode() ? await overStun(server) : await overIce(server));
+    if (found) break;
+  }
+  found ??= address(await overEcho());
+  own = [Date.now() + OWN_FOR, found];
   return found;
 };
 

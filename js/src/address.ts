@@ -173,24 +173,11 @@ export const spelled = (
   const nibbles = (value as bigint).toString(16).padStart(32, "0");
   const arpa = `${[...nibbles].reverse().join(".")}.ip6.arpa`;
   const mapped = held.slice(0, 5).every((group) => group === 0) && held[5] === 0xffff;
-  if (mapped) {
-    const quad = dotted(Number((value as bigint) & 0xffffffffn));
-    const parts = held.slice(0, 6).map((group) => group.toString(16));
-    const full = held.slice(0, 6).map((group) => group.toString(16).padStart(4, "0"));
-    return [
-      `${shortest(parts, held.slice(0, 6))}:${quad}`,
-      `${full.join(":")}:${quad}`,
-      arpa,
-    ];
-  }
-  return [
-    shortest(
-      held.map((group) => group.toString(16)),
-      held,
-    ),
-    held.map((group) => group.toString(16).padStart(4, "0")).join(":"),
-    arpa,
-  ];
+  const groups = mapped ? held.slice(0, 6) : held;
+  const quad = mapped ? `:${dotted(Number((value as bigint) & 0xffffffffn))}` : "";
+  const hex = groups.map((group) => group.toString(16));
+  const full = groups.map((group) => group.toString(16).padStart(4, "0"));
+  return [shortest(hex, groups) + quad, full.join(":") + quad, arpa];
 };
 
 /** An address as text: v4 from its octets, v6 through the shortening rules. */

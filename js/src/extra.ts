@@ -23,13 +23,13 @@ const WEEK = 7 * DAY;
 const WINDOW = 400 * DAY;
 const MINUTE = 60000;
 
-const NAMED = new Map<string, [string, string, string, string]>(
+const NAMED = new Map(
   COUNTRIES.map((row) => {
     const [name, official = "", common = ""] = row.slice(8).split("|");
-    return [row.slice(0, 2), [name, official, common, row.slice(2, 5)]] as const;
+    const held = [name, official, common, row.slice(2, 5), row.slice(5, 8)];
+    return [row.slice(0, 2), held] as const;
   }),
 );
-const NUMBERS = new Map(COUNTRIES.map((row) => [row.slice(0, 2), row.slice(5, 8)]));
 
 const text = (value: string): string | null => value || null;
 
@@ -55,7 +55,7 @@ export const country = (code: string): Country | null => {
     official: named ? text(named[1]) : null,
     common: named ? text(named[2]) : null,
     iso3: named ? named[3] : null,
-    numeric: NUMBERS.get(code) ?? null,
+    numeric: named ? named[4] : null,
     flag: flag(code) || null,
     european_union: EU_MEMBERS.has(code),
     driving_side: LEFT_DRIVING.has(code) ? "left" : "right",

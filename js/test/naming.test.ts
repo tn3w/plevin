@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { decode, encodeQuery, records } from "../src/naming.ts";
+import {
+  bindingAddress,
+  bindingRequest,
+  decode,
+  encodeQuery,
+  records,
+} from "../src/naming.ts";
 
 const record = (kind: number, data: number[]): number[] => [
   0xc0,
@@ -114,4 +120,43 @@ test("reads a zone out of the authority section", () => {
 test("says nothing about what it cannot read", () => {
   assert.deepEqual(records(null, "A"), []);
   assert.throws(() => decode(new Uint8Array(4)));
+});
+
+const binding = (attribute: number, family: number, body: number[]): Uint8Array => {
+  const message = new Uint8Array(20 + 4 + 4 + body.length);
+  const view = new DataView(message.buffer);
+  view.setUint16(0, 0x0101);
+  view.setUint32(4, 0x2112a442);
+  message.set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 8);
+  view.setUint16(20, attribute);
+  view.setUint16(22, body.length + 4);
+  message.set([0, family, 0x2f, 0x76], 24);
+  message.set(body, 28);
+  return message;
+};
+
+test("writes a binding request the cookie identifies", () => {
+  const request = bindingRequest();
+  const view = new DataView(request.buffer);
+  assert.equal(request.length, 20);
+  assert.equal(view.getUint16(0), 1);
+  assert.equal(view.getUint32(4), 0x2112a442);
+});
+
+test("reads the address a binding reply xors with the cookie", () => {
+  assert.equal(
+    bindingAddress(binding(0x0020, 1, [0xea, 0x12, 0xd5, 0x68])),
+    "203.0.113.42",
+  );
+  assert.equal(bindingAddress(binding(0x0001, 1, [203, 0, 113, 42])), "203.0.113.42");
+  const key = [0x21, 0x12, 0xa4, 0x42, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const real = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+  const six = real.map((byte, at) => byte ^ key[at]);
+  assert.equal(bindingAddress(binding(0x0020, 2, six)), "2001:db8::1");
+});
+
+test("says nothing about a datagram that is not a binding reply", () => {
+  assert.equal(bindingAddress(new Uint8Array(20)), null);
+  assert.equal(bindingAddress(new Uint8Array(4)), null);
+  assert.equal(bindingAddress(binding(0x0008, 1, [1, 2, 3, 4])), null);
 });
