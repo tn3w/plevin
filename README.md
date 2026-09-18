@@ -531,7 +531,8 @@ curl "https://plevin.tn3w.dev/api?ip=9.9.9.9"
 curl "https://plevin.tn3w.dev/api/1.1.1.1?dns=1"   # with the DNS block filled in
 ```
 
-An unknown address answers `400` with `{"error": …}`; every answer carries
+An unknown address answers `400` with `{"error": …}`, a file missing from KV `503`, and
+a request with no address to go on `400`; every answer carries
 `access-control-allow-origin: *`, and lookups cache for five minutes. `dns` is `null`
 unless `?dns=1` asks for it, since that is the one part of an answer the worker leaves
 Cloudflare to find; those answers cache for a minute.

@@ -7,8 +7,6 @@ type Environment = {
   DATABASE?: string;
 };
 
-const DATABASE = "plevin.plv";
-
 let opened: Promise<Plevin> | null = null;
 
 const headers = {
@@ -31,7 +29,7 @@ const answer = (body: unknown, status = 200, age = 300): Response =>
 /** The database out of KV, kept for as long as the isolate lives. */
 const database = (environment: Environment): Promise<Plevin> => {
   opened ??= (async () => {
-    const name = environment.DATABASE ?? DATABASE;
+    const name = environment.DATABASE ?? "plevin.plv";
     const held = await environment.PLEVIN.get(name, "arrayBuffer");
     if (held === null) throw new Error(`${name} is missing from KV`);
     return new Plevin(new Uint8Array(held));
@@ -42,10 +40,8 @@ const database = (environment: Environment): Promise<Plevin> => {
   return opened;
 };
 
-const asking = (url: URL): boolean => {
-  const held = url.searchParams.get("dns");
-  return held !== null && held !== "0" && held !== "false";
-};
+const wantsDns = (url: URL): boolean =>
+  !["0", "false", null].includes(url.searchParams.get("dns"));
 
 const lookup = async (
   environment: Environment,
@@ -79,13 +75,11 @@ export default {
         });
       }
 
-      const dns = asking(url);
-      const asked = path || url.searchParams.get("ip") || "";
-      if (asked && asked !== "me") return lookup(environment, asked, dns);
+      const asked = path === "me" ? "" : path || url.searchParams.get("ip");
+      const address = asked || request.headers.get("cf-connecting-ip");
+      if (!address) return answer({ error: "no address to look up" }, 400);
 
-      const held = request.headers.get("cf-connecting-ip");
-      if (!held) return answer({ error: "no address to look up" }, 400);
-      return lookup(environment, held, dns);
+      return lookup(environment, address, wantsDns(url));
     } catch (error) {
       return answer({ error: (error as Error).message }, 503);
     }
