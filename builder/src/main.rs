@@ -358,6 +358,22 @@ pub fn level(risk: u8) -> u8 {
 
 pub const UNSEEN: u8 = 255;
 
+/// The last address of a family, which is where a run list stops.
+pub fn ceiling(family: usize) -> u128 {
+    match family {
+        0 => u32::MAX as u128,
+        _ => u128::MAX,
+    }
+}
+
+/// A run list only takes a boundary where the value it carries actually changes.
+pub fn push_changed<T: PartialEq>(runs: &mut Vec<(u128, T)>, at: u128, value: T) {
+    match runs.last() {
+        Some((_, held)) if *held == value => {}
+        _ => runs.push((at, value)),
+    }
+}
+
 /// Where a word sits in its vocabulary, which is what the file stores.
 pub fn word(book: &[&str], value: &str) -> u8 {
     book.iter().position(|name| *name == value).unwrap_or(0) as u8

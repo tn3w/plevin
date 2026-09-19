@@ -387,11 +387,10 @@ impl Location {
                 metro: 0,
             });
         }
-        let ceiling = if wide { u128::MAX } else { u32::MAX as u128 };
         for index in 0..rows.len() {
             rows[index].last = match rows.get(index + 1) {
                 Some(next) => next.first - 1,
-                None => ceiling,
+                None => crate::ceiling(wide as usize),
             };
         }
         rows

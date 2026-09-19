@@ -3,7 +3,9 @@
 use crate::gazetteer::fold;
 use crate::network::{Route, Systems};
 use crate::read::{self, two};
-use crate::{CATEGORIES, EVIDENCE, SERVICES, SPECIFIC, UNSEEN, word, worded};
+use crate::{
+    CATEGORIES, EVIDENCE, SERVICES, SPECIFIC, UNSEEN, ceiling, push_changed, word, worded,
+};
 use regex::Regex;
 use std::collections::HashMap;
 use std::path::Path;
@@ -471,22 +473,20 @@ impl Folded {
         }
     }
 
+    /// A fold read back as the claim it stands for, so both are taken the one way.
     fn absorb(&mut self, other: &Folded) {
-        if other.user > 0 && (self.user == 0 || (self.weak && !other.weak)) {
-            self.user = other.user;
-            self.weak = other.weak;
-        }
-        if other.service > 0 && self.stronger(other.evidence, other.service) {
-            self.service = other.service;
-            self.evidence = other.evidence;
-            self.aged = other.aged;
-            self.provider = other.provider.clone();
-        }
-        self.anycast |= other.anycast;
-        self.satellite |= other.satellite;
-        if other.window > 0 && (self.window == 0 || other.window < self.window) {
-            self.window = other.window;
-        }
+        self.take(&Source {
+            provider: other.provider.clone(),
+            user: other.user,
+            weak: other.weak,
+            service: other.service,
+            evidence: other.evidence,
+            aggregate: other.aged,
+            anycast: other.anycast,
+            satellite: other.satellite,
+            window: other.window,
+            ..Source::default()
+        });
         for (group, risk) in &other.risks {
             self.risk(*group, *risk);
         }
@@ -554,8 +554,8 @@ impl Records {
     pub fn fold(feeds: &Feeds, systems: &mut Systems) -> Records {
         let mut pool = Pool::new();
         let sweeps = [
-            overlay(&feeds.spans[0], &feeds.sources, u32::MAX as u128),
-            overlay(&feeds.spans[1], &feeds.sources, u128::MAX),
+            overlay(&feeds.spans[0], &feeds.sources, ceiling(0)),
+            overlay(&feeds.spans[1], &feeds.sources, ceiling(1)),
         ];
         let reported = spread(feeds, &sweeps, systems);
         let mut folded: HashMap<u32, Folded> = HashMap::new();
@@ -645,14 +645,13 @@ fn spread(
 ) -> HashMap<u32, f32> {
     let mut seen: HashMap<u32, [(f64, f64); 2]> = HashMap::new();
     for (family, sweep) in sweeps.iter().enumerate() {
-        let ceiling = if family == 1 { u128::MAX } else { u32::MAX as u128 };
         let mut runs: Vec<(u128, f32, Option<u32>)> = Vec::new();
         together(sweep, &systems.runs[family], |at, held, route| {
             runs.push((at, held.share(), asn_of(systems, route)));
         });
         for (at, (first, risk, asn)) in runs.iter().copied().enumerate() {
             let Some(asn) = asn else { continue };
-            let last = runs.get(at + 1).map(|held| held.0 - 1).unwrap_or(ceiling);
+            let last = runs.get(at + 1).map(|held| held.0 - 1).unwrap_or(ceiling(family));
             let width = units(first, last, family);
             let held = &mut seen.entry(asn).or_default()[family];
             held.0 += width * risk as f64;
@@ -716,10 +715,7 @@ fn carried(
             0 => falls.saturating_sub(1),
             _ => row,
         };
-        match runs.last() {
-            Some((_, last)) if *last == stored => {}
-            _ => runs.push((at, stored)),
-        }
+        push_changed(&mut runs, at, stored);
         match whole.last() {
             Some((_, _, last)) if *last == answer => {}
             _ => whole.push((at, held.clone(), answer)),
@@ -730,13 +726,9 @@ fn carried(
 
 /// The spans a blocklist takes, read off the fold itself so no two claims share a row.
 fn covered(sweep: &[(u128, Folded)], family: usize) -> Vec<(u128, u128)> {
-    let ceiling = match family {
-        0 => u32::MAX as u128,
-        _ => u128::MAX,
-    };
     let mut out = Vec::new();
     for (at, (first, held)) in sweep.iter().enumerate() {
-        let last = sweep.get(at + 1).map(|(next, _)| next - 1).unwrap_or(ceiling);
+        let last = sweep.get(at + 1).map(|(next, _)| next - 1).unwrap_or(ceiling(family));
         if held.blocked() {
             out.push((*first, last));
         }

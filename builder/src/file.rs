@@ -251,17 +251,21 @@ fn room(value: i64, signed: bool) -> usize {
 fn coded(pool: &[String]) -> Vec<Vec<u8>> {
     pool.chunks(NAMES)
         .map(|chunk| {
-            let groups: Vec<Vec<u8>> = chunk.chunks(RUN).map(group).collect();
             let mut block = Vec::new();
-            for held in groups.iter().take(groups.len().saturating_sub(1)) {
-                varint(&mut block, held.len() as u128);
-            }
-            for held in &groups {
-                block.extend_from_slice(held);
-            }
+            indexed(&mut block, &chunk.chunks(RUN).map(group).collect::<Vec<_>>());
             block
         })
         .collect()
+}
+
+/// The groups end to end, each one's length first so a reader can reach any of them.
+fn indexed(out: &mut Vec<u8>, groups: &[Vec<u8>]) {
+    for held in groups.iter().take(groups.len().saturating_sub(1)) {
+        varint(out, held.len() as u128);
+    }
+    for held in groups {
+        out.extend_from_slice(held);
+    }
 }
 
 fn group(names: &[String]) -> Vec<u8> {
@@ -297,12 +301,7 @@ fn addresses(keys: &[u128], wide: bool) -> (Vec<Vec<u8>>, Vec<u128>) {
             varint(&mut body, pair[1][0] - pair[0][0]);
         }
         let held: Vec<Vec<u8>> = groups.iter().map(|group| run(group, host)).collect();
-        for one in held.iter().take(held.len().saturating_sub(1)) {
-            varint(&mut body, one.len() as u128);
-        }
-        for one in &held {
-            body.extend_from_slice(one);
-        }
+        indexed(&mut body, &held);
         blocks.push(body);
     }
     (blocks, heads)

@@ -65,7 +65,7 @@ scoring the same by different halves would share a row.
 
 |                       |                                 |
 | --------------------- | ------------------------------- |
-| `src/`                | the builder, eight files        |
+| `src/`                | the builder, ten files          |
 | `data/feeds.json`     | abuse feeds, one entry per feed |
 | `data/operators.json` | brands and satellite ASNs       |
 | `data/regions.json`   | region code fixes               |

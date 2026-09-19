@@ -5,7 +5,9 @@ use crate::derive::brand;
 use crate::gazetteer::Gazetteer;
 use crate::network::{Route, Systems};
 use crate::place::Places;
-use crate::{CARRIED, COLUMNS, Column, Kind, Selection, TABLES, vocabularies};
+use crate::{
+    CARRIED, COLUMNS, Column, Kind, Selection, TABLES, push_changed, vocabularies,
+};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Default, PartialEq)]
@@ -133,15 +135,12 @@ impl World {
         let pool = respell(&mut slabs, &words.pool);
         let mut ranks: Vec<Vec<u32>> = Vec::new();
         for slab in slabs.iter_mut() {
-            let placed: HashMap<&str, &Vec<u32>> =
-                TABLES.iter().zip(&ranks).map(|(name, held)| (*name, held)).collect();
-            relink(slab, &placed);
+            relink(slab, &placed(&ranks));
             let order = rank(slab);
             reorder(slab, &order);
             ranks.push(order);
         }
-        let placed: HashMap<&str, &Vec<u32>> =
-            TABLES.iter().zip(&ranks).map(|(name, held)| (*name, held)).collect();
+        let placed = placed(&ranks);
         for spine in spines.iter_mut() {
             for (_, stop) in spine.iter_mut() {
                 stop.place = ranked(placed["place"], stop.place);
@@ -468,10 +467,7 @@ impl World {
                     roas: if selection.has("spine.roas") { stop.roas } else { 0 },
                     rir: if selection.has("spine.rir") { stop.rir } else { 0 },
                 };
-                match out.last() {
-                    Some((_, last)) if *last == cut => {}
-                    _ => out.push((*at, cut)),
-                }
+                push_changed(&mut out, *at, cut);
             }
             out
         })
@@ -503,14 +499,7 @@ impl World {
         for name in TABLES.iter().rev() {
             let at = slabs.iter().position(|slab| slab.name == *name).unwrap();
             let counted = tallies[name].clone();
-            let columns: Vec<(usize, &str)> = slabs[at]
-                .columns
-                .iter()
-                .enumerate()
-                .filter(|(_, column)| column.kind == Kind::Link)
-                .map(|(spot, column)| (spot, column.name()))
-                .collect();
-            for (spot, target) in columns {
+            for (spot, target) in columns_of(&slabs[at], Kind::Link) {
                 let rows = &slabs[at].rows;
                 let held = tallies.get_mut(target).unwrap();
                 for (row, weight) in rows.iter().zip(&counted) {
@@ -563,12 +552,7 @@ impl World {
                 // a host overrides the boundary's record, so that column stays even empty
                 let held = *name == "abuse" || values.iter().any(|value| *value != 0);
                 if wanted && held {
-                    parts.push(Part::Values(Sheet {
-                        name: format!("spine.v{version}.{name}"),
-                        encoding: "fixed",
-                        read: "",
-                        values,
-                    }));
+                    parts.push(fixed(format!("spine.v{version}.{name}"), values));
                 }
             }
         }
@@ -602,15 +586,20 @@ impl World {
                 continue;
             }
             parts.push(Part::Index { name: format!("hosts.v{version}"), keys, wide });
-            parts.push(Part::Values(Sheet {
-                name: format!("hosts.v{version}.abuse"),
-                encoding: "fixed",
-                read: "",
-                values,
-            }));
+            parts.push(fixed(format!("hosts.v{version}.abuse"), values));
         }
         parts
     }
+}
+
+/// A plain column of numbers, which is what the spine and host layers carry.
+fn fixed(name: String, values: Vec<i64>) -> Part {
+    Part::Values(Sheet { name, encoding: "fixed", read: "", values })
+}
+
+/// Each table's settled order, by name, for the links that point into it.
+fn placed(ranks: &[Vec<u32>]) -> HashMap<&'static str, &Vec<u32>> {
+    TABLES.iter().zip(ranks).map(|(name, held)| (*name, held)).collect()
 }
 
 fn touch(keep: &mut [bool], link: u32) {
@@ -658,13 +647,7 @@ fn ranked(order: &[u32], link: u32) -> u32 {
 
 /// Links follow the table they point at, which has already settled into its order.
 fn relink(slab: &mut Slab, ranks: &HashMap<&str, &Vec<u32>>) {
-    let links: Vec<(usize, &str)> = slab
-        .columns
-        .iter()
-        .enumerate()
-        .filter(|(_, column)| column.kind == Kind::Link)
-        .map(|(at, column)| (at, column.name()))
-        .collect();
+    let links = columns_of(slab, Kind::Link);
     for row in slab.rows.iter_mut() {
         for (at, target) in &links {
             let held = row[*at];
@@ -684,13 +667,18 @@ fn reorder(slab: &mut Slab, order: &[u32]) {
     slab.rows = moved;
 }
 
-fn spots(slab: &Slab) -> Vec<usize> {
+/// The columns of one kind, each with the place it sits in a row.
+fn columns_of(slab: &Slab, kind: Kind) -> Vec<(usize, &'static str)> {
     slab.columns
         .iter()
         .enumerate()
-        .filter(|(_, column)| column.kind == Kind::Text)
-        .map(|(at, _)| at)
+        .filter(|(_, column)| column.kind == kind)
+        .map(|(at, column)| (at, column.name()))
         .collect()
+}
+
+fn spots(slab: &Slab) -> Vec<usize> {
+    columns_of(slab, Kind::Text).into_iter().map(|(at, _)| at).collect()
 }
 
 /// One pool for every name in the file, sorted so a group front codes against itself.
@@ -764,10 +752,7 @@ fn assemble(
             roas: route.roas,
             rir: route.rir,
         };
-        match out.last() {
-            Some((_, last)) if *last == stop => {}
-            _ => out.push((at, stop)),
-        }
+        push_changed(&mut out, at, stop);
     }
     out
 }

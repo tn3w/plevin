@@ -1,5 +1,6 @@
 //! One interned point per coordinate, and the address space that resolves to it.
 
+use crate::ceiling;
 use crate::gazetteer::{Gazetteer, kilometres};
 use crate::read::{COUNTRY, Coarse, Location, Mmdb, NOWHERE, REGION};
 use std::collections::HashMap;
@@ -50,9 +51,8 @@ impl Places {
         for (family, wide) in [(0, false), (1, true)] {
             let leading = fine.as_ref().map(|held| held.ranges(wide)).unwrap_or_default();
             let backing = coarse.as_ref().map(|held| held.rows(wide)).unwrap_or_default();
-            let ceiling = if wide { u128::MAX } else { u32::MAX as u128 };
             let mut segments = Vec::new();
-            walk(&leading, &backing, ceiling, |first, last, one, other| {
+            walk(&leading, &backing, ceiling(family), |first, last, one, other| {
                 let point = interning.resolve(one, other, last - first + 1);
                 segments.push((first, last, point));
             });

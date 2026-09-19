@@ -3,7 +3,7 @@
 use crate::abuse::{Feeds, together};
 use crate::gazetteer::{Gazetteer, fold};
 use crate::read::{self, Announce, two};
-use crate::{CATEGORIES, RIRS, UNSEEN, word, worded};
+use crate::{CATEGORIES, RIRS, UNSEEN, ceiling, push_changed, word, worded};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -74,17 +74,16 @@ const CLASSES: &[(&str, &str)] =
 impl Systems {
     pub fn read(inputs: &Path, gazetteer: &Gazetteer, feeds: &Feeds) -> Systems {
         let announced = read::announcements(&inputs.join("bview"));
-        let mut seen: HashMap<u32, u32> = HashMap::new();
+        let mut seen: HashSet<u32> = HashSet::new();
         let mut rows: Vec<System> = Vec::new();
         for span in &announced {
-            seen.entry(span.asn).or_insert_with(|| {
+            if seen.insert(span.asn) {
                 rows.push(System {
                     asn: span.asn,
                     network_risk: UNSEEN,
                     ..System::default()
                 });
-                rows.len() as u32
-            });
+            }
         }
         rows.sort_by_key(|system| system.asn);
         let index =
@@ -348,10 +347,8 @@ impl Systems {
                     (span.first, span.first | read::fill(spare), span.length, span.asn)
                 })
                 .collect();
-            let ceiling = if wide { u128::MAX } else { u32::MAX as u128 };
-            let mut runs: Vec<(u128, Route)> = Vec::new();
-            partition(&mut spans, ceiling, |at, asn, length| {
-                let route = match asn {
+            announces[family] =
+                runs_of(&mut spans, ceiling(family), |at, asn, length| match asn {
                     0 => Route::default(),
                     _ => {
                         let (rpki, count) = roas.verdict(at, length, asn, wide);
@@ -363,13 +360,7 @@ impl Systems {
                             rir: 0,
                         }
                     }
-                };
-                match runs.last() {
-                    Some((_, held)) if *held == route => {}
-                    _ => runs.push((at, route)),
-                }
-            });
-            announces[family] = runs;
+                });
         }
         let held = self.holders(inputs, gazetteer, &announces, &allocated);
         for family in 0..2 {
@@ -420,19 +411,10 @@ impl Systems {
             ..System::default()
         }));
         [0, 1].map(|family| {
-            let ceiling = if family == 1 { u128::MAX } else { u32::MAX as u128 };
-            let mut runs: Vec<(u128, Holder)> = Vec::new();
-            partition(&mut spans[family], ceiling, |at, who, prefix| {
-                let holder = match who {
-                    0 => Holder::default(),
-                    _ => Holder { system: first + who, prefix },
-                };
-                match runs.last() {
-                    Some((_, last)) if *last == holder => {}
-                    _ => runs.push((at, holder)),
-                }
-            });
-            runs
+            runs_of(&mut spans[family], ceiling(family), |_, who, prefix| match who {
+                0 => Holder::default(),
+                _ => Holder { system: first + who, prefix },
+            })
         })
     }
 }
@@ -593,10 +575,7 @@ fn registered(
             held.system = holder.system;
             held.prefix = holder.prefix;
         }
-        match named.last() {
-            Some((_, last)) if *last == held => {}
-            _ => named.push((at, held)),
-        }
+        push_changed(&mut named, at, held);
     });
     let mut out: Vec<(u128, Route)> = Vec::new();
     together(&named, blocks, |at, route, block| {
@@ -605,10 +584,7 @@ fn registered(
         if held.prefix == 0 {
             held.prefix = block.prefix;
         }
-        match out.last() {
-            Some((_, last)) if *last == held => {}
-            _ => out.push((at, held)),
-        }
+        push_changed(&mut out, at, held);
     });
     out
 }
@@ -637,19 +613,10 @@ fn allocations(inputs: &Path) -> [Vec<(u128, Block)>; 2] {
         }
     }
     [0, 1].map(|family| {
-        let ceiling = if family == 1 { u128::MAX } else { u32::MAX as u128 };
-        let mut runs: Vec<(u128, Block)> = Vec::new();
-        partition(&mut spans[family], ceiling, |at, rir, prefix| {
-            let block = match rir {
-                0 => Block::default(),
-                _ => Block { rir: rir as u8, prefix },
-            };
-            match runs.last() {
-                Some((_, held)) if *held == block => {}
-                _ => runs.push((at, block)),
-            }
-        });
-        runs
+        runs_of(&mut spans[family], ceiling(family), |_, rir, prefix| match rir {
+            0 => Block::default(),
+            _ => Block { rir: rir as u8, prefix },
+        })
     })
 }
 
@@ -666,6 +633,19 @@ fn cidrs(first: &str, count: u128, rir: u32) -> Vec<(u128, u128, u8, u32)> {
         left -= width;
     }
     out
+}
+
+/// The spans as one run list, each boundary carrying what the longest match there says.
+fn runs_of<T: PartialEq>(
+    spans: &mut [(u128, u128, u8, u32)],
+    ceiling: u128,
+    value: impl Fn(u128, u32, u8) -> T,
+) -> Vec<(u128, T)> {
+    let mut runs: Vec<(u128, T)> = Vec::new();
+    partition(spans, ceiling, |at, held, prefix| {
+        push_changed(&mut runs, at, value(at, held, prefix));
+    });
+    runs
 }
 
 /// One span per longest match, so the announcement a boundary carries is the tightest.

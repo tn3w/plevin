@@ -48,6 +48,7 @@ type Border = (f64, f64, f64, f64, [u8; 2], Vec<Vec<[f64; 2]>>);
 /// Postal codes by country and folded region name, each with a coordinate.
 type Postals = HashMap<(u16, String), Vec<(String, f64, f64)>>;
 
+#[derive(Default)]
 pub struct Gazetteer {
     pub countries: Vec<String>,
     pub regions: Vec<Region>,
@@ -102,6 +103,12 @@ pub fn fold(text: &str) -> String {
         .join(" ")
 }
 
+/// One tab separated row, or nothing where it is too short to read.
+fn columns(line: &str, least: usize) -> Option<Vec<&str>> {
+    let row: Vec<&str> = line.split('\t').collect();
+    (row.len() >= least).then_some(row)
+}
+
 pub fn kilometres(one: (f64, f64), other: (f64, f64)) -> f64 {
     let (lat, lon) = (one.0.to_radians(), one.1.to_radians());
     let (other_lat, other_lon) = (other.0.to_radians(), other.1.to_radians());
@@ -140,17 +147,7 @@ impl Gazetteer {
         zones.remove("");
         let countries: Vec<String> = codes.into_iter().collect();
         let zones: Vec<String> = zones.into_iter().collect();
-        let mut gazetteer = Gazetteer {
-            countries,
-            regions: Vec::new(),
-            districts: Vec::new(),
-            metros: Vec::new(),
-            cities: Vec::new(),
-            zones,
-            cells: HashMap::new(),
-            borders: Vec::new(),
-            named: HashMap::new(),
-        };
+        let mut gazetteer = Gazetteer { countries, zones, ..Gazetteer::default() };
         let regions = gazetteer.read_regions(inputs);
         let districts = gazetteer.read_districts(inputs);
         gazetteer.read_cities(&cities, &regions, &districts);
@@ -205,10 +202,7 @@ impl Gazetteer {
         }
         let mut index = HashMap::new();
         for line in read::slurp(&inputs.join("admin1CodesASCII.txt")).lines() {
-            let row: Vec<&str> = line.split('\t').collect();
-            if row.len() < 4 {
-                continue;
-            }
+            let Some(row) = columns(line, 4) else { continue };
             let (country, code) = row[0].split_once('.').unwrap_or(("", ""));
             let name = row[1].to_string();
             let listed = fixed
@@ -240,10 +234,7 @@ impl Gazetteer {
     fn read_districts(&mut self, inputs: &Path) -> HashMap<String, u32> {
         let mut index = HashMap::new();
         for line in read::slurp(&inputs.join("admin2Codes.txt")).lines() {
-            let row: Vec<&str> = line.split('\t').collect();
-            if row.len() < 4 {
-                continue;
-            }
+            let Some(row) = columns(line, 4) else { continue };
             let code = row[0].rsplit('.').next().unwrap_or("").to_string();
             index.insert(row[0].to_string(), self.districts.len() as u32 + 1);
             self.districts.push(District {
@@ -262,10 +253,7 @@ impl Gazetteer {
         districts: &HashMap<String, u32>,
     ) {
         for line in body.lines() {
-            let row: Vec<&str> = line.split('\t').collect();
-            if row.len() < 18 {
-                continue;
-            }
+            let Some(row) = columns(line, 18) else { continue };
             let country = row[8];
             let region = format!("{country}.{}", row[10]);
             let district = format!("{region}.{}", row[11]);
