@@ -79,7 +79,7 @@ export default {
       const address = asked || request.headers.get("cf-connecting-ip");
       if (!address) return answer({ error: "no address to look up" }, 400);
 
-      return lookup(environment, address, wantsDns(url));
+      return await lookup(environment, address, wantsDns(url));
     } catch (error) {
       return answer({ error: (error as Error).message }, 503);
     }
