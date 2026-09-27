@@ -26,7 +26,6 @@ def record(kind: int, data: bytes) -> bytes:
 
 def replied(query: bytes, records: bytes = b"", answers: int = 0,
             authorities: int = 0, flags: int = 0x8180) -> bytes:
-    """The question read back with records under it, the way a server answers."""
     end = query.index(b"\0", 12) + 5
     ident = struct.unpack_from("!H", query)[0]
     header = struct.pack("!HHHHHH", ident, flags, 1, answers, authorities, 0)
@@ -39,8 +38,6 @@ def question_of(query: bytes) -> tuple[str, int]:
 
 
 class Stub:
-    """A resolver on the loopback, answering only what a test has written down."""
-
     def __init__(self, table: dict[tuple[str, int], Answer]) -> None:
         self.table = table
         self.datagrams = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -95,7 +92,6 @@ def over_stream(stub: Stub) -> None:
 
 @pytest.fixture
 def stub(request: pytest.FixtureRequest) -> Iterator[Stub]:
-    """A stub the module asks instead of the internet, put back afterwards."""
     held = Stub(getattr(request, "param", {}))
     servers, port = naming.SERVERS, naming.PORT
     naming.SERVERS, naming.PORT = ["127.0.0.1"], held.port
@@ -224,8 +220,6 @@ def test_the_same_address_is_answered_from_memory_before_asking_again(
 
 
 class Key:
-    """One registry key, holding values a machine set and keys below it."""
-
     def __init__(self, values: dict[str, str] | None = None,
                  children: dict[str, Key] | None = None) -> None:
         self.values = values or {}

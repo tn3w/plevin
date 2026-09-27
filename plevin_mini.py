@@ -3,368 +3,276 @@
 from __future__ import annotations
 
 import json
+import lzma
 import mmap
 import struct
 import sys
 from array import array
 from bisect import bisect_right
-from collections.abc import Callable, Sequence
-from functools import partial
+from collections.abc import Callable
 from itertools import accumulate
 from socket import AF_INET, AF_INET6, inet_pton
 from typing import Any
 
-try:
-    from compression.zstd import ZstdDict, decompress
-except ImportError:
-    from pyzstd import ZstdDict, decompress  # type: ignore[assignment]
-
-Entry = dict[str, Any]
 Row = dict[str, Any]
-Read = Callable[[int], Any]
-Plan = tuple[Any, Any, Any, Any, Any]
-Family = tuple[Any, Any, Any, Any]
-Found = tuple[int, int, int]
 
-MAGIC, FORMAT = b"PLEVIN\0", 1
-CACHED, DEGREES, UNSEEN, SPAN = 1 << 14, 10_000, 255, "network"
+MAGIC, FORMAT, WINDOW, CACHED, DEGREES = b"PLEVIN\0", 2, 1 << 20, 1 << 14, 10_000
 FORMATS = {1: "B", 2: "H", 4: "I", 8: "Q"}
 SIGNED = {1: "b", 2: "h", 4: "i", 8: "q"}
-STEPPED, SWAPPED = ("signed", "delta"), sys.byteorder == "big"
-EMPTY: Plan = ((), (), (), (), ())
 CARRIED = ("place", "network", "abuse", "prefix", "rpki", "roas")
-LINKED = frozenset(("place", "network", "abuse"))
+LINKED = ("place", "network", "abuse")
 BOOKS = {"rpki": "rpki", "place.granularity": "granularity",
          "city.timezone": "timezones", "city.type": "place_types",
          "operator.category": "categories", "abuse.user_type": "categories",
          "abuse.service": "services", "abuse.evidence": "evidence"}
+READS: dict[str, Callable[[int], Any]] = {
+    "abuse.risk": lambda value: None if value == 255 else value / 100,
+    "abuse.is_anycast": bool, "abuse.is_satellite": bool}
 
 
-def _risk(value: int) -> float | None:
-    """The one scale where zero is a verdict, so unseen needs a code of its own."""
-    return None if value == UNSEEN else value / 100
+def varint(data: bytearray, at: int) -> tuple[int, int]:
+    value = shift = 0
+    while data[at] & 0x80:
+        value |= (data[at] & 0x7F) << shift
+        at, shift = at + 1, shift + 7
+    return value | data[at] << shift, at + 1
 
 
-def _word(book: list[str], code: int) -> str:
-    return book[code] if code < len(book) else ""
-
-
-READS: dict[str, Read] = {"abuse.risk": _risk, "abuse.is_anycast": bool,
-                          "abuse.is_satellite": bool}
-
-
-def _varints(data: bytes, at: int, count: int) -> tuple[list[int], int]:
-    """The stream a block is mostly made of, read in one loop that never calls out."""
-    values: list[int] = []
-    append = values.append
+def varints(data: bytearray, at: int, count: int) -> tuple[list[int], int]:
+    values = []
     for _ in range(count):
-        byte = data[at]
-        at += 1
-        if byte < 0x80:
-            append(byte)
-            continue
-        value, shift = byte & 0x7F, 7
-        while True:
-            byte = data[at]
-            at += 1
-            value |= (byte & 0x7F) << shift
-            if byte < 0x80:
-                break
-            shift += 7
-        append(value)
+        value, at = varint(data, at)
+        values.append(value)
     return values, at
 
 
-def _varint(data: bytes, at: int) -> tuple[int, int]:
-    value = shift = 0
-    while True:
-        byte = data[at]
-        at += 1
-        value |= (byte & 0x7F) << shift
-        if byte < 0x80:
-            return value, at
-        shift += 7
+class Stream:
+    def __init__(self, packed: memoryview, filters: list[dict[str, int]]) -> None:
+        self.decoder = lzma.LZMADecompressor(lzma.FORMAT_RAW, filters=filters)
+        self.packed: memoryview | bytes = packed
+        self.decoded = bytearray()
 
-
-def _unpacker(dictionary: memoryview) -> Callable[[Any], bytes]:
-    if not dictionary:
-        return decompress
-    return partial(decompress, zstd_dict=ZstdDict(bytes(dictionary)))
-
-
-class Cache(dict[Any, Any]):
-    """What a reader would otherwise rebuild, kept until there is too much of it."""
-
-    def __init__(self, build: Callable[[Any], Any]) -> None:
-        self.build = build
-
-    def __missing__(self, key: Any) -> Any:
-        if len(self) >= CACHED:
-            self.clear()
-        value = self[key] = self.build(key)
-        return value
+    def until(self, want: int) -> bytearray:
+        while len(self.decoded) < want and not self.decoder.eof:
+            more = max(want - len(self.decoded), 4096)
+            chunk = self.decoder.decompress(self.packed, more)
+            self.packed = b""
+            if not chunk and self.decoder.needs_input:
+                raise ValueError("the block ends early")
+            self.decoded += chunk
+        return self.decoded
 
 
 class Section:
-    """A block is what the codec packed; a group is all of one a lookup decodes."""
-
-    __slots__ = ("blocks", "cache", "count", "data", "encoding", "fanout", "groups",
-                 "keys", "offsets", "per_block", "per_group", "read", "unpack", "width")
-
-    def __init__(self, view: memoryview, entry: Entry) -> None:
-        self.count: int = entry["count"]
-        self.read: str = entry["read"]
-        self.encoding: str = entry["encoding"]
-        self.per_block: int = entry["block"]
-        self.per_group: int = entry["group"]
+    def __init__(self, view: memoryview, entry: dict[str, Any]) -> None:
+        self.entry, self.count = entry, int(entry["count"])
+        self.per_block, self.per_group = int(entry["block"]), int(entry["group"])
         self.fanout = self.per_block // self.per_group
-        blocks, width, book = struct.unpack_from("<III", view, 0)
-        self.blocks: int = blocks
-        self.width: int = width
-        at = 12
-        self.offsets: tuple[int, ...] = struct.unpack_from(f"<{blocks + 1}I", view, at)
-        at += 4 * (blocks + 1)
-        self.keys = [int.from_bytes(view[head:head + width], "big")
-                     for head in range(at, at + width * blocks, width or 1)]
-        at += width * blocks
-        self.unpack = _unpacker(view[at:at + book])
-        self.data = view[at + book:]
-        self.cache = Cache(self.block)
-        self.groups = Cache(self.values)
+        blocks, self.width = struct.unpack_from("<II", view)
+        self.offsets = struct.unpack_from(f"<{blocks + 1}I", view, 8)
+        at = 8 + 4 * (blocks + 1)
+        self.keys = [int.from_bytes(view[head:head + self.width], "big")
+                     for head in range(at, at + self.width * blocks, self.width or 1)]
+        self.data = view[at + self.width * blocks:]
+        context, position, matches = entry["lzma"]
+        self.filters = [{"id": lzma.FILTER_LZMA1, "dict_size": WINDOW, "lc": context,
+                         "lp": position, "pb": matches}]
+        self.blocks: dict[int, Any] = {}
+        self.groups: dict[int, list[Any]] = {}
 
-    def raw(self, index: int) -> bytes:
-        return self.unpack(self.data[self.offsets[index]:self.offsets[index + 1]])
+    def block(self, index: int) -> Any:
+        if index not in self.blocks:
+            packed = self.data[self.offsets[index]:self.offsets[index + 1]]
+            self.blocks[index] = self.opened(Stream(packed, self.filters), index)
+        return self.blocks[index]
+
+    def group(self, number: int) -> list[Any]:
+        if number not in self.groups:
+            self.groups[number] = self.values(number)
+        return self.groups[number]
 
     def held(self, group: int) -> int:
         return min(self.per_group, self.count - group * self.per_group)
 
-    def block(self, index: int) -> Any:
-        raise NotImplementedError(index)
+    def opened(self, stream: Stream, index: int) -> Any:
+        return stream
 
-    def values(self, group: int) -> Any:
+    def values(self, group: int) -> list[Any]:
         raise NotImplementedError(group)
 
     def __getitem__(self, row: int) -> Any:
-        raise NotImplementedError(row)
-
-
-class Column(Section):
-    """A block is one array: reading a value is a subscript, and never a decode."""
-
-    __slots__ = ()
-
-    def block(self, index: int) -> Sequence[int]:
-        """Stepped columns restart every block, so a block sums without the one before."""
-        raw = self.raw(index)
-        formats = SIGNED if self.encoding in STEPPED else FORMATS
-        values = array(formats[raw[0]], raw[1:])
-        if SWAPPED:
-            values.byteswap()
-        return list(accumulate(values)) if self.encoding == "delta" else values
-
-    def __getitem__(self, row: int) -> Any:
         index, place = divmod(row, self.per_block)
-        return self.cache[index][place]
+        stream = self.block(index)
+        width, encoding = stream.until(1)[0], self.entry["encoding"]
+        stop = 1 + (place + 1) * width
+        codes = SIGNED if encoding in ("signed", "delta") else FORMATS
+        values = array(codes[width], stream.until(stop)[1:stop])
+        if sys.byteorder == "big":
+            values.byteswap()
+        return sum(values) if encoding == "delta" else values[place]
 
 
 class Strings(Section):
-    """One pool, front-coded, restarting every group so a group decodes alone."""
-
-    __slots__ = ()
-
-    def block(self, index: int) -> tuple[bytes, list[int]]:
-        """Where every group of the block starts, read once and kept for the rest."""
-        raw = self.raw(index)
+    def opened(self, stream: Stream, index: int) -> Any:
         left = self.count - index * self.per_block
-        lengths, at = _varints(raw, 0, min(self.fanout, -(-left // self.per_group)) - 1)
-        return raw, [*accumulate(lengths, initial=at), len(raw)]
+        total = min(self.fanout, -(-left // self.per_group)) - 1
+        lengths, at = varints(stream.until(total * 3), 0, total)
+        return stream, [*accumulate(lengths, initial=at), sys.maxsize]
 
-    def values(self, group: int) -> list[str]:
+    def values(self, group: int) -> list[Any]:
         index, at = divmod(group, self.fanout)
-        raw, starts = self.cache[index]
-        cursor = starts[at]
+        stream, starts = self.block(index)
+        raw, cursor = stream.until(starts[at + 1]), starts[at]
         values, previous = [], b""
         for _ in range(self.held(group)):
-            shared, fresh = raw[cursor], raw[cursor + 1]
-            cursor += 2
-            if fresh > 0x7F:
-                fresh, cursor = _varint(raw, cursor - 1)
+            shared = raw[cursor]
+            fresh, cursor = varint(raw, cursor + 1)
             previous = previous[:shared] + raw[cursor:cursor + fresh]
             cursor += fresh
             values.append(previous.decode("utf-8", "replace"))
         return values
 
     def __getitem__(self, identifier: int) -> Any:
-        if not identifier:
-            return ""
         group, place = divmod(identifier - 1, self.per_group)
-        return self.groups[group][place]
+        return self.group(group)[place] if identifier else ""
 
 
 class Index(Section):
-    """The one section a lookup bisects: block keys, group heads, then gaps."""
-
-    __slots__ = ()
-
-    def block(self, index: int) -> tuple[list[int], list[int], bytes]:
-        raw = self.raw(index)
-        count, at = _varint(raw, 0)
+    def opened(self, stream: Stream, index: int) -> Any:
+        raw = stream.until(3 + self.fanout * (8 if self.width == 4 else 22))
+        count, at = varint(raw, 0)
         total = -(-count // self.per_group)
-        gaps, at = _varints(raw, at, total - 1)
+        gaps, at = varints(raw, at, total - 1)
+        lengths, at = varints(raw, at, total - 1)
         heads = list(accumulate(gaps, initial=self.keys[index]))
-        lengths, at = _varints(raw, at, total - 1)
-        return heads, list(accumulate(lengths, initial=at)), raw
+        return heads, [*accumulate(lengths, initial=at), sys.maxsize], stream
 
-    def values(self, group: int) -> list[int]:
-        """A v6 address is an ordered network and an unordered interface, stored apart."""
+    def values(self, group: int) -> list[Any]:
         index, at = divmod(group, self.fanout)
-        heads, starts, raw = self.cache[index]
-        size = self.held(group)
+        heads, starts, stream = self.block(index)
+        raw, size = stream.until(starts[at + 1]), self.held(group)
         host_bits = 0 if self.width == 4 else 64
-        gaps, cursor = _varints(raw, starts[at], size - 1)
-        networks = accumulate(gaps, initial=heads[at] >> host_bits)
+        gaps, cursor = varints(raw, starts[at], size - 1)
+        networks = list(accumulate(gaps, initial=heads[at] >> host_bits))
         if not host_bits:
-            return list(networks)
-        hosts, _ = _varints(raw, cursor, size)
-        return [network << host_bits | host
-                for network, host in zip(networks, hosts, strict=True)]
+            return networks
+        hosts, _ = varints(raw, cursor, size)
+        pairs = zip(networks, hosts, strict=True)
+        return [network << host_bits | host for network, host in pairs]
 
     def __getitem__(self, row: int) -> Any:
         group, spot = divmod(row, self.per_group)
-        return self.groups[group][spot]
+        return self.group(group)[spot]
 
     def row(self, address: int) -> int | None:
-        """The row whose address covers this one, or None below the first of them."""
         index = bisect_right(self.keys, address) - 1
         if index < 0:
             return None
-        group = index * self.fanout + bisect_right(self.cache[index][0], address) - 1
-        spot = bisect_right(self.groups[group], address) - 1
+        group = index * self.fanout + bisect_right(self.block(index)[0], address) - 1
+        spot = bisect_right(self.group(group), address) - 1
         return None if spot < 0 else group * self.per_group + spot
 
     def holds(self, address: int) -> int | None:
-        """The row the address is stored at, or None where the file does not name it."""
         row = self.row(address)
         return row if row is not None and self[row] == address else None
 
 
 class Plevin:
-    """One address in, the stored rows out: no joins, no derivation, codes as words."""
-
     def __init__(self, path: str) -> None:
         with open(path, "rb") as handle:
             view = memoryview(mmap.mmap(handle.fileno(), 0, access=mmap.ACCESS_READ))
         if bytes(view[:len(MAGIC)]) != MAGIC or view[len(MAGIC)] != FORMAT:
             raise ValueError(f"{path} is not a plevin {FORMAT} database")
         size = struct.unpack_from("<I", view, len(MAGIC) + 1)[0]
-        head = len(MAGIC) + 5
-        self.head: Entry = json.loads(bytes(view[head:head + size]))
-
-        body = head + size
+        head = json.loads(bytes(view[len(MAGIC) + 5:len(MAGIC) + 5 + size]))
+        body = len(MAGIC) + 5 + size
         kinds = {"index": Index, "front": Strings}
-        self.sections: dict[str, Section] = {}
-        for name, entry in self.head["sections"].items():
+        self.sections: dict[str, Any] = {}
+        for name, entry in head["sections"].items():
             at = body + entry["offset"]
-            kind = kinds.get(entry["encoding"], Column)
+            kind = kinds.get(entry["encoding"], Section)
             self.sections[name] = kind(view[at:at + entry["bytes"]], entry)
-
-        books: dict[str, list[str]] = self.head["vocabularies"]
-        self.reads: dict[str, Read] = {
-            **READS,
-            **{field: partial(_word, books[book])
-               for field, book in BOOKS.items() if book in books}}
-        self.tables = self._tables()
-        self.families = {version: self._family(version) for version in (4, 6)}
-        self.located = {version: Cache(partial(self._locate, version))
-                        for version in (4, 6)}
-        self.answers = Cache(self._answer)
-
-    def _tables(self) -> dict[str, Plan]:
-        """Each table's columns split by how they decode, so a read never branches."""
-        tables: dict[str, Plan] = {}
+        books = head["vocabularies"]
+        self.reads = READS | {field: self.worded(books[book])
+                              for field, book in BOOKS.items() if book in books}
+        self.tables: dict[str, list[tuple[int, str, Any, Any]]] = {}
         for name, section in self.sections.items():
             parts = name.split(".")
-            if len(parts) != 3 or parts[0] not in ("col", "link"):
-                continue
-            kind, table, field = parts
-            lists = tables.setdefault(table, ([], [], [], [], []))
-            read = self.reads.get(f"{table}.{field}")
-            if kind == "link":
-                lists[4].append((field, section))
-            elif read:
-                lists[3].append((field, section, read))
-            elif section.read == "text":
-                lists[1].append((field, section, self.sections["strings"]))
-            elif section.read:
-                lists[2].append((field, section))
-            else:
-                lists[0].append((field, section))
-        return tables
+            if len(parts) == 3 and parts[0] in ("col", "link"):
+                self.column(parts[0], parts[1], parts[2], section)
+        for columns in self.tables.values():
+            columns.sort(key=lambda column: column[0])
+        self.answers: dict[str, Row | None] = {}
 
-    def _family(self, version: int) -> Family:
-        """The index a lookup bisects, the columns it reads at that row, and the hosts."""
-        spine, hosts = f"spine.v{version}", f"hosts.v{version}"
-        return (self.sections.get(spine),
-                [(name, self.sections[f"{spine}.{name}"], self.reads.get(name))
-                 for name in CARRIED if f"{spine}.{name}" in self.sections],
-                self.sections.get(hosts), self.sections.get(f"{hosts}.abuse"))
+    def column(self, kind: str, table: str, field: str, section: Section) -> None:
+        rank, read = self.reader(kind, f"{table}.{field}", section)
+        self.tables.setdefault(table, []).append((rank, field, section, read))
 
-    def _row(self, table: str, row: int) -> Row:
-        plain, text, degrees, coded, links = self.tables.get(table, EMPTY)
+    @staticmethod
+    def worded(book: list[str]) -> Callable[[int], str]:
+        return lambda code: book[code] if code < len(book) else ""
+
+    def reader(self, kind: str, name: str, section: Section) -> tuple[int, Any]:
+        if kind == "link":
+            return 4, None
+        if name in self.reads:
+            return 3, self.reads[name]
+        if section.entry["read"] == "text":
+            return 1, self.sections["strings"].__getitem__
+        if section.entry["read"]:
+            return 2, lambda value: value / DEGREES
+        return 0, lambda value: value
+
+    def row(self, table: str, row: int) -> Row:
         out: Row = {}
-        for field, section in plain:
-            out[field] = section[row]
-        for field, section, pool in text:
-            out[field] = pool[section[row]]
-        for field, section in degrees:
-            out[field] = section[row] / DEGREES
-        for field, section, read in coded:
-            out[field] = read(section[row])
-        for target, section in links:
-            linked = section[row]
-            if linked:
-                out[target] = self._row(target, linked - 1)
+        for _, field, section, read in self.tables.get(table, []):
+            value = section[row]
+            if read:
+                out[field] = read(value)
+            elif value:
+                out[field] = self.row(field, value - 1)
         if "postal_partial" in out:
             out["postal_partial"] = out["postal"][:out["postal_partial"]]
         return out
 
-    def _answer(self, key: Found) -> Row:
-        """The columns the boundary reads, cached by the row rather than by its values."""
-        version, row, override = key
+    def answer(self, version: int, row: int, override: int) -> Row:
         out: Row = {}
-        for name, column, read in self.families[version][1]:
+        for name in CARRIED:
+            column = self.sections.get(f"spine.v{version}.{name}")
+            if column is None:
+                continue
             value = override if override and name == "abuse" else column[row]
-            if name in LINKED:
-                if value:
-                    out[name] = self._row(name, value - 1)
-            else:
-                out.setdefault(SPAN, {})[name] = read(value) if read else value
+            if name not in LINKED:
+                read = self.reads.get(name)
+                out.setdefault("network", {})[name] = read(value) if read else value
+            elif value:
+                out[name] = self.row(name, value - 1)
         return out
 
-    def _locate(self, version: int, address: int) -> Found | None:
-        """Which boundary answers, and the record a host overrides it with."""
-        index, _, hosts, records = self.families[version]
+    def found(self, text: str) -> Row | None:
+        version = 6 if ":" in text else 4
+        family = AF_INET6 if version == 6 else AF_INET
+        address = int.from_bytes(inet_pton(family, text), "big")
+        index = self.sections.get(f"spine.v{version}")
         row = None if index is None else index.row(address)
         if row is None:
             return None
+        hosts = self.sections.get(f"hosts.v{version}")
+        records = self.sections.get(f"hosts.v{version}.abuse")
         if hosts is None or records is None:
-            return version, row, 0
+            return self.answer(version, row, 0)
         at = hosts.holds(address)
-        return version, row, 0 if at is None else records[at] + 1
+        return self.answer(version, row, 0 if at is None else records[at] + 1)
 
     def lookup(self, text: str) -> Row | None:
-        """The stored answer, or None where the file covers nothing; do not edit it."""
-        wide = ":" in text
-        address = int.from_bytes(inet_pton(AF_INET6 if wide else AF_INET, text), "big")
-        found = self.located[6 if wide else 4][address]
-        return None if found is None else self.answers[found]
+        if text not in self.answers:
+            if len(self.answers) >= CACHED:
+                self.answers.clear()
+            self.answers[text] = self.found(text)
+        return self.answers[text]
 
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Read a plevin.plv database")
-    parser.add_argument("path", help="the database file to read")
-    parser.add_argument("address", help="the address to look up")
-    args = parser.parse_args()
-    print(json.dumps(Plevin(args.path).lookup(args.address), indent=2))
+    if len(sys.argv) != 3:
+        sys.exit("usage: plevin_mini.py path address")
+    print(json.dumps(Plevin(sys.argv[1]).lookup(sys.argv[2]), indent=2))

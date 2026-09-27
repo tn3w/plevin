@@ -4,7 +4,7 @@ import struct
 import sys
 
 sys.path.insert(0, "../python")
-from plevin.reader import _unpacker  # noqa: E402
+from plevin.reader import Stream, _filters  # noqa: E402
 
 data = memoryview(open(sys.argv[1], "rb").read())
 size = struct.unpack_from("<I", data, 8)[0]
@@ -15,14 +15,14 @@ limit = int(sys.argv[2]) if len(sys.argv) > 2 else 3
 digests = {}
 for name, entry in head["sections"].items():
     at = body + entry["offset"]
-    blocks, width, book = struct.unpack_from("<III", data, at)
-    offsets = struct.unpack_from(f"<{blocks + 1}I", data, at + 12)
-    start = at + 12 + 4 * (blocks + 1) + width * blocks
-    unpack = _unpacker(data[start : start + book])
-    held = start + book
+    blocks, width = struct.unpack_from("<II", data, at)
+    offsets = struct.unpack_from(f"<{blocks + 1}I", data, at + 8)
+    held = at + 8 + 4 * (blocks + 1) + width * blocks
+    filters = _filters(entry["lzma"])
     digest = hashlib.sha256()
     for index in range(min(blocks, limit)):
-        digest.update(unpack(data[held + offsets[index] : held + offsets[index + 1]]))
+        packed = data[held + offsets[index] : held + offsets[index + 1]]
+        digest.update(Stream(packed, filters).until(sys.maxsize))
     digests[name] = digest.hexdigest()
 
 print(json.dumps(digests, indent=1))

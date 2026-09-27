@@ -73,14 +73,12 @@ const shouts = (word: string): boolean =>
 const titled = (word: string): string =>
   word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 
-/** Shouted words stop shouting, `GOOGLE` reading as `Google` and `IBM` as `IBM`. */
 const cased = (text: string): string =>
   text
     .split(" ")
     .map((word) => (shouts(word) ? titled(word) : word))
     .join(" ");
 
-/** Aliases, legal forms and the words every network shares, all stripped. */
 const fromCompany = (company: string): string => {
   const held = company.replace(TRADING, "").replace(ALIAS, "");
   const tokens = held
@@ -101,7 +99,6 @@ const fromCompany = (company: string): string => {
   return cased(tld ? name.slice(0, name.length - tld.length) : name);
 };
 
-/** The first word of a registry handle, its country and network tails gone. */
 const fromHandle = (handle: string): string => {
   const first = handle.split(/\s+/)[0] ?? "";
   let head = first.replace(HANDLE_TAIL, "");

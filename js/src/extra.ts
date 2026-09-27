@@ -96,7 +96,6 @@ const format = (name: string): Intl.DateTimeFormat | null => {
   return built;
 };
 
-/** A zone read at an instant: the wall clock it shows, as if that clock were UTC. */
 const wallAt = (held: Intl.DateTimeFormat, instant: number): number => {
   const parts: Record<string, string> = {};
   for (const part of held.formatToParts(instant)) parts[part.type] = part.value;
@@ -115,7 +114,6 @@ const wallAt = (held: Intl.DateTimeFormat, instant: number): number => {
 const offsetAt = (held: Intl.DateTimeFormat, instant: number): number =>
   Math.round((wallAt(held, instant) - instant) / MINUTE);
 
-/** The offset a wall clock reading falls under, ambiguous readings taking the first. */
 const offsetOf = (held: Intl.DateTimeFormat, wall: number): number => {
   const before = offsetAt(held, wall - DAY);
   const after = offsetAt(held, wall + DAY);
@@ -137,7 +135,6 @@ const stamp = (held: Intl.DateTimeFormat, wall: number): string => {
   return clocked + utcOffset(offsetOf(held, wall));
 };
 
-/** The change between two probes, to the minute the zone records it on. */
 const change = (
   held: Intl.DateTimeFormat,
   low: number,
@@ -152,7 +149,6 @@ const change = (
   return Math.floor((high + 30000) / MINUTE) * MINUTE;
 };
 
-/** Every offset change within 400 days either side of a day. */
 const changes = (held: Intl.DateTimeFormat, noon: number): number[] => {
   const end = noon + WINDOW;
   const found: number[] = [];
@@ -172,7 +168,6 @@ type Daylight = [number, number | null, number | null];
 
 const DAYLIGHTS = new Map<string, Daylight>();
 
-/** The zone's standard offset, then the daylight period around that day. */
 const daylight = (name: string, held: Intl.DateTimeFormat, wall: number): Daylight => {
   const noon = Math.floor(wall / DAY) * DAY + DAY / 2;
   const key = `${name}@${noon}`;
@@ -199,7 +194,6 @@ const daylight = (name: string, held: Intl.DateTimeFormat, wall: number): Daylig
   return built;
 };
 
-/** What the zone calls itself: its listed abbreviation, else its bare offset. */
 const abbreviation = (name: string, offset: number, daylight: boolean): string => {
   const named = ABBREVIATIONS.get(name);
   if (named) return daylight ? named[1] : named[0];

@@ -44,7 +44,6 @@ CAPITALS = {"national capital": "country", "regional capital": "region",
 
 
 def _cased(text: str) -> str:
-    """Shouted words stop shouting, `GOOGLE` reading as `Google` and `IBM` as `IBM`."""
     return " ".join(
         word.title() if word.isalpha() and word.isupper() and len(word) > 4 else word
         for word in text.split(" ")
@@ -52,7 +51,6 @@ def _cased(text: str) -> str:
 
 
 def _from_company(company: str) -> str:
-    """Aliases, legal forms and the words every network shares, all stripped."""
     words = ALIAS.sub("", TRADING.sub("", company)).split()
     tokens = [token for word in words if (token := word.strip("\"'"))]
     while len(tokens) > 1 and BARE.sub("", tokens[-1].lower()) in TAIL:
@@ -65,7 +63,6 @@ def _from_company(company: str) -> str:
 
 
 def _from_handle(handle: str) -> str:
-    """The first word of a registry handle, its country and network tails gone."""
     words = handle.split()
     head = HANDLE_TAIL.sub("", words[0]) if words else ""
     if NUMBERED.fullmatch(head):
@@ -77,7 +74,6 @@ def _from_handle(handle: str) -> str:
 
 @lru_cache(maxsize=NAMES)
 def brand(handle: str, company: str) -> str:
-    """The name a network goes by: its handle where the company only spells it out."""
     legal, short = _from_company(company), _from_handle(handle)
     if not legal or not short:
         return legal or short
@@ -88,7 +84,6 @@ def brand(handle: str, company: str) -> str:
 
 @lru_cache(maxsize=NAMES)
 def domain(website: str, mailbox: str) -> str:
-    """The bare host the website names, else the one the abuse mailbox does."""
     authority = AUTHORITY.split(website.rpartition("//")[2], maxsplit=1)[0]
     host = authority.rpartition("@")[2].partition(":")[0]
     site = (host or mailbox.partition("@")[2]).lower().removeprefix("www.")
@@ -100,12 +95,10 @@ def domain(website: str, mailbox: str) -> str:
 
 
 def service(named: str, user_type: str) -> tuple[str, str]:
-    """A public proxy on an access network is someone's home line, resold."""
     if named == "public_proxy" and user_type in ACCESS:
         return "residential_proxy", "inferred"
     return named, ""
 
 
 def capital(city_type: str) -> str:
-    """The city type already says which capital it is, so nothing stores it twice."""
     return CAPITALS.get(city_type, "")

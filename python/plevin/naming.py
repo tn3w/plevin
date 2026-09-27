@@ -37,7 +37,6 @@ Waiting = dict[socket.socket, tuple[int, int, str, bytes]]
 
 
 def usable(candidates: Iterable[str]) -> list[str]:
-    """The candidates that are addresses a socket can reach without a scope id."""
     servers = []
     for candidate in candidates:
         try:
@@ -52,7 +51,6 @@ def usable(candidates: Iterable[str]) -> list[str]:
 
 
 def resolv_conf_servers() -> list[str]:
-    """What every unix writes down, systemd and dnsmasq stubs included."""
     try:
         with open(RESOLV_CONF, encoding="utf-8") as file:
             lines = file.read().splitlines()
@@ -79,7 +77,6 @@ def interface_servers(interface: Any) -> list[str]:
 
 
 def registry_servers() -> list[str]:
-    """What Windows keeps per interface, set by hand or handed out by DHCP."""
     winreg = import_module("winreg")
     found = []
     with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, REGISTRY) as interfaces:
@@ -91,7 +88,6 @@ def registry_servers() -> list[str]:
 
 
 def system_servers() -> list[str]:
-    """The servers the machine itself uses, wherever this machine keeps them."""
     finding = registry_servers if sys.platform == "win32" else resolv_conf_servers
     try:
         return usable(finding())
@@ -103,7 +99,6 @@ SERVERS = list(dict.fromkeys(system_servers() + list(PUBLIC_SERVERS)))
 
 
 def encode_query(name: str, kind: str, ident: int) -> bytes:
-    """One question, recursion asked for, DNSSEC status asked for, EDNS0 announced."""
     labels = [label.encode() for label in name.rstrip(".").split(".") if label]
     question = b"".join(bytes([len(label)]) + label for label in labels) + b"\0"
     header = struct.pack("!HHHHHH", ident, 0x0120, 1, 0, 0, 1)
@@ -117,7 +112,6 @@ def encode_query(name: str, kind: str, ident: int) -> bytes:
 
 
 def read_name(message: bytes, at: int) -> tuple[str, int]:
-    """A name, following compression pointers, and where the record goes on."""
     labels: list[str] = []
     after = None
     for _ in range(128):
@@ -155,7 +149,6 @@ def read_data(message: bytes, at: int, kind: int) -> str:
 
 
 def decode(message: bytes) -> Reply:
-    """A reply as its header bits, its answers and the zone that owns them."""
     ident, flags, questions, *counts = struct.unpack_from("!HHHHHH", message, 0)
     at = 12
     for _ in range(questions):
@@ -211,7 +204,6 @@ def datagram(server: str, query: bytes) -> socket.socket:
 
 
 def over_tcp(server: str, query: bytes) -> bytes:
-    """The same question again where the datagram came back cut short."""
     with socket.create_connection((server, PORT), TIMEOUT) as sock:
         sock.sendall(struct.pack("!H", len(query)) + query)
         size = struct.unpack("!H", exactly(sock, 2))[0]
@@ -240,7 +232,6 @@ def taken(sock: socket.socket, ident: int, server: str, query: bytes) -> Found:
 
 
 def asked(waiting: Waiting, questions: list[Question]) -> list[Found]:
-    """Every question at every server at once, each answered by whoever is first."""
     replies: list[Found] = [None] * len(questions)
     spare: list[Found] = [None] * len(questions)
     deadline = monotonic() + TIMEOUT
@@ -269,7 +260,6 @@ def asked(waiting: Waiting, questions: list[Question]) -> list[Found]:
 
 
 def resolve(questions: list[Question]) -> list[Found]:
-    """Each question sent to every server, all of them in flight together."""
     waiting: Waiting = {}
     for index, (name, kind, _) in enumerate(questions):
         ident = random.randrange(65536)
@@ -296,7 +286,6 @@ def zone_of(reply: Found, found: Dns) -> None:
 
 
 def facts(value: int, wide: bool) -> Dns:
-    """Everything DNS says about the address, in two rounds of questions."""
     embedded = tunnel(value, wide)[1]
     if embedded is not None:
         value, wide = parse(embedded)
@@ -328,7 +317,6 @@ HELD: dict[tuple[int, bool], tuple[float, Dns]] = {}
 
 
 def named(value: int, wide: bool) -> Dns:
-    """The same address answered from memory for an hour before asking again."""
     key = (value, wide)
     held = HELD.get(key)
     if held is not None and held[0] > monotonic():

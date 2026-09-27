@@ -5,7 +5,6 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 
-/// One row of an IP geolocation database: a span, where it lands, how well it knows.
 #[derive(Clone, Default)]
 pub struct Coarse {
     pub first: u128,
@@ -34,8 +33,6 @@ pub fn slurp(path: &Path) -> String {
     String::from_utf8_lossy(&raw(path)).into_owned()
 }
 
-/// A line at a time and lossily, for the registry dumps too large to hold whole and
-/// old enough to still carry bytes that are not UTF-8.
 pub fn lines(path: &Path) -> impl Iterator<Item = String> {
     let handle = File::open(path).ok();
     if handle.is_none() {
@@ -52,13 +49,11 @@ pub fn lines(path: &Path) -> impl Iterator<Item = String> {
     })
 }
 
-/// One of the builder's own tables, which are JSON and live beside its source.
 pub fn data(name: &str) -> serde_json::Value {
     let body = slurp(&Path::new("data").join(name));
     serde_json::from_str(&body).unwrap_or_else(|_| panic!("{name}"))
 }
 
-/// One comma separated row, keeping what quotes hold together.
 pub fn row(line: &str) -> Vec<String> {
     let mut fields = vec![String::new()];
     let mut quoted = false;
@@ -72,7 +67,6 @@ pub fn row(line: &str) -> Vec<String> {
     fields
 }
 
-/// An address or a prefix as the span it covers.
 pub fn span(text: &str) -> Option<(u128, u128, bool)> {
     let text = text.trim().trim_start_matches('[').replace(']', "");
     let (head, tail) = match text.split_once('/') {
@@ -88,12 +82,10 @@ pub fn span(text: &str) -> Option<(u128, u128, bool)> {
     Some((first, first | fill(spare), bits == 128))
 }
 
-/// Every bit below a prefix, set.
 pub fn fill(spare: u32) -> u128 {
     1u128.checked_shl(spare).unwrap_or(0).wrapping_sub(1)
 }
 
-/// A MaxMind database, walked whole rather than looked up one address at a time.
 pub struct Mmdb {
     data: Vec<u8>,
     nodes: u32,
@@ -258,7 +250,6 @@ impl Mmdb {
         row.get(key).map(|at| self.number(*at)).unwrap_or(0.0)
     }
 
-    /// Every span the tree names, the v4 half read out of the subtree it is aliased to.
     pub fn ranges(&self, wide: bool) -> Vec<Coarse> {
         let mut stack = match wide {
             true => vec![(0, 0u128, 0u32)],
@@ -318,7 +309,6 @@ pub fn two(code: &str) -> [u8; 2] {
     }
 }
 
-/// An IP2Location binary, both of its tables read straight out of the rows.
 pub struct Location {
     data: Vec<u8>,
 }
@@ -408,7 +398,6 @@ pub struct Announce {
     pub asn: u32,
 }
 
-/// The routing table dump, one announcement per prefix by majority of its peers.
 pub fn announcements(path: &Path) -> Vec<Announce> {
     let Ok(handle) = File::open(path) else {
         eprintln!("missing {}", path.display());
@@ -505,7 +494,6 @@ fn last(path: &[u8]) -> u32 {
     found
 }
 
-/// The attribute table beside a shapefile, read as text columns.
 pub struct Table {
     pub names: Vec<String>,
     pub rows: Vec<Vec<String>>,
@@ -554,7 +542,6 @@ pub fn dbf(path: &Path) -> Table {
     Table { names, rows }
 }
 
-/// The rings of every shape, in the order the attribute table names them.
 pub fn shapes(path: &Path) -> Vec<Vec<Vec<[f64; 2]>>> {
     let data = raw(path);
     let mut shapes = Vec::new();

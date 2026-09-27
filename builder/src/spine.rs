@@ -81,7 +81,6 @@ struct Slab {
 }
 
 impl Slab {
-    /// A link as the selection can see it: absence, or the row the target collapsed to.
     fn link(&self, held: u32) -> i64 {
         match held {
             0 => 0,
@@ -93,7 +92,6 @@ impl Slab {
     }
 }
 
-/// What a table is keyed by where its own columns cost more than the links into it.
 const ORDERED: &[(&str, &[&str])] = &[
     ("region", &["region.name"]),
     ("district", &["district.name"]),
@@ -185,7 +183,6 @@ impl World {
         }
     }
 
-    /// Where a provider can be named: the boundaries a record with a service reaches.
     fn named(&self, family: usize, selection: &Selection) -> Vec<bool> {
         let mut out = vec![true; self.spine[family].len()];
         if !selection.sparse {
@@ -216,7 +213,6 @@ impl World {
         out
     }
 
-    /// Which rows of each table the spine still reaches once the selection is cut.
     fn reach(&self, selection: &Selection, named: &[Vec<bool>; 2]) -> Vec<Slab> {
         let systems = self.systems.rows.len();
         let sizes: HashMap<&str, usize> = HashMap::from([
@@ -308,7 +304,6 @@ impl World {
         slabs
     }
 
-    /// Rows the selection cannot tell apart become one row, and a row saying nothing is none.
     fn collapse(
         &self,
         slab: &mut Slab,
@@ -324,24 +319,8 @@ impl World {
             let key: Vec<i64> = slab
                 .columns
                 .iter()
-                .map(|column| {
-                    let held = self.cell(column.id, at, words);
-                    let held = match selection.narrow.get(column.id) {
-                        Some(Some(kept)) if !kept.contains(&held) => 0,
-                        _ => held,
-                    };
-                    match column.kind {
-                        Kind::Link => {
-                            match done.iter().find(|one| one.name == column.name()) {
-                                Some(target) => target.link(held as u32),
-                                None => 0,
-                            }
-                        }
-                        _ => held,
-                    }
-                })
+                .map(|column| self.seen(column, at, done, words, selection))
                 .collect();
-            // every other stage reads the first abuse row as absence, so it always stays
             let pinned = slab.name == "abuse" && at == 0;
             if !pinned && key.iter().all(|held| *held == 0) {
                 continue;
@@ -353,6 +332,26 @@ impl World {
             });
         }
         slab.uses = vec![0; slab.rows.len()];
+    }
+
+    fn seen(
+        &self,
+        column: &Column,
+        at: usize,
+        done: &[Slab],
+        words: &mut Words,
+        selection: &Selection,
+    ) -> i64 {
+        let held = self.cell(column.id, at, words);
+        let held = match selection.narrow.get(column.id) {
+            Some(Some(kept)) if !kept.contains(&held) => 0,
+            _ => held,
+        };
+        if column.kind != Kind::Link {
+            return held;
+        }
+        let target = done.iter().find(|one| one.name == column.name());
+        target.map_or(0, |target| target.link(held as u32))
     }
 
     fn cell(&self, id: &str, row: usize, words: &mut Words) -> i64 {
@@ -431,7 +430,6 @@ impl World {
         }
     }
 
-    /// The spine as the selection sees it, with neighbours it cannot tell apart merged.
     fn trim(
         &self,
         selection: &Selection,
@@ -483,17 +481,12 @@ impl World {
                     ("network", stop.network),
                     ("abuse", stop.abuse),
                 ] {
-                    if held > 0 {
-                        tallies.get_mut(name).unwrap()[held as usize - 1] += 1;
-                    }
+                    tally(tallies.get_mut(name).unwrap(), held as i64, 1);
                 }
             }
             let abuse = slabs.iter().find(|slab| slab.name == "abuse").unwrap();
             for (_, row) in &self.records.hosts[family] {
-                let held = abuse.link(row + 1);
-                if held > 0 {
-                    tallies.get_mut("abuse").unwrap()[held as usize - 1] += 1;
-                }
+                tally(tallies.get_mut("abuse").unwrap(), abuse.link(row + 1), 1);
             }
         }
         for name in TABLES.iter().rev() {
@@ -503,17 +496,13 @@ impl World {
                 let rows = &slabs[at].rows;
                 let held = tallies.get_mut(target).unwrap();
                 for (row, weight) in rows.iter().zip(&counted) {
-                    let link = row[spot];
-                    if link > 0 {
-                        held[link as usize - 1] += (*weight).max(1);
-                    }
+                    tally(held, row[spot], (*weight).max(1));
                 }
             }
             slabs[at].uses = counted;
         }
     }
 
-    /// The address layer and the host layer, in the order the reader finds them.
     fn lay(
         &self,
         selection: &Selection,
@@ -537,19 +526,8 @@ impl World {
                     "place" | "network" | "abuse" => selection.table(name),
                     other => selection.has(&format!("spine.{other}")),
                 };
-                let values: Vec<i64> = spines[family]
-                    .iter()
-                    .map(|(_, stop)| match *name {
-                        "place" => stop.place as i64,
-                        "network" => stop.network as i64,
-                        "abuse" => stop.abuse as i64,
-                        "prefix" => stop.prefix as i64,
-                        "rpki" => stop.rpki as i64,
-                        "roas" => stop.roas as i64,
-                        _ => stop.rir as i64,
-                    })
-                    .collect();
-                // a host overrides the boundary's record, so that column stays even empty
+                let values: Vec<i64> =
+                    spines[family].iter().map(|(_, stop)| stop.carried(name)).collect();
                 let held = *name == "abuse" || values.iter().any(|value| *value != 0);
                 if wanted && held {
                     parts.push(fixed(format!("spine.v{version}.{name}"), values));
@@ -569,14 +547,7 @@ impl World {
                     continue;
                 }
                 let mine = order[held as usize - 1] as i64;
-                let at = spines[family].partition_point(|(start, _)| *start <= *address);
-                let standing =
-                    match at.checked_sub(1).map(|at| spines[family][at].1.abuse) {
-                        Some(0) | None if falls => None,
-                        Some(0) | None => Some(0),
-                        Some(link) => Some(link as i64 - 1),
-                    };
-                if standing == Some(mine) {
+                if standing(&spines[family], *address, falls) == Some(mine) {
                     continue;
                 }
                 keys.push(*address);
@@ -592,14 +563,41 @@ impl World {
     }
 }
 
-/// A plain column of numbers, which is what the spine and host layers carry.
+impl Stop {
+    fn carried(&self, name: &str) -> i64 {
+        match name {
+            "place" => self.place as i64,
+            "network" => self.network as i64,
+            "abuse" => self.abuse as i64,
+            "prefix" => self.prefix as i64,
+            "rpki" => self.rpki as i64,
+            "roas" => self.roas as i64,
+            _ => self.rir as i64,
+        }
+    }
+}
+
+fn standing(spine: &[(u128, Stop)], address: u128, falls: bool) -> Option<i64> {
+    let at = spine.partition_point(|(start, _)| *start <= address);
+    match at.checked_sub(1).map(|at| spine[at].1.abuse) {
+        Some(0) | None if falls => None,
+        Some(0) | None => Some(0),
+        Some(link) => Some(link as i64 - 1),
+    }
+}
+
 fn fixed(name: String, values: Vec<i64>) -> Part {
     Part::Values(Sheet { name, encoding: "fixed", read: "", values })
 }
 
-/// Each table's settled order, by name, for the links that point into it.
 fn placed(ranks: &[Vec<u32>]) -> HashMap<&'static str, &Vec<u32>> {
     TABLES.iter().zip(ranks).map(|(name, held)| (*name, held)).collect()
+}
+
+fn tally(counts: &mut [u64], link: i64, weight: u64) {
+    if link > 0 {
+        counts[link as usize - 1] += weight;
+    }
 }
 
 fn touch(keep: &mut [bool], link: u32) {
@@ -608,7 +606,6 @@ fn touch(keep: &mut [bool], link: u32) {
     }
 }
 
-/// Records rank by how often they are reached; every other table reads in its own order.
 fn rank(slab: &Slab) -> Vec<u32> {
     let pinned = slab.name == "abuse" && !slab.rows.is_empty();
     let first = pinned as usize;
@@ -645,7 +642,6 @@ fn ranked(order: &[u32], link: u32) -> u32 {
     }
 }
 
-/// Links follow the table they point at, which has already settled into its order.
 fn relink(slab: &mut Slab, ranks: &HashMap<&str, &Vec<u32>>) {
     let links = columns_of(slab, Kind::Link);
     for row in slab.rows.iter_mut() {
@@ -667,7 +663,6 @@ fn reorder(slab: &mut Slab, order: &[u32]) {
     slab.rows = moved;
 }
 
-/// The columns of one kind, each with the place it sits in a row.
 fn columns_of(slab: &Slab, kind: Kind) -> Vec<(usize, &'static str)> {
     slab.columns
         .iter()
@@ -681,7 +676,6 @@ fn spots(slab: &Slab) -> Vec<usize> {
     columns_of(slab, Kind::Text).into_iter().map(|(at, _)| at).collect()
 }
 
-/// One pool for every name in the file, sorted so a group front codes against itself.
 fn respell(slabs: &mut [Slab], pool: &[String]) -> Vec<String> {
     let mut keep = vec![false; pool.len() + 1];
     for slab in slabs.iter() {
@@ -714,7 +708,6 @@ fn respell(slabs: &mut [Slab], pool: &[String]) -> Vec<String> {
     names.into_iter().map(|(name, _)| name.clone()).collect()
 }
 
-/// Place, network and abuse read together: one boundary set answering all three.
 fn assemble(
     places: &[(u128, u32)],
     routes: &[(u128, Route)],

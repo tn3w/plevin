@@ -416,7 +416,6 @@ def test_a_search_for_an_asn_answers_that_one_network(opened: Path) -> None:
 
 
 def _stored_brand(tmp_path: Path) -> Path:
-    """A build that kept the brand instead of the handle and company it comes from."""
     writer = Writer()
     writer.vocabularies = {"services": ["", "public_proxy", "residential_proxy",
                                         "anonymous_vpn", "tor_exit_node"]}

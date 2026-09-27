@@ -4,14 +4,10 @@ use crate::abuse::Records;
 use std::fmt::Write;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
-/// Evidence a current list stands behind, as against an aggregate of every proxy ever
-/// seen: `published`, `measured`, then `reported`, which is the one this stops short of.
 pub const LISTED: u8 = 2;
 
-/// Where blocking starts: the weight one feed of standing carries on its own.
 pub const FLOOR: u8 = 40;
 
-/// A range as the fewest aligned networks covering it, which is what a netset carries.
 fn blocks(first: u128, last: u128, bits: u32, out: &mut Vec<String>) {
     let mut at = first;
     loop {
@@ -44,7 +40,6 @@ fn named(at: u128, prefix: u32, bits: u32) -> String {
     }
 }
 
-/// Neighbours and overlaps read as one range, so the same address is never written twice.
 fn merged(mut ranges: Vec<(u128, u128)>) -> Vec<(u128, u128)> {
     ranges.sort_unstable();
     let mut out: Vec<(u128, u128)> = Vec::with_capacity(ranges.len());
@@ -59,12 +54,13 @@ fn merged(mut ranges: Vec<(u128, u128)>) -> Vec<(u128, u128)> {
     out
 }
 
-const fn v4(a: u8, b: u8, c: u8, d: u8, prefix: u32) -> (u128, u128) {
-    let at = ((a as u128) << 24) | ((b as u128) << 16) | ((c as u128) << 8) | d as u128;
+const FEEDS: &str = "https://github.com/tn3w/plevin/tree/master/builder/data/feeds.json";
+
+const fn v4(first: u8, second: u8, third: u8, fourth: u8, prefix: u32) -> (u128, u128) {
+    let at = u32::from_be_bytes([first, second, third, fourth]) as u128;
     (at, at + (1 << (32 - prefix)) - 1)
 }
 
-/// No client answers from here, so a feed naming it has named nothing worth blocking.
 const RESERVED: &[(u128, u128)] = &[
     v4(0, 0, 0, 0, 8),
     v4(10, 0, 0, 0, 8),
@@ -83,10 +79,8 @@ const RESERVED: &[(u128, u128)] = &[
     v4(240, 0, 0, 0, 4),
 ];
 
-/// Global unicast, the one v6 range an address on the public internet comes out of.
 const UNICAST: (u128, u128) = (1 << 125, (1 << 126) - 1);
 
-/// What is left of a range once the space that answers for nobody is taken out of it.
 fn routable(held: (u128, u128), family: usize) -> Vec<(u128, u128)> {
     if family == 1 {
         let (first, last) = (held.0.max(UNICAST.0), held.1.min(UNICAST.1));
@@ -102,7 +96,6 @@ fn routable(held: (u128, u128), family: usize) -> Vec<(u128, u128)> {
     out
 }
 
-/// One range with another taken out of it: nothing, one side, the other, or both.
 fn without(
     (first, last): (u128, u128),
     (start, stop): (u128, u128),
@@ -120,13 +113,11 @@ fn without(
     out
 }
 
-/// The ranges the fold marked, cut to what a public address can actually come from.
 fn ranges(records: &Records, family: usize) -> Vec<(u128, u128)> {
     let held = merged(records.listed[family].clone());
     held.into_iter().flat_map(|range| routable(range, family)).collect()
 }
 
-/// The list a firewall loads, with the header the netset convention asks for.
 pub fn write(records: &Records, date: &str) -> String {
     let held: [Vec<String>; 2] = [0, 1].map(|family| {
         let bits = match family {
@@ -152,7 +143,7 @@ pub fn write(records: &Records, date: &str) -> String {
          #\n\
          # Maintainer      : plevin\n\
          # Maintainer URL  : https://github.com/tn3w/plevin\n\
-         # List source URL : https://github.com/tn3w/plevin/tree/master/builder/data/feeds.json\n\
+         # List source URL : {FEEDS}\n\
          # Source File Date: {date} 00:00:00 UTC\n\
          # Category        : reputation\n\
          # Version         : 1\n\

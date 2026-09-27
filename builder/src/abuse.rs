@@ -78,7 +78,6 @@ pub struct Record {
 
 pub struct Records {
     pub rows: Vec<Record>,
-    /// The ranges a blocklist takes, kept where the fold still knows what it saw.
     pub listed: [Vec<(u128, u128)>; 2],
     pub spans: [Vec<(u128, u32)>; 2],
     pub effective: [Vec<(u128, u32)>; 2],
@@ -107,7 +106,6 @@ const PROXIES: &[(&str, &str)] = &[
     ("WEB", "public_proxy"),
 ];
 
-/// An address that anonymises traffic is a risk of its own, whatever a feed saw on it.
 const EXPOSURE: &[(&str, f32)] = &[
     ("tor_exit_node", 0.85),
     ("public_proxy", 0.75),
@@ -116,14 +114,10 @@ const EXPOSURE: &[(&str, f32)] = &[
     ("private_relay", 0.15),
 ];
 
-/// How much of that stands, by how the service was come by: an inference stands least.
 const STANDING: &[f32] = &[0.85, 1.0, 1.0, 0.85, 0.6];
 
-/// A list that never drops an address saw the service once; it does not stand for the
-/// address now, so what the service is worth is halved where that is all there is.
 const STALE: f32 = 0.5;
 
-/// Enough feeds agreeing still is not proof, so the scale stops short of certainty.
 const CERTAIN: u8 = 99;
 
 fn exposure(service: u8, evidence: u8, aged: bool) -> f32 {
@@ -308,7 +302,6 @@ impl Feeds {
         }
     }
 
-    /// A proxy database naming its own service and provider, so every row is a source.
     fn proxies(&mut self, path: &Path, at: usize) {
         let body = read::slurp(path);
         let mut minted: HashMap<(u8, u8, u16, String), u16> = HashMap::new();
@@ -351,7 +344,6 @@ impl Feeds {
         }
     }
 
-    /// The count of lists an address is on, which is the risk this feed asserts.
     fn ipsum(&mut self, path: &Path, at: usize) {
         let body = read::slurp(path);
         let mut minted: HashMap<u16, u16> = HashMap::new();
@@ -373,14 +365,12 @@ impl Feeds {
     }
 }
 
-/// A feed reporting days since it last saw an address declares the window it kept.
 fn window(days: u16) -> u16 {
     *WINDOWS.iter().find(|held| **held >= days).unwrap_or(WINDOWS.last().unwrap())
 }
 
 const WINDOWS: &[u16] = &[1, 3, 7, 14, 30, 60, 90, 120, 180, 365];
 
-/// IP2Proxy writes v4 addresses inside the v6 space, which is not where they answer.
 fn mapped(value: u128) -> u128 {
     match value >> 32 == 0xFFFF {
         true => value & 0xFFFF_FFFF,
@@ -442,7 +432,6 @@ impl Pool {
         }
     }
 
-    /// A record link, which is absence where the record says nothing at all.
     fn link(&mut self, folded: &Folded) -> u32 {
         match self.intern(folded) {
             0 => 0,
@@ -473,7 +462,6 @@ impl Folded {
         }
     }
 
-    /// A fold read back as the claim it stands for, so both are taken the one way.
     fn absorb(&mut self, other: &Folded) {
         self.take(&Source {
             provider: other.provider.clone(),
@@ -492,7 +480,6 @@ impl Folded {
         }
     }
 
-    /// Feeds sharing an upstream count once, so risk takes the most of a group.
     fn risk(&mut self, group: u16, risk: f32) {
         match self.risks.iter_mut().find(|(held, _)| *held == group) {
             Some(held) if group != 0 => held.1 = held.1.max(risk),
@@ -500,7 +487,6 @@ impl Folded {
         }
     }
 
-    /// Best evidence first, then the more specific service of the two.
     fn stronger(&self, evidence: u8, service: u8) -> bool {
         if self.service == 0 {
             return true;
@@ -514,19 +500,16 @@ impl Folded {
         (evidence, rank(service)) < (self.evidence, rank(self.service))
     }
 
-    /// What feeds reported of the address, with the service's own worth left out.
     fn reported(&self) -> u8 {
         let left = self.risks.iter().fold(1.0f32, |held, (_, risk)| held * (1.0 - risk));
         (((1.0 - left) * 100.0).round() as u8).min(CERTAIN)
     }
 
-    /// Worth turning away: reported often enough, or named by a list standing behind it.
     fn blocked(&self) -> bool {
         let listed = self.service > 0 && self.evidence <= crate::netset::LISTED;
         listed || self.reported() >= crate::netset::FLOOR
     }
 
-    /// Noisy-OR over every score at once: what the service is worth, and each group.
     fn share(&self) -> f32 {
         let exposed = 1.0 - exposure(self.service, self.evidence, self.aged);
         let left = self.risks.iter().fold(exposed, |held, (_, risk)| held * (1.0 - risk));
@@ -611,7 +594,6 @@ impl Records {
     }
 }
 
-/// v4 counts addresses, v6 counts the /64 a host is given, so the two scales compare.
 fn units(first: u128, last: u128, family: usize) -> f64 {
     let width = (last - first) as f64 + 1.0;
     match family {
@@ -620,10 +602,8 @@ fn units(first: u128, last: u128, family: usize) -> f64 {
     }
 }
 
-/// Below this the reports are too few to say anything, so the network keeps its silence.
 const QUIET: f32 = 0.01;
 
-/// The reported share of one half of a network, square-rooted so the low end is legible.
 fn shaped((reported, announced): &(f64, f64)) -> f32 {
     match *announced > 0.0 {
         true => (reported.min(*announced) / announced).sqrt() as f32,
@@ -631,13 +611,11 @@ fn shaped((reported, announced): &(f64, f64)) -> f32 {
     }
 }
 
-/// A registry row announces nothing, so it is no network to weigh reports against.
 fn asn_of(systems: &Systems, route: Route) -> Option<u32> {
     let held = systems.rows.get(route.system.wrapping_sub(1) as usize)?;
     (held.asn > 0).then_some(held.asn)
 }
 
-/// A network is as risky as the addresses in it, weighted by how much of it was reported.
 fn spread(
     feeds: &Feeds,
     sweeps: &[Vec<(u128, Folded)>; 2],
@@ -671,7 +649,6 @@ fn spread(
         .collect()
 }
 
-/// Each address a feed names on its own, once, with every claim made on it folded in.
 fn named(claims: &[(u128, u16)], sources: &[Source], mut each: impl FnMut(u128, Folded)) {
     let mut held: Vec<(u128, u16)> = claims.to_vec();
     held.sort_unstable();
@@ -687,10 +664,8 @@ fn named(claims: &[(u128, u16)], sources: &[Source], mut each: impl FnMut(u128, 
     }
 }
 
-/// The boundaries a family stores, and the host records that fall through them.
 type Carried = (Vec<(u128, u32)>, Vec<(u128, Folded, u32)>);
 
-/// What each boundary stores, and the record the address answers once it falls through.
 fn carried(
     sweep: &[(u128, Folded)],
     systems: &Systems,
@@ -724,7 +699,6 @@ fn carried(
     (runs, whole)
 }
 
-/// The spans a blocklist takes, read off the fold itself so no two claims share a row.
 fn covered(sweep: &[(u128, Folded)], family: usize) -> Vec<(u128, u128)> {
     let mut out = Vec::new();
     for (at, (first, held)) in sweep.iter().enumerate() {
@@ -736,7 +710,6 @@ fn covered(sweep: &[(u128, Folded)], family: usize) -> Vec<(u128, u128)> {
     out
 }
 
-/// One row per address a feed names on its own, where it says more than its span does.
 fn single(
     claims: &[(u128, u16)],
     feeds: &Feeds,
@@ -765,7 +738,6 @@ fn single(
     out
 }
 
-/// Every claim over a span, folded where the set of claims covering it changes.
 fn overlay(
     claims: &[(u128, u128, u16)],
     sources: &[Source],
@@ -804,7 +776,6 @@ fn overlay(
     runs
 }
 
-/// Two run lists read as one, so a boundary in either is a boundary in both.
 pub fn together<A, B: Copy + Default>(
     one: &[(u128, A)],
     other: &[(u128, B)],

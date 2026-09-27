@@ -32,7 +32,7 @@ keywords = [
     "datacenter-detection",
     "offline",
     "mmap",
-    "zstd",
+    "lzma",
 ]
 requires-python = ">=3.10"
 classifiers = [
@@ -48,7 +48,7 @@ classifiers = [
     "Topic :: Internet",
     "Typing :: Typed",
 ]
-dependencies = ["pyzstd>=0.19; python_version < '3.14'"]
+dependencies = []
 
 [project.optional-dependencies]
 full = ["pycountry>=26.2", "tzdata; sys_platform == 'win32'"]
@@ -70,7 +70,6 @@ tests = [
     "pytest>=9",
     "pytest-cov>=7",
     "pycountry>=26.2",
-    "pyzstd>=0.19",
     "tzdata; sys_platform == 'win32'",
 ]
 typing = ["mypy>=2", "basedpyright>=1.39"]

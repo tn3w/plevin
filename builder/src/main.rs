@@ -89,7 +89,6 @@ impl Column {
         self.id.split_once('.').unwrap().1
     }
 
-    /// Absence at zero is a link and not a value, so the two read differently.
     pub fn section(&self) -> String {
         let head = if self.kind == Kind::Link { "link" } else { "col" };
         format!("{head}.{}", self.id)
@@ -100,7 +99,6 @@ const fn column(id: &'static str, kind: Kind) -> Column {
     Column { id, kind }
 }
 
-/// Every column the build can write, in the order the file carries them.
 pub const COLUMNS: &[Column] = &[
     column("region.name", Text),
     column("region.code", Text),
@@ -166,19 +164,16 @@ pub const COLUMNS: &[Column] = &[
     column("network.abuse", Link),
 ];
 
-/// The order rows collapse in: a table comes after everything its links point at.
 pub const TABLES: &[&str] = &[
     "region", "district", "metro", "city", "place", "operator", "carrier", "abuse",
     "network",
 ];
 
-/// What a boundary carries, the first three as rows and the rest as values.
 pub const CARRIED: &[&str] =
     &["place", "network", "abuse", "prefix", "rpki", "roas", "rir"];
 
 const COUNTRY: &[&str] = &["place.city", "city.country"];
 
-/// Every field the model answers, and the columns each one is read from.
 pub const FIELDS: &[(&str, &[&str])] = &[
     ("abuse.evidence", &["abuse.evidence"]),
     ("abuse.is_anonymous", &["abuse.service"]),
@@ -267,7 +262,6 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("place.region.type", &["place.city", "city.region", "region.type"]),
 ];
 
-/// A derived boolean is one value of its column: a build for it keeps only that value.
 pub const NARROW: &[(&str, &str, &[&str])] = &[
     ("abuse.is_tor_exit_node", "abuse.service", &["tor_exit_node"]),
     ("abuse.is_private_relay", "abuse.service", &["private_relay"]),
@@ -334,7 +328,6 @@ pub const PLACE_TYPES: &[&str] = &[
     "israeli settlement",
 ];
 
-/// The services, most specific first: a claim only loses to one further left.
 pub const SPECIFIC: &[&str] = &[
     "tor_exit_node",
     "private_relay",
@@ -345,10 +338,8 @@ pub const SPECIFIC: &[&str] = &[
 
 pub const LEVELS: &[&str] = &["", "low", "medium", "high"];
 
-/// Where a level begins: below the first one the reports are a rumour, not a verdict.
 const CUTS: &[u8] = &[40, 60, 80];
 
-/// Risk as a handful of steps, so a boundary only falls where the reading changes.
 pub fn level(risk: u8) -> u8 {
     match risk {
         UNSEEN => 0,
@@ -358,7 +349,6 @@ pub fn level(risk: u8) -> u8 {
 
 pub const UNSEEN: u8 = 255;
 
-/// The last address of a family, which is where a run list stops.
 pub fn ceiling(family: usize) -> u128 {
     match family {
         0 => u32::MAX as u128,
@@ -366,7 +356,6 @@ pub fn ceiling(family: usize) -> u128 {
     }
 }
 
-/// A run list only takes a boundary where the value it carries actually changes.
 pub fn push_changed<T: PartialEq>(runs: &mut Vec<(u128, T)>, at: u128, value: T) {
     match runs.last() {
         Some((_, held)) if *held == value => {}
@@ -374,12 +363,10 @@ pub fn push_changed<T: PartialEq>(runs: &mut Vec<(u128, T)>, at: u128, value: T)
     }
 }
 
-/// Where a word sits in its vocabulary, which is what the file stores.
 pub fn word(book: &[&str], value: &str) -> u8 {
     book.iter().position(|name| *name == value).unwrap_or(0) as u8
 }
 
-/// A name inside another, on word boundaries: `metro` is not `metropolitan`.
 pub fn worded(text: &str, needle: &str) -> bool {
     if needle.len() < 3 {
         return false;
@@ -391,7 +378,6 @@ pub fn worded(text: &str, needle: &str) -> bool {
     })
 }
 
-/// The vocabularies a file carries, timezones only where a column stores one.
 pub fn vocabularies(
     selection: &Selection,
     zones: Option<&[String]>,
@@ -430,7 +416,6 @@ fn book(column: &str) -> &'static [&'static str] {
     }
 }
 
-/// What a field needs of a column: every value it reads, or the one it asks about.
 fn asks(field: &str, column: &str) -> Option<Vec<i64>> {
     let held: Vec<&&[&str]> = NARROW
         .iter()
@@ -448,13 +433,11 @@ fn asks(field: &str, column: &str) -> Option<Vec<i64>> {
     }
 }
 
-/// A build: the terms asked for, the columns they need, the fields they answer.
 pub struct Selection {
     pub name: String,
     pub columns: BTreeSet<String>,
     pub narrow: HashMap<String, Option<Vec<i64>>>,
     pub fields: Vec<String>,
-    /// The brand answers a record and not an address, so it is kept where records are.
     pub sparse: bool,
 }
 
@@ -488,7 +471,6 @@ impl Selection {
         {
             columns.insert("region.country".into());
         }
-        // a brand a reader can spell out of the columns beside it is not worth storing
         if ["network.handle", "network.operator", "operator.company"]
             .iter()
             .all(|id| columns.contains(*id))

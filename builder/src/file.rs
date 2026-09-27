@@ -3,21 +3,27 @@
 use crate::Selection;
 use crate::spine::{Part, Written};
 use serde_json::json;
+use std::io::Write;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
+use xz2::stream::{LzmaOptions, Stream};
+use xz2::write::XzEncoder;
 
 const MAGIC: &[u8] = b"PLEVIN\0";
-const FORMAT: u8 = 1;
-const LEVEL: i32 = 19;
-const PROBE: usize = 32;
-const BOOK: usize = 112 * 1024;
-const SHARES: [usize; 3] = [256, 64, 1];
+const FORMAT: u8 = 2;
+const PRESET: u32 = 9;
+const WINDOW: u32 = 1 << 20;
+const ALONE: usize = 13;
+const PROBE: usize = 16;
 const WIDTHS: [usize; 4] = [1, 2, 4, 8];
-const VALUES: usize = 8192;
-const KEYS: usize = 16384;
-const GROUP: usize = 64;
-const NAMES: usize = 8192;
-const RUN: usize = 32;
+const VALUES: usize = 16384;
+const KEYS: usize = 32768;
+const GROUP: usize = 128;
+const NAMES: usize = 4096;
+const RUN: usize = 64;
+
+type Tuning = [u32; 3];
+const TUNINGS: [Tuning; 5] = [[3, 0, 0], [0, 0, 0], [0, 1, 1], [0, 2, 2], [0, 3, 3]];
 
 pub struct Report {
     pub bytes: usize,
@@ -193,24 +199,21 @@ pub fn today() -> String {
     }
 }
 
-/// Values as they stand, or as the steps between them: whichever packs smaller.
 fn narrowest(values: &[i64], encoding: &'static str) -> (Vec<Vec<u8>>, &'static str) {
     let plain = numbers(values, encoding == "signed");
     let Some(stepped) = steps(values) else {
         return (plain, encoding);
     };
-    match weigh(&stepped, &[]) < weigh(&plain, &[]) {
+    match tuned(&stepped).1 < tuned(&plain).1 {
         true => (stepped, "delta"),
         false => (plain, encoding),
     }
 }
 
-/// One block is one array: a width byte, then that many bytes a value.
 fn numbers(values: &[i64], signed: bool) -> Vec<Vec<u8>> {
     values.chunks(VALUES).map(|chunk| array(chunk, signed)).collect()
 }
 
-/// The step from the value before, restarting at zero every block a reader sums.
 fn steps(values: &[i64]) -> Option<Vec<Vec<u8>>> {
     values
         .chunks(VALUES)
@@ -247,7 +250,6 @@ fn room(value: i64, signed: bool) -> usize {
     *WIDTHS.iter().find(|width| fits(**width)).unwrap_or(&8)
 }
 
-/// The pool, sorted then front coded, restarting every group so a group decodes alone.
 fn coded(pool: &[String]) -> Vec<Vec<u8>> {
     pool.chunks(NAMES)
         .map(|chunk| {
@@ -258,7 +260,6 @@ fn coded(pool: &[String]) -> Vec<Vec<u8>> {
         .collect()
 }
 
-/// The groups end to end, each one's length first so a reader can reach any of them.
 fn indexed(out: &mut Vec<u8>, groups: &[Vec<u8>]) {
     for held in groups.iter().take(groups.len().saturating_sub(1)) {
         varint(out, held.len() as u128);
@@ -287,7 +288,6 @@ fn group(names: &[String]) -> Vec<u8> {
     out
 }
 
-/// The one section a lookup bisects: block keys, then group heads, then gaps.
 fn addresses(keys: &[u128], wide: bool) -> (Vec<Vec<u8>>, Vec<u128>) {
     let mut blocks = Vec::new();
     let mut heads = Vec::new();
@@ -336,7 +336,6 @@ fn varint(out: &mut Vec<u8>, mut value: u128) {
     out.push(value as u8);
 }
 
-/// Blocks compressed against one trained dictionary, and the section they make.
 #[allow(clippy::too_many_arguments)]
 fn pack(
     name: String,
@@ -350,12 +349,11 @@ fn pack(
     read: &str,
 ) -> Packed {
     let raw: usize = blocks.iter().map(|held| held.len()).sum();
-    let book = trained(&blocks, raw);
-    let stored = squeeze(&blocks, &book);
+    let (tuning, _) = tuned(&blocks);
+    let stored = squeeze(&blocks, tuning);
     let mut body = Vec::new();
     body.extend_from_slice(&(blocks.len() as u32).to_le_bytes());
     body.extend_from_slice(&(width as u32).to_le_bytes());
-    body.extend_from_slice(&(book.len() as u32).to_le_bytes());
     let mut at = 0u32;
     body.extend_from_slice(&at.to_le_bytes());
     for held in &stored {
@@ -365,7 +363,6 @@ fn pack(
     for head in &heads {
         body.extend_from_slice(&head.to_be_bytes()[16 - width..]);
     }
-    body.extend_from_slice(&book);
     for held in &stored {
         body.extend_from_slice(held);
     }
@@ -377,64 +374,54 @@ fn pack(
         "block": block,
         "group": group,
         "read": read,
+        "lzma": tuning,
     });
     Packed { name, entry, raw, body }
 }
 
-/// A dictionary is bytes of its own, so it is kept only where it earns them back.
-fn trained(blocks: &[Vec<u8>], raw: usize) -> Vec<u8> {
-    if blocks.len() < 8 {
-        return Vec::new();
-    }
-    let mut best = (weigh(blocks, &[]), Vec::new());
-    let mut last = 0;
-    for share in SHARES {
-        let size = (raw / share).min(BOOK);
-        if size < 1024 || size <= last {
-            continue;
-        }
-        last = size;
-        let Ok(book) = zstd::dict::from_samples(blocks, size) else {
-            continue;
-        };
-        let cost = weigh(blocks, &book);
-        if cost < best.0 {
-            best = (cost, book);
-        }
-    }
-    best.1
-}
-
-/// One block in every so many, packed for real: enough to rank two ways of packing.
-fn weigh(blocks: &[Vec<u8>], book: &[u8]) -> usize {
+fn tuned(blocks: &[Vec<u8>]) -> (Tuning, usize) {
     let step = (blocks.len() / PROBE).max(1);
     let sample: Vec<Vec<u8>> = blocks.iter().step_by(step).cloned().collect();
-    let stored: usize = squeeze(&sample, book).iter().map(|held| held.len()).sum();
-    stored * step + book.len()
+    TUNINGS
+        .iter()
+        .map(|tuning| {
+            let stored: usize =
+                squeeze(&sample, *tuning).iter().map(|held| held.len()).sum();
+            (*tuning, stored * step)
+        })
+        .min_by_key(|(_, weight)| *weight)
+        .unwrap()
 }
 
-fn squeeze(blocks: &[Vec<u8>], book: &[u8]) -> Vec<Vec<u8>> {
+fn squeeze(blocks: &[Vec<u8>], tuning: Tuning) -> Vec<Vec<u8>> {
     if blocks.is_empty() {
         return Vec::new();
     }
     let threads =
         std::thread::available_parallelism().map(|held| held.get()).unwrap_or(4);
     let step = blocks.len().div_ceil(threads);
-    let mut stored: Vec<Vec<u8>> = vec![Vec::new(); blocks.len()];
     std::thread::scope(|scope| {
-        for (slot, share) in stored.chunks_mut(step).enumerate() {
-            let start = slot * step;
-            scope.spawn(move || {
-                let mut press = match book.is_empty() {
-                    true => zstd::bulk::Compressor::new(LEVEL),
-                    false => zstd::bulk::Compressor::with_dictionary(LEVEL, book),
-                }
-                .expect("compressor");
-                for (step, out) in share.iter_mut().enumerate() {
-                    *out = press.compress(&blocks[start + step]).expect("compress");
-                }
-            });
-        }
-    });
-    stored
+        let workers: Vec<_> = blocks
+            .chunks(step)
+            .map(|share| {
+                scope.spawn(move || {
+                    share.iter().map(|block| lzma(block, tuning)).collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        workers.into_iter().flat_map(|worker| worker.join().expect("worker")).collect()
+    })
+}
+
+fn lzma(block: &[u8], [context, position, matches]: Tuning) -> Vec<u8> {
+    let mut options = LzmaOptions::new_preset(PRESET).expect("preset");
+    options
+        .dict_size(WINDOW)
+        .literal_context_bits(context)
+        .literal_position_bits(position)
+        .position_bits(matches);
+    let stream = Stream::new_lzma_encoder(&options).expect("encoder");
+    let mut encoder = XzEncoder::new_stream(Vec::new(), stream);
+    encoder.write_all(block).expect("compress");
+    encoder.finish().expect("compress").split_off(ALONE)
 }

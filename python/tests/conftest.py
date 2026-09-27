@@ -125,7 +125,7 @@ def _tables(writer: Writer) -> None:
 
     writer.column("col.place.lat", [373861, 0], read="degrees", signed=True)
     writer.column("col.place.lon", [-1220838, 0], read="degrees", signed=True,
-                  dictionary=True)
+                  tuning=[0, 2, 2])
     writer.column("col.place.accuracy", [200, 0])
     writer.column("col.place.confidence", [35, 0])
     writer.column("col.place.granularity", [0, 2])
@@ -164,7 +164,6 @@ def written(path: Path, data: bytes) -> Path:
 
 @pytest.fixture(scope="session")
 def full(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Every section the reader knows, in a file of a few kilobytes."""
     writer = Writer()
     writer.vocabularies = VOCABULARIES
     _tables(writer)
@@ -175,7 +174,6 @@ def full(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="session")
 def slim(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """A v4 spine and nothing else: no hosts, no v6, no tables to link into."""
     writer = Writer()
     writer.vocabularies = {"rpki": VOCABULARIES["rpki"]}
     writer.index("spine.v4", [0x0A000000], wide=False)
@@ -188,7 +186,6 @@ def slim(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="session")
 def bare(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """A spine that carries a place and not one column of network."""
     writer = Writer()
     writer.index("spine.v4", [0x0A000000], wide=False)
     writer.column("spine.v4.place", [1])
@@ -198,7 +195,6 @@ def bare(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture
 def opened(full: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """The full database, as the one a bare `plevin.lookup` should find."""
     import plevin
 
     monkeypatch.setattr(plevin, "_opened", None)

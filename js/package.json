@@ -23,7 +23,7 @@
     "offline",
     "browser",
     "cloudflare-workers",
-    "zstd"
+    "lzma"
   ],
   "license": "Apache-2.0",
   "author": "tn3w",
@@ -41,7 +41,7 @@
   "exports": {
     ".": "./dist/index.js",
     "./node": "./dist/node.js",
-    "./zstd": "./dist/zstd.js",
+    "./lzma": "./dist/lzma.js",
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.ts",

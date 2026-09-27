@@ -138,8 +138,6 @@ def _region(rows: Rows | None) -> Region | None:
 
 
 class Shaped:
-    """One model per row object the file hands back, and the file hands back one."""
-
     def __init__(self, build: Callable[..., Any]) -> None:
         self.build = build
         self.held: dict[Any, tuple[Rows, Any]] = {}
@@ -181,7 +179,6 @@ _city = Shaped(_built_city)
 
 
 def _place(rows: Rows | None) -> tuple[Ground, str] | None:
-    """The place without its clock, which is the one part an address does not fix."""
     if rows is None:
         return None
     city = _city(rows.get("city"))
@@ -266,7 +263,6 @@ def _abuse(record: Rows | None, system: Rows | None, user_type: str,
 
 
 def _holder(rows: Rows, handle: str, brand: str) -> Operator | None:
-    """The operator row where the file keeps one, else the brand it stored instead."""
     held = rows.get("operator")
     if held is None:
         return None if not brand else Operator(brand=_text(brand))
@@ -275,7 +271,6 @@ def _holder(rows: Rows, handle: str, brand: str) -> Operator | None:
 
 
 def _network(rows: Rows, user_type: str) -> tuple[Wires, int | None]:
-    """The network without its span, which the address the lookup asked about fixes."""
     handle = str(rows.get("handle", ""))
     wires = (_count(rows.get("asn")), _text(handle), _text(rows.get("rir")),
              _text(rows.get("rpki")), rows.get("roas"),
@@ -285,13 +280,11 @@ def _network(rows: Rows, user_type: str) -> tuple[Wires, int | None]:
 
 
 def _user_type(record: Rows | None, system: Rows | None) -> str:
-    """The ASN's type sits on the system row; the record carries only an override."""
     held, below = record or {}, system or {}
     return str(held.get("user_type") or below.get("user_type") or "")
 
 
 def _stored(rows: Rows) -> Stored:
-    """Everything a boundary answers that no address of it changes, built once."""
     network = rows.get("network")
     system = None if network is None else network.get("abuse")
     user_type = _user_type(rows.get("abuse"), system)
@@ -346,7 +339,6 @@ def _result(value: int, wide: bool, stored: Stored | None,
 
 
 def _system(rows: Rows) -> System:
-    """One ASN alone: the row the file stores, without what only an address adds."""
     record = rows.get("abuse")
     user_type = _user_type(None, record)
     asn, handle, _, _, _, operator, carrier = _network(rows, user_type)[0]
@@ -361,7 +353,6 @@ def _system(rows: Rows) -> System:
 
 
 def _covered(held: list[tuple[int, int]], bits: int) -> int:
-    """A more specific sits inside its own cover, so the sweep counts the space once."""
     total = reach = 0
     for start, prefix in sorted(held):
         end = start + (1 << (bits - prefix))
@@ -373,7 +364,6 @@ def _covered(held: list[tuple[int, int]], bits: int) -> int:
 
 
 def _routed(file: File, row: int, version: int) -> tuple[tuple[Span, ...], int]:
-    """Every prefix one network row is announced as, widest first, and its space."""
     wide = version == 6
     bits = 128 if wide else 32
     held = file.spans(row, version)
@@ -384,7 +374,6 @@ def _routed(file: File, row: int, version: int) -> tuple[tuple[Span, ...], int]:
 
 
 def _asn(value: int | str) -> int:
-    """An ASN however it is written, as AS15169, as15169 or plainly 15169."""
     text = str(value).strip().lower().removeprefix("as")
     return int(text) if text.isdigit() else 0
 
@@ -398,7 +387,6 @@ def _spanned(wires: Wires, prefix: int | None, value: int, wide: bool) -> Networ
 
 
 def _found() -> Path:
-    """The database a reader that was given no path should open."""
     named = os.environ.get(ENVIRONMENT)
     if named:
         return Path(named)

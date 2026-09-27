@@ -29,7 +29,6 @@ NO_OFFSET = timedelta()
 
 
 def flag(code: str) -> str:
-    """Regional indicator symbols, which spell any ISO country code as a flag."""
     if len(code) != 2 or not code.isalpha():
         return ""
     return "".join(chr(0x1F1E6 + ord(letter) - ord("A")) for letter in code.upper())
@@ -46,7 +45,6 @@ def _table() -> Any:
 
 @cache
 def country(code: str) -> Country | None:
-    """Everything a country code implies, or the code alone without the tables."""
     if not code:
         return None
     known = _table()
@@ -81,7 +79,6 @@ def _noon(zone: tzinfo, day: date) -> datetime:
 
 
 def _change(low: datetime, high: datetime, before: timedelta) -> datetime:
-    """The change between two probes, to the minute tzdata records it on."""
     while high - low > timedelta(seconds=1):
         middle = low + (high - low) / 2
         low, high = (middle, high) if _offset(middle) == before else (low, middle)
@@ -90,7 +87,6 @@ def _change(low: datetime, high: datetime, before: timedelta) -> datetime:
 
 @lru_cache(maxsize=ZONE_CACHE)
 def _changes(name: str, day: date) -> tuple[datetime, ...]:
-    """Every offset change within 400 days either side of a day."""
     zone = _zone(name)
     if zone is None:
         return ()
@@ -109,7 +105,6 @@ def _changes(name: str, day: date) -> tuple[datetime, ...]:
 def _daylight(
     name: str, day: date
 ) -> tuple[timedelta, datetime | None, datetime | None]:
-    """The zone's standard offset, then the daylight period around that day."""
     zone = _zone(name)
     if zone is None:
         return NO_OFFSET, None, None
@@ -137,12 +132,10 @@ def _utc_offset(offset: timedelta) -> str:
 
 @lru_cache(maxsize=SECOND_CACHE)
 def _second(name: str, second: int) -> Time | None:
-    """One zone at one second, so every other lookup in it is a dictionary read."""
     return _read(name, datetime.fromtimestamp(second, timezone.utc))
 
 
 def clock(name: str, moment: datetime | None = None) -> Time | None:
-    """One zone read at one moment, defaulting to now."""
     if not name:
         return None
     if moment is None:

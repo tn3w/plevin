@@ -75,7 +75,6 @@ def test_a_tunnel_is_read_before_the_file_is(built: plevin.Plevin) -> None:
 def test_every_address_of_a_sample_answers_without_raising(
     built: plevin.Plevin
 ) -> None:
-    """A sweep wide enough to reach blocks no other test decodes."""
     random.seed(11)
     seen = 0
     for _ in range(SAMPLED):

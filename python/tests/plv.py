@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import json
+import lzma
 import struct
 from array import array
 from itertools import pairwise
 from typing import Any
 
-try:
-    from compression.zstd import compress, train_dict
-except ImportError:
-    from pyzstd import compress, train_dict  # type: ignore[assignment]
-
 MAGIC = b"PLEVIN\0"
-FORMAT = 1
+FORMAT = 2
+WINDOW = 1 << 20
+PLAIN = [3, 0, 0]
 FORMATS = {1: "B", 2: "H", 4: "I", 8: "Q"}
 SIGNED = {1: "b", 2: "h", 4: "i", 8: "q"}
 
@@ -38,7 +36,6 @@ def chunks(values: list[Any], size: int) -> list[list[Any]]:
 
 
 def stepped(values: list[int]) -> list[int]:
-    """A block of deltas, which is what a reader sums back into the values."""
     return [value - before for before, value in pairwise([0, *values])]
 
 
@@ -52,27 +49,25 @@ def item(values: list[int], signed: bool) -> int:
     raise ValueError("too wide")
 
 
-def wrap(blocks: list[bytes], keys: list[bytes], width: int, book: bytes) -> bytes:
+def wrap(blocks: list[bytes], keys: list[bytes], width: int) -> bytes:
     offsets, at = [0], 0
     for block in blocks:
         at += len(block)
         offsets.append(at)
-    head = struct.pack("<III", len(blocks), width, len(book))
+    head = struct.pack("<II", len(blocks), width)
     head += struct.pack(f"<{len(offsets)}I", *offsets)
-    return head + b"".join(keys) + book + b"".join(blocks)
+    return head + b"".join(keys) + b"".join(blocks)
 
 
-def squeeze(blocks: list[bytes], dictionary: bool) -> tuple[list[bytes], bytes]:
-    if not dictionary:
-        return [compress(block) for block in blocks], b""
-    trained = train_dict(blocks * 40, 1024)
-    packed = [compress(block, zstd_dict=trained) for block in blocks]
-    return packed, trained.dict_content
+def squeeze(blocks: list[bytes], tuning: list[int]) -> list[bytes]:
+    context, position, matches = tuning
+    filters = [{"id": lzma.FILTER_LZMA1, "dict_size": WINDOW, "lc": context,
+                "lp": position, "pb": matches}]
+    return [lzma.compress(block, format=lzma.FORMAT_RAW, filters=filters)
+            for block in blocks]
 
 
 class Writer:
-    """Sections in, one database out; nothing here is fast and nothing needs to be."""
-
     def __init__(self, block: int = 8, group: int = 4) -> None:
         self.block, self.group = block, group
         self.sections: dict[str, tuple[dict[str, Any], bytes]] = {}
@@ -82,18 +77,18 @@ class Writer:
         self.sections[name] = (entry, body)
 
     def column(self, name: str, values: list[int], read: str = "",
-               signed: bool = False, dictionary: bool = False,
+               signed: bool = False, tuning: list[int] = PLAIN,
                delta: bool = False) -> None:
         held = [stepped(chunk) for chunk in chunks(values, self.block)] if delta else \
             chunks(values, self.block)
         size = item([value for chunk in held for value in chunk], signed or delta)
         code = (SIGNED if signed or delta else FORMATS)[size]
         blocks = [bytes([size]) + array(code, chunk).tobytes() for chunk in held]
-        packed, book = squeeze(blocks or [b""], dictionary)
+        packed = squeeze(blocks or [b""], tuning)
         encoding = "delta" if delta else "signed" if signed else ""
         entry = {"count": len(values), "read": read, "block": self.block,
-                 "group": self.group, "encoding": encoding}
-        self._add(name, entry, wrap(packed, [], 0, book))
+                 "group": self.group, "encoding": encoding, "lzma": tuning}
+        self._add(name, entry, wrap(packed, [], 0))
 
     def strings(self, name: str, values: list[str]) -> None:
         blocks = []
@@ -101,10 +96,10 @@ class Writer:
             groups = [self._group(part) for part in chunks(chunk, self.group)]
             lengths = varints([len(part) for part in groups[:-1]])
             blocks.append(lengths + b"".join(groups))
-        packed, book = squeeze(blocks or [b""], False)
+        packed = squeeze(blocks or [b""], PLAIN)
         entry = {"count": len(values), "read": "", "block": self.block,
-                 "group": self.group, "encoding": "front"}
-        self._add(name, entry, wrap(packed, [], 0, book))
+                 "group": self.group, "encoding": "front", "lzma": PLAIN}
+        self._add(name, entry, wrap(packed, [], 0))
 
     def _group(self, values: list[str]) -> bytes:
         out, previous = bytearray(), b""
@@ -131,13 +126,12 @@ class Writer:
             lengths = varints([len(part) for part in payloads[:-1]])
             blocks.append(varint(len(chunk)) + varints(gaps) + lengths
                           + b"".join(payloads))
-        packed, book = squeeze(blocks or [b""], False)
+        packed = squeeze(blocks or [b""], PLAIN)
         entry = {"count": len(addresses), "read": "", "block": self.block,
-                 "group": self.group, "encoding": "index"}
-        self._add(name, entry, wrap(packed, keys, width, book))
+                 "group": self.group, "encoding": "index", "lzma": PLAIN}
+        self._add(name, entry, wrap(packed, keys, width))
 
     def _payload(self, addresses: list[int], host_bits: int, skew: int = 0) -> bytes:
-        """A skew stores hosts the group head does not name, which no builder writes."""
         networks = [value >> host_bits for value in addresses]
         gaps = varints([after - before for before, after in pairwise(networks)])
         if not host_bits:

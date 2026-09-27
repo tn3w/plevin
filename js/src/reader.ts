@@ -1,6 +1,6 @@
 /** The file format: one address in, the stored rows out, codes as words. */
 
-import { type Dictionary, decompress, loadDictionary } from "./zstd.ts";
+import { Lzma, type Tuning } from "./lzma.ts";
 
 export type Row = Record<string, unknown>;
 export type Found = [number, number, number];
@@ -12,6 +12,7 @@ type Entry = {
   offset: number;
   bytes: number;
   encoding: string;
+  lzma: Tuning;
 };
 type Head = {
   built: string;
@@ -22,7 +23,7 @@ type Head = {
 };
 
 const MAGIC = "PLEVIN\0";
-const FORMAT = 1;
+const FORMAT = 2;
 const CACHED = 1 << 14;
 const MATCHES = 512;
 const BREAKS = new Set(" \t-,./()&_+'");
@@ -59,7 +60,6 @@ const READS: Record<string, Read> = {
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 
-/** Names are ascii far more often than not, and those read as chars and never bytes. */
 const ascii = (raw: Uint8Array, at: number, stop: number): string | null => {
   let out = "";
   for (let held = at; held < stop; held += 1) {
@@ -76,9 +76,6 @@ const grown = (head: Uint8Array, shared: number, tail: Uint8Array): Uint8Array =
   return value;
 };
 
-const BIG_ENDIAN = new Uint8Array(Uint16Array.of(1).buffer)[0] === 0;
-
-/** A memo that empties itself once it holds more keys than it was allowed. */
 const cached = <Key, Held>(
   build: (key: Key) => Held,
   limit = CACHED,
@@ -133,7 +130,6 @@ const bigVarints = (data: Uint8Array, at: number, count: number): [bigint[], num
   return [values, at];
 };
 
-/** A block is what the codec packed; a group is all of one a lookup decodes. */
 class Section<Block = unknown, Group = unknown> {
   readonly count: number;
   readonly read: string;
@@ -145,7 +141,7 @@ class Section<Block = unknown, Group = unknown> {
   readonly keys: bigint[];
   protected readonly offsets: Uint32Array;
   protected readonly data: Uint8Array;
-  protected readonly dictionary: Dictionary | null;
+  protected readonly tuning: Tuning;
   protected readonly cache: (index: number) => Block;
   protected readonly groups: (group: number) => Group;
 
@@ -158,13 +154,12 @@ class Section<Block = unknown, Group = unknown> {
     this.fanout = this.perBlock / this.perGroup;
     this.blocks = held.getUint32(0, true);
     this.width = held.getUint32(4, true);
-    const book = held.getUint32(8, true);
 
     this.offsets = new Uint32Array(this.blocks + 1);
     for (let index = 0; index <= this.blocks; index += 1) {
-      this.offsets[index] = held.getUint32(12 + index * 4, true);
+      this.offsets[index] = held.getUint32(8 + index * 4, true);
     }
-    let at = 12 + 4 * (this.blocks + 1);
+    let at = 8 + 4 * (this.blocks + 1);
     this.keys = [];
     for (let index = 0; index < this.blocks; index += 1) {
       let key = 0n;
@@ -174,15 +169,15 @@ class Section<Block = unknown, Group = unknown> {
       this.keys.push(key);
     }
     at += this.width * this.blocks;
-    this.dictionary = book ? loadDictionary(view.subarray(at, at + book)) : null;
-    this.data = view.subarray(at + book);
+    this.tuning = entry.lzma;
+    this.data = view.subarray(at);
     this.cache = cached((index: number) => this.block(index));
     this.groups = cached((group: number) => this.values(group));
   }
 
-  protected raw(index: number): Uint8Array {
+  protected stream(index: number): Lzma {
     const block = this.data.subarray(this.offsets[index], this.offsets[index + 1]);
-    return decompress(block, this.dictionary);
+    return new Lzma(block, this.tuning);
   }
 
   protected held(group: number): number {
@@ -202,98 +197,81 @@ class Section<Block = unknown, Group = unknown> {
   }
 }
 
-type Numbers =
-  | Int8Array
-  | Uint8Array
-  | Int16Array
-  | Uint16Array
-  | Int32Array
-  | Uint32Array
-  | Float64Array
-  | BigInt64Array
-  | BigUint64Array;
-
-const KINDS: Record<
-  number,
-  [new (buffer: ArrayBuffer) => Numbers, new (buffer: ArrayBuffer) => Numbers]
-> = {
-  1: [Uint8Array, Int8Array],
-  2: [Uint16Array, Int16Array],
-  4: [Uint32Array, Int32Array],
-  8: [BigUint64Array, BigInt64Array],
+const number = (
+  bytes: Uint8Array,
+  at: number,
+  width: number,
+  signed: boolean,
+): number => {
+  let value = 0;
+  for (let step = width - 1; step >= 0; step -= 1) value = value * 256 + bytes[at + step];
+  const top = 2 ** (width * 8);
+  return signed && value >= top / 2 ? value - top : value;
 };
 
-/** A block is one array: reading a value is a subscript, and never a decode. */
-class Column extends Section<Numbers> {
-  private readonly signed: boolean;
+class Column extends Section<Lzma> {
+  protected readonly signed: boolean;
 
   constructor(view: Uint8Array, entry: Entry) {
     super(view, entry);
     this.signed = STEPPED.has(entry.encoding);
   }
 
-  protected override block(index: number): Numbers {
-    const raw = this.raw(index);
-    const width = raw[0];
-    const bytes = raw.slice(1);
-    if (BIG_ENDIAN && width > 1) {
-      for (let at = 0; at + width <= bytes.length; at += width) {
-        bytes.subarray(at, at + width).reverse();
-      }
-    }
-    return new KINDS[width][this.signed ? 1 : 0](bytes.buffer);
+  protected override block(index: number): Lzma {
+    return this.stream(index);
+  }
+
+  protected value(stream: Lzma, place: number): number {
+    const width = stream.until(1)[0];
+    const bytes = stream.until(1 + (place + 1) * width);
+    return number(bytes, 1 + place * width, width, this.signed);
   }
 
   override at(row: number): number {
-    const index = Math.floor(row / this.perBlock);
-    const value = this.cache(index)[row % this.perBlock];
-    return typeof value === "bigint" ? Number(value) : value;
+    return this.value(this.cache(Math.floor(row / this.perBlock)), row % this.perBlock);
   }
 
-  /** Every row holding this value, searched a block at a time and not a row at a time. */
   rows(value: number): number[] {
     const found: number[] = [];
-    for (let index = 0; index < this.blocks; index += 1) {
-      const held = this.cache(index) as Uint32Array;
-      const target = (typeof held[0] === "bigint" ? BigInt(value) : value) as number;
-      for (let at = held.indexOf(target); at >= 0; at = held.indexOf(target, at + 1)) {
-        found.push(index * this.perBlock + at);
-      }
+    for (let row = 0; row < this.count; row += 1) {
+      if (this.at(row) === value) found.push(row);
     }
     return found;
   }
 }
 
-/** The steps between values, summed once a block: monotone columns cost a byte. */
 class Deltas extends Column {
-  protected override block(index: number): Numbers {
-    const steps = super.block(index);
-    const values = new Float64Array(steps.length);
-    let running = 0;
-    for (let at = 0; at < steps.length; at += 1) {
-      running += Number(steps[at]);
-      values[at] = running;
+  private readonly sums = cached((_: number) => ({ values: [] as number[], running: 0 }));
+
+  override at(row: number): number {
+    const index = Math.floor(row / this.perBlock);
+    const place = row % this.perBlock;
+    const held = this.sums(index);
+    const stream = this.cache(index);
+    while (held.values.length <= place) {
+      held.running += this.value(stream, held.values.length);
+      held.values.push(held.running);
     }
-    return values;
+    return held.values[place];
   }
 }
 
-/** One pool, front-coded, restarting every group so a group decodes alone. */
-class Strings extends Section<[Uint8Array, number[]], string[]> {
-  protected override block(index: number): [Uint8Array, number[]] {
-    const raw = this.raw(index);
+class Strings extends Section<[Lzma, number[]], string[]> {
+  protected override block(index: number): [Lzma, number[]] {
+    const stream = this.stream(index);
     const left = this.count - index * this.perBlock;
     const total = Math.min(this.fanout, Math.ceil(left / this.perGroup)) - 1;
-    const [lengths, at] = varints(raw, 0, total);
+    const [lengths, at] = varints(stream.until(total * 3), 0, total);
     const starts = [at];
     for (const length of lengths) starts.push(starts[starts.length - 1] + length);
-    starts.push(raw.length);
-    return [raw, starts];
+    starts.push(Number.POSITIVE_INFINITY);
+    return [stream, starts];
   }
 
   protected override values(group: number): string[] {
     const index = Math.floor(group / this.fanout);
-    const [raw, starts] = this.cache(index);
+    const [stream, starts] = this.cache(index);
+    const raw = stream.until(starts[(group % this.fanout) + 1]);
     let cursor = starts[group % this.fanout];
     const values: string[] = [];
     let previous = "";
@@ -327,8 +305,7 @@ class Strings extends Section<[Uint8Array, number[]], string[]> {
   }
 }
 
-/** The one section a lookup bisects: block keys, group heads, then gaps. */
-class Index extends Section<[bigint[], number[], Uint8Array], (number | bigint)[]> {
+class Index extends Section<[bigint[], number[], Lzma], (number | bigint)[]> {
   private readonly hostBits: number;
   private readonly big: boolean;
 
@@ -338,8 +315,9 @@ class Index extends Section<[bigint[], number[], Uint8Array], (number | bigint)[
     this.hostBits = this.big ? 64 : 0;
   }
 
-  protected override block(index: number): [bigint[], number[], Uint8Array] {
-    const raw = this.raw(index);
+  protected override block(index: number): [bigint[], number[], Lzma] {
+    const stream = this.stream(index);
+    const raw = stream.until(3 + this.fanout * (this.big ? 22 : 8));
     const [count, start] = varint(raw, 0);
     const total = Math.ceil(count / this.perGroup);
     const [gaps, at] = bigVarints(raw, start, total - 1);
@@ -348,12 +326,14 @@ class Index extends Section<[bigint[], number[], Uint8Array], (number | bigint)[
     const [lengths, next] = varints(raw, at, total - 1);
     const starts = [next];
     for (const length of lengths) starts.push(starts[starts.length - 1] + length);
-    return [heads, starts, raw];
+    starts.push(Number.POSITIVE_INFINITY);
+    return [heads, starts, stream];
   }
 
   protected override values(group: number): (number | bigint)[] {
     const index = Math.floor(group / this.fanout);
-    const [heads, starts, raw] = this.cache(index);
+    const [heads, starts, stream] = this.cache(index);
+    const raw = stream.until(starts[(group % this.fanout) + 1]);
     const size = this.held(group);
     const head = heads[group % this.fanout];
     const [gaps, cursor] = this.big
@@ -380,7 +360,6 @@ class Index extends Section<[bigint[], number[], Uint8Array], (number | bigint)[
     return this.groups(group)[row % this.perGroup];
   }
 
-  /** The row whose address covers this one, or null below the first of them. */
   row(address: number | bigint): number | null {
     const held = this.big ? (address as bigint) : (address as number);
     const index = bisect(this.keys, this.big ? held : BigInt(held)) - 1;
@@ -391,7 +370,6 @@ class Index extends Section<[bigint[], number[], Uint8Array], (number | bigint)[
     return spot < 0 ? null : group * this.perGroup + spot;
   }
 
-  /** The row the address is stored at, or null where the file does not name it. */
   holds(address: number | bigint): number | null {
     const row = this.row(address);
     return row !== null && this.at(row) === address ? row : null;
@@ -482,7 +460,6 @@ export class File {
     };
   }
 
-  /** A row of a table, kept: a city is read once however many link to it. */
   private linked(table: string, row: number): Row {
     this.rows[table] ??= cached((held: number) => this.row(table, held));
     return this.rows[table](row);
@@ -500,7 +477,6 @@ export class File {
     return this.head.fields;
   }
 
-  /** Each table's columns split by how they decode, so a read never branches. */
   private plan(): void {
     for (const [name, section] of Object.entries(this.sections)) {
       const parts = name.split(".");
@@ -518,7 +494,6 @@ export class File {
     }
   }
 
-  /** The index a lookup bisects, the columns read at that row, and the hosts. */
   private family(version: number): Family {
     const spine = `spine.v${version}`;
     const hosts = `hosts.v${version}`;
@@ -555,7 +530,6 @@ export class File {
     return out;
   }
 
-  /** The columns the boundary reads, cached by the row rather than its values. */
   private answer(key: number): Row {
     const version = key % 2 ? 6 : 4;
     const held = (key - (key % 2)) / 2;
@@ -574,7 +548,6 @@ export class File {
     return out;
   }
 
-  /** Which boundary answers, and the record a host overrides it with. */
   private locateIn(version: number, address: number | bigint): Found | null {
     const { index, hosts, records } = this.families[version];
     const row = index === null ? null : index.row(address);
@@ -601,7 +574,6 @@ export class File {
     return this.answers((row * RECORDS + override) * 2 + (version === 6 ? 1 : 0));
   }
 
-  /** The first row of a sorted column that is not below the value asked for. */
   private seek(column: Section, value: number): number {
     let low = 0;
     let high = column.count;
@@ -649,7 +621,6 @@ export class File {
     return held;
   }
 
-  /** Every ASN's handle and company in one lowercase text a search scans whole. */
   private searchable(): Words {
     const asns = this.sections["col.network.asn"];
     const handles = this.sections["col.network.handle"];

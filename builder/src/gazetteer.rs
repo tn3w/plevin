@@ -42,10 +42,8 @@ pub struct City {
     pub lon: f64,
 }
 
-/// A country's bounding box, its code, and the rings its outline is drawn from.
 type Border = (f64, f64, f64, f64, [u8; 2], Vec<Vec<[f64; 2]>>);
 
-/// Postal codes by country and folded region name, each with a coordinate.
 type Postals = HashMap<(u16, String), Vec<(String, f64, f64)>>;
 
 #[derive(Default)]
@@ -88,7 +86,6 @@ const FOLDS: &[(&str, char)] = &[
     ("źżž", 'z'),
 ];
 
-/// A name with its accents folded away, which is how two gazetteers are compared.
 pub fn fold(text: &str) -> String {
     text.to_lowercase()
         .chars()
@@ -103,7 +100,6 @@ pub fn fold(text: &str) -> String {
         .join(" ")
 }
 
-/// One tab separated row, or nothing where it is too short to read.
 fn columns(line: &str, least: usize) -> Option<Vec<&str>> {
     let row: Vec<&str> = line.split('\t').collect();
     (row.len() >= least).then_some(row)
@@ -138,7 +134,7 @@ impl Gazetteer {
             let row: Vec<&str> = line.split('|').collect();
             if row.len() > 6
                 && row[1].len() == 2
-                && row[1].bytes().all(|b| b.is_ascii_uppercase())
+                && row[1].bytes().all(|byte| byte.is_ascii_uppercase())
             {
                 codes.insert(row[1].to_string());
             }
@@ -157,7 +153,6 @@ impl Gazetteer {
         gazetteer
     }
 
-    /// The code a country link stands for, which is what the file stores of it.
     pub fn code(&self, link: u32) -> &str {
         match link {
             0 => "",
@@ -383,7 +378,6 @@ impl Gazetteer {
         }
     }
 
-    /// The country whose border holds a coordinate, for a source that names none.
     pub fn holder(&self, lat: f64, lon: f64) -> [u8; 2] {
         for (west, south, east, north, code, rings) in &self.borders {
             if lon < *west || lon > *east || lat < *south || lat > *north {
@@ -396,7 +390,6 @@ impl Gazetteer {
         [0, 0]
     }
 
-    /// The nearest city in the coordinate's own country, else the nearest anywhere.
     pub fn nearest(&self, lat: f64, lon: f64, code: [u8; 2]) -> Option<(u32, f64)> {
         let country = self.country(code);
         let near = [25.0, 100.0, 500.0].into_iter().find_map(|reach| match country {
@@ -410,27 +403,19 @@ impl Gazetteer {
         let degrees = reach / 111.0;
         let stretch = lat.to_radians().cos().abs().max(0.02);
         let across = (degrees / stretch).ceil().min(180.0) as i32;
-        let mut best: Option<(u32, f64)> = None;
-        for down in -degrees.ceil() as i32..=degrees.ceil() as i32 {
-            for over in -across..=across {
-                let key = cell(lat + down as f64, lon + over as f64);
-                let Some(held) = self.cells.get(&key) else { continue };
-                for at in held {
-                    let city = &self.cities[*at as usize];
-                    if country != 0 && city.country != country {
-                        continue;
-                    }
-                    let far = kilometres((lat, lon), (city.lat, city.lon));
-                    if far <= reach && best.is_none_or(|(_, held)| far < held) {
-                        best = Some((*at, far));
-                    }
-                }
-            }
-        }
-        best
+        let down = degrees.ceil() as i32;
+        let keys = (-down..=down).flat_map(|row| {
+            (-across..=across).map(move |over| cell(lat + row as f64, lon + over as f64))
+        });
+        keys.filter_map(|key| self.cells.get(&key))
+            .flatten()
+            .map(|at| (*at, &self.cities[*at as usize]))
+            .filter(|(_, city)| country == 0 || city.country == country)
+            .map(|(at, city)| (at, kilometres((lat, lon), (city.lat, city.lon))))
+            .filter(|(_, far)| *far <= reach)
+            .min_by(|one, other| one.1.total_cmp(&other.1))
     }
 
-    /// The city an operator's postal address names, matched inside its own country.
     pub fn town(&self, name: &str, code: [u8; 2]) -> u32 {
         let key = (self.country(code) as u16, fold(name));
         self.named.get(&key).map(|at| at + 1).unwrap_or(0)
@@ -449,7 +434,6 @@ fn inside(ring: &[[f64; 2]], lon: f64, lat: f64) -> bool {
     held
 }
 
-/// How much of a postal code every code in the same place shares, as a length.
 fn shared<'a>(codes: impl Iterator<Item = &'a str>) -> u8 {
     let mut common: Option<String> = None;
     for code in codes {

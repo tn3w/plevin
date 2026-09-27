@@ -44,10 +44,10 @@ import { named } from "./naming.ts";
 import { File, type Found, type Row } from "./reader.ts";
 
 export type { Value } from "./address.ts";
+export { decompress, type Tuning } from "./lzma.ts";
 export * from "./models.ts";
 export { ask, facts, named, publicAddress, records } from "./naming.ts";
 export { File } from "./reader.ts";
-export { decompress, loadDictionary } from "./zstd.ts";
 
 const ANSWERED = 1 << 10;
 const WIDE = 1n << 128n;
@@ -79,7 +79,6 @@ const region = (row: Row | undefined): Region | null =>
       }
     : null;
 
-/** One model per row object the file hands back, and the file hands back one. */
 const shaped = <Built>(build: (row: Row, ...rest: string[]) => Built) => {
   const kept = new WeakMap<Row, Map<string, Built>>();
   return (row: Row | undefined, ...rest: string[]): Built | null => {
@@ -192,7 +191,6 @@ type Ground = [Omit<Place, "time">, string];
 type Wires = [Omit<Network, "prefix" | "cidr" | "start" | "end">, number | null];
 type Stored = [Ground | null, Wires | null, Abuse | null];
 
-/** The place without its clock, which is the one part an address does not fix. */
 const place = (row: Row | undefined): Ground | null => {
   if (!row) return null;
   const found = city(held(row, "city"));
@@ -212,14 +210,12 @@ const place = (row: Row | undefined): Ground | null => {
   ];
 };
 
-/** The operator row where the file keeps one, else the brand it stored instead. */
 const holder = (row: Row, handle: string, brand: string): Operator | null => {
   const found = held(row, "operator");
   if (!found && !brand) return null;
   return operator(found ?? row, handle, brand);
 };
 
-/** The network without its span, which the address the lookup asked about fixes. */
 const network = (row: Row, userType: string): Wires => {
   const handle = String(row.handle ?? "");
   return [
@@ -236,11 +232,9 @@ const network = (row: Row, userType: string): Wires => {
   ];
 };
 
-/** The ASN's type sits on the system row; the record carries only an override. */
 const userTypeOf = (record: Row | undefined, system: Row | undefined): string =>
   String(record?.user_type || system?.user_type || "");
 
-/** Everything a boundary answers that no address of it changes, built once. */
 const stored = (row: Row): Stored => {
   const wires = held(row, "network");
   const system = held(wires, "abuse");
@@ -254,7 +248,6 @@ const stored = (row: Row): Stored => {
   ];
 };
 
-/** One ASN alone: the row the file stores, without what only an address adds. */
 const systemOf = (row: Row): System => {
   const record = held(row, "abuse");
   const userType = userTypeOf(undefined, record);
@@ -280,7 +273,6 @@ const systemOf = (row: Row): System => {
   };
 };
 
-/** A more specific sits inside its own cover, so the sweep counts the space once. */
 const covered = (held: [bigint, number][], bits: bigint): bigint => {
   let total = 0n;
   let reach = 0n;
@@ -293,7 +285,6 @@ const covered = (held: [bigint, number][], bits: bigint): bigint => {
   return total;
 };
 
-/** Every prefix one network row is announced as, widest first, and the space covered. */
 const routed = (file: File, row: number, version: number): [Span[], bigint] => {
   const wide = version === 6;
   const bits = wide ? 128n : 32n;
@@ -314,7 +305,6 @@ const routed = (file: File, row: number, version: number): [Span[], bigint] => {
   return [spans, covered(held, bits)];
 };
 
-/** An ASN however it is written, as AS15169, as15169 or plainly 15169. */
 const asnOf = (value: number | string): number => {
   const held = String(value).trim().toLowerCase().replace(/^as/, "");
   return /^\d+$/.test(held) ? Number(held) : 0;

@@ -52,7 +52,6 @@ NAT64_PREFIX = 0x0064FF9B << 96
 
 
 def _table(rows: tuple[tuple[str, int], ...]) -> tuple[list[int], list[tuple[int, int]]]:
-    """The rows as first addresses to bisect, and what each range ends at and marks."""
     spans = []
     for text, marks in rows:
         span = ip_network(text)
@@ -65,7 +64,6 @@ SPECIAL = (_table(SPECIAL_V4), _table(SPECIAL_V6))
 
 
 def parse(value: Value) -> tuple[int, bool]:
-    """An address however it is written; an integer reads as v6 only above 0xFFFFFFFF."""
     if isinstance(value, str):
         wide = ":" in value
         try:
@@ -85,20 +83,17 @@ def parse(value: Value) -> tuple[int, bool]:
 
 
 def written(value: int, wide: bool) -> str:
-    """An address as text: v4 from its octets, v6 through the shortening rules."""
     if wide:
         return _short(IPv6Address(value))
     return f"{value >> 24}.{value >> 16 & 255}.{value >> 8 & 255}.{value & 255}"
 
 
 def _short(address: IPv6Address) -> str:
-    """Python spells a mapped address in dotted octets only from 3.13, so spell it."""
     mapped = address.ipv4_mapped
     return str(address) if mapped is None else f"::ffff:{mapped}"
 
 
 def spelled(value: int, wide: bool) -> tuple[str, str, str]:
-    """How the address reads short and in full, and the name a resolver asks by."""
     if wide:
         address = IPv6Address(value)
         return _short(address), address.exploded, address.reverse_pointer
@@ -108,7 +103,6 @@ def spelled(value: int, wide: bool) -> tuple[str, str, str]:
 
 
 def tunnel(value: int, wide: bool) -> tuple[str | None, str | None]:
-    """The v4 address a v6 one carries, and the tunnel that puts it there."""
     if not wide:
         return None, None
     address = IPv6Address(value)
@@ -124,7 +118,6 @@ def tunnel(value: int, wide: bool) -> tuple[str | None, str | None]:
 
 
 def guessed(value: int, wide: bool) -> str | None:
-    """The v4 address an operator wrote into the last four hextets as decimal."""
     if not wide or tunnel(value, wide)[0] is not None:
         return None
     hextets = [f"{value >> shift & 0xFFFF:x}" for shift in (48, 32, 16, 0)]
@@ -134,7 +127,6 @@ def guessed(value: int, wide: bool) -> str | None:
 
 
 def carried(value: int, wide: bool) -> tuple[str | None, str | None, str | None]:
-    """The v6 addresses a v4 one is written as where a tunnel carries it across."""
     if wide:
         return None, None, None
     return (
@@ -145,7 +137,6 @@ def carried(value: int, wide: bool) -> tuple[str | None, str | None, str | None]
 
 
 def purpose(value: int, wide: bool) -> int:
-    """What an address is where it is not the internet, bisected out of the table."""
     starts, ranges = SPECIAL[wide]
     at = bisect_right(starts, value) - 1
     if at >= 0:
@@ -156,7 +147,6 @@ def purpose(value: int, wide: bool) -> int:
 
 
 def span(value: int, wide: bool, prefix: int) -> tuple[str, str, str]:
-    """The announcement the address falls in, masked out of the address itself."""
     spare = (128 if wide else 32) - prefix
     start = written(value >> spare << spare, wide)
     return f"{start}/{prefix}", start, written(value | (1 << spare) - 1, wide)

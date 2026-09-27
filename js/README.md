@@ -7,124 +7,113 @@
 </a>
 
 **Location, network and abuse information for any IP address in one offline file.**<br>
-No API, no rate limit, no lookup leaving the machine, or the browser tab.
+No API, no rate limit, no lookup leaving the machine or the browser tab.
 
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2)](https://www.npmjs.com/package/plevinjs)
 [![Types](https://img.shields.io/badge/types-included-1868f2)](https://www.npmjs.com/package/plevinjs?activeTab=code)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](https://github.com/tn3w/plevin/blob/master/LICENSE)
-[![Fields](https://img.shields.io/badge/fields-101-6f42c1)](#every-field)
-[![Boundaries](https://img.shields.io/badge/boundaries-3.0M-6f42c1)](https://github.com/tn3w/plevin/blob/master/README.md#data)
-[![Warm](https://img.shields.io/badge/warm%20lookups-4M%2Fs-2ea043)](#speed)
+[![Fields](https://img.shields.io/badge/fields-101-6f42c1)](#fields)
+[![Warm](https://img.shields.io/badge/warm%20lookups-5M%2Fs-2ea043)](#speed)
 
 </div>
+
+## Quick start
 
 ```bash
 npm install plevinjs
 ```
 
 ```js
-import { Plevin, open } from "plevinjs";
+import { open } from "plevinjs";
 
 const db = await open("https://plevin.tn3w.dev/db/plevin.plv");
-const found = db.lookup("1.1.1.1");  // string, number, bigint or packed bytes
-```
+const found = db.lookup("1.1.1.1");       // string, number, bigint or bytes
 
-Always a `Result`, never `undefined`; it throws for anything that is not an address, and
-a number reads as v6 only above `0xffffffff`, so `lookup(1)` is `0.0.0.1`.
-
-```js
 found.place.city.name;                    // 'Brisbane'
-found.place.city.region.name;             // 'Queensland'
-found.place.country.name;                 // 'Australia'
 found.place.time.local;                   // '2026-08-13T23:27:58+10:00'
-
-found.network.asn;                        // 13335
 found.network.operator.brand;             // 'Cloudflare'
 found.network.cidr;                       // '1.1.1.0/24'
-
-const exit = db.lookup("185.220.101.1");
-exit.abuse.service;                       // 'tor_exit_node'
-exit.abuse.risk;                          // 0.98
-exit.abuse.is_tor_exit_node;              // true
+db.lookup("185.220.101.1").abuse.service; // 'tor_exit_node'
 ```
 
-Pure ESM with no dependencies, so it runs wherever fetch does: Node, Deno, Bun,
-Cloudflare Workers, and any browser off a CDN.
+- `lookup` always answers a `Result` and throws for non-addresses.
+- Numbers up to `0xffffffff` are v4, so `lookup(1)` is `0.0.0.1`.
+- Pure ESM, zero dependencies: Node, Deno, Bun, Cloudflare Workers, browsers.
+
+## Opening a database
+
+| where           | how                                                        |
+| --------------- | ---------------------------------------------------------- |
+| browser, worker | `await open(url)` or `await open(response)`                |
+| Node, Deno, Bun | `openFile(path)` from `plevinjs/node`; `PLEVIN_DB` if no path |
+| bytes in hand   | `new Plevin(uint8Array)`                                   |
+
+Open once, reuse for every lookup. Nothing is downloaded or cached for you.
+
+| file                                                  | size    | carries                                  |
+| ----------------------------------------------------- | ------- | ---------------------------------------- |
+| `plevin.plv`                                          | 16.4 MB | every field                              |
+| `plevin.metro-place.plv`                              | 5.1 MB  | city, region, postal, coordinates, metro |
+| `plevin.network.plv`                                  | 7.0 MB  | ASN, operator, routing                   |
+| `plevin.abuse-level-abuse-provider-abuse-service.plv` | 3.8 MB  | abuse level, service and provider        |
+| `plevin.place-country-code.plv`                       | 376 KB  | country code                             |
+
+All are served with open CORS from [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/);
+GitHub release downloads send no CORS header.
+
+## In a browser
+
+No build step:
 
 ```html
 <script type="module">
-import { open } from "https://cdn.jsdelivr.net/npm/plevinjs";
+  import { open } from "https://cdn.jsdelivr.net/npm/plevinjs";
 
-const db = await open("https://plevin.tn3w.dev/db/plevin.place-country-code.plv");
-const { flag, name } = db.lookup("8.8.8.8").place.country;
-document.body.textContent = `${flag} ${name}`;              // '🇺🇸 United States'
+  const db = await open("https://plevin.tn3w.dev/db/plevin.place-country-code.plv");
+  const { flag, name } = db.lookup("8.8.8.8").place.country;
+  document.body.textContent = `${flag} ${name}`;   // '🇺🇸 United States'
 </script>
 ```
 
-That build is 390 KB, the country code and nothing else, and the name and flag are
-derived in the reader. `https://esm.sh/plevinjs` serves the same thing. Every database is rehosted with open
-CORS at [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/), because GitHub release
-downloads send no CORS header.
+| URL                                            | serves                            |
+| ---------------------------------------------- | --------------------------------- |
+| `https://cdn.jsdelivr.net/npm/plevinjs`        | `plevin.min.js`, one 52 kB file   |
+| `https://unpkg.com/plevinjs`                   | the same                          |
+| `https://esm.sh/plevinjs`                      | the modules, imports rewritten    |
+| `https://plevin.tn3w.dev/plevin/plevin.min.js` | the bundle beside the databases   |
 
-## Where the file comes from
+- **Pin a version for production:** `cdn.jsdelivr.net/npm/plevinjs@0.1.11`.
+- **Pick the smallest build:** the country build is 376 KB against 16.4 MB.
+- **Cache the file** so it downloads once per visitor:
 
-| where it runs | how to open it |
-| --- | --- |
-| browser, worker | `await open(url)`, or `await open(response)` |
-| Node, Deno, Bun | `import { openFile } from "plevinjs/node"`, then `await openFile(path)` |
-| bytes you hold | `new Plevin(bytes)`, taking a `Uint8Array` |
-
-`openFile()` reads `PLEVIN_DB` where no path is given. Nothing is downloaded for you
-and nothing is cached for you: hand the same `Plevin` to every lookup and the file is
-read once.
-
-| file | size | carries |
-| --- | --- | --- |
-| `plevin.plv` | 17.3 MB | every field |
-| `plevin.metro-place.plv` | 5.7 MB | city, region, postal, coordinates, metro |
-| `plevin.network.plv` | 7.3 MB | ASN, operator, routing |
-| `plevin.abuse-level-abuse-provider-abuse-service.plv` | 3.7 MB | abuse level, service and provider |
-| `plevin.place-country-code.plv` | 390 KB | the country code |
-
-## The same answers over HTTP
-
-Where a file is one dependency too many, the reader runs on a Cloudflare Worker at
-[plevin.tn3w.dev/api](https://plevin.tn3w.dev/api/1.1.1.1) and returns the same JSON,
-field for field, with no key and CORS open to every origin.
-
-```bash
-curl https://plevin.tn3w.dev/api/1.1.1.1   # any address
-curl https://plevin.tn3w.dev/api/me        # the caller's own
-curl https://plevin.tn3w.dev/api/about     # the build and its fields
+```js
+const store = await caches.open("plevin");
+const url = "https://plevin.tn3w.dev/db/plevin.plv";
+if (!(await store.match(url))) await store.add(url);
+const db = new Plevin(new Uint8Array(await (await store.match(url)).arrayBuffer()));
 ```
 
-[`worker/`](https://github.com/tn3w/plevin/blob/master/worker) is that worker, ready to
-run on an account of your own.
-
-## Every field
+## Fields
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/tn3w/plevin/master/.github/fields-dark.png">
 <img src="https://raw.githubusercontent.com/tn3w/plevin/master/.github/fields-light.png" width="840" alt="address to place, network and abuse">
 </picture>
 
-`found.place` is where the address is, `found.network` who announces it, `found.abuse`
-what has been seen from it. Any of the three is `null` where the build carries none of
-it, and every leaf is `null` rather than `""` or `0` where a source says nothing. The
-shapes and the field names are the ones the
-[Python package](https://github.com/tn3w/plevin/blob/master/python/README.md#every-field)
-answers with, to the letter.
+Identical to the
+[Python package](https://github.com/tn3w/plevin/blob/master/python/README.md#fields),
+field for field; see there for what each one means. A missing value is `null`, never
+`""` or `0`.
 
 ```js
+found.place;
 {
-  lat: -27.4675, lon: 153.0281, accuracy: 200, confidence: 36,
-  granularity: 'city',
+  lat: -27.4675, lon: 153.0281, accuracy: 200, confidence: 36, granularity: 'city',
   city: {
     id: 2174003, name: 'Brisbane', ascii: 'Brisbane', country: 'AU',
     population: 2780063, elevation: 27, postal: '4000', postal_partial: null,
     timezone: 'Australia/Brisbane', type: 'regional capital', capital: 'region',
-    region: { id: 2152274, code: '04', iso: 'AU-QLD', name: 'Queensland',
-              type: 'State' },
+    region: { id: 2152274, code: '04', iso: 'AU-QLD', name: 'Queensland', type: 'State' },
     district: { id: 7839562, code: '31000', name: 'Brisbane' },
     metro: null,
   },
@@ -138,14 +127,8 @@ answers with, to the letter.
     dst_start: null, dst_end: null,
   },
 }
-```
 
-`country` and `time` are derived, not stored: `country` out of an ISO 3166 table in the
-package, `time` out of the runtime's own `Intl` zone data, so neither needs an install
-and neither is a network call. Where the host's zone data is older or newer than the
-one the Python package reads, a daylight boundary may move by a transition.
-
-```js
+found.network;
 {
   asn: 13335, handle: 'CLOUDFLARENET', prefix: 24, cidr: '1.1.1.0/24',
   start: '1.1.1.0', end: '1.1.1.255', rir: 'apnic', rpki: 'valid', roas: 1,
@@ -159,315 +142,151 @@ one the Python package reads, a daylight boundary may move by a transition.
   carrier: { user_type: 'hosting', user_count: 19, mcc: null, mnc: null,
              is_mobile: false },
 }
-```
 
-`cidr` is the announcement the address falls in, masked out of the address itself.
-`rir` is the registry that holds the address rather than the one that registered the
-ASN. `rpki` is `valid`, `invalid` or `unknown` and `roas` how many ROAs agree. `brand`
-drops the legal form and the words every network carries, so `GOOGLE` and `Google LLC`
-both read `Google`.
-
-Where nothing is announced, the registries still answer: `asn`, `rpki` and `roas` fall
-silent, `cidr` becomes the block a registry gave out, and `handle` and `operator` name
-whoever holds it.
-
-```js
-db.lookup("36.50.238.1").network;
-{ asn: null, handle: 'GMTECH-BD', cidr: '36.50.238.0/23', rir: 'apnic',
-  operator: { company: 'GM Tech', ... }, ... }
-```
-
-```js
 db.lookup("185.220.101.1").abuse;
 {
   name: 'Tor', provider: 'Tor', service: 'tor_exit_node', evidence: 'measured',
-  level: 'high', risk: 0.98, network_risk: 0.82, last_seen_days: 1,
-  is_malicious: true, is_anycast: false,
-  is_satellite: false, is_hosting_provider: true, is_proxy: false,
-  is_public_proxy: false, is_residential_proxy: false, is_anonymous_vpn: false,
-  is_tor_exit_node: true, is_private_relay: false, is_anonymous: true,
+  level: 'high', risk: 0.99, network_risk: 0.86, last_seen_days: 1,
+  is_malicious: true, is_anycast: false, is_satellite: false,
+  is_hosting_provider: true, is_proxy: false, is_public_proxy: false,
+  is_residential_proxy: false, is_anonymous_vpn: false, is_tor_exit_node: true,
+  is_private_relay: false, is_anonymous: true,
 }
 ```
 
-`level` is `low`, `medium` or `high`, the same reading in three steps: `low` from 0.40,
-`medium` from 0.60, `high` from 0.80, and `null` below that, where the reports are too
-thin to call. `is_malicious` is true wherever a level stands.
+JavaScript specifics:
 
-`risk` is 0 to 1 for the address, `network_risk` the same for the whole ASN, `null`
-where nothing has ever been seen, so which is not a risk of zero. It is a total of what
-the service the address runs is worth on its own and what every feed that named it
-scored it, combined so each agreeing source raises the total and none of them replaces
-the rest, capped at 0.99. `provider` is who runs the service: the feed's `name` where
-one names it, else the brand of the network the address sits in, and `null` where the
-address runs no service at all.
+- `country` comes from an ISO 3166 table in the package and `time` from the runtime's
+  `Intl` data, so neither needs an install or a network call. A different zone
+  database can move a daylight-saving boundary.
+- `number` is a `bigint` for v6, so `JSON.stringify` needs a replacer.
 
-## What an address says on its own
+Address fields (`compressed`, `expanded`, `arpa`, `is_*`, `tunnel`, `embedded_ipv4`,
+`decimal_ipv4`, `as_*`) work without any database.
 
-Answered without the database, so they hold for every address:
+## DNS
 
-```js
-const found = db.lookup("2606:4700::1111");
-found.number;    // 50543257672059871404715951523469725969n
-found.compressed // '2606:4700::1111'
-found.expanded;  // '2606:4700:0000:0000:0000:0000:0000:1111'
-found.arpa;      // '1.1.1.1.0.0.….0.7.4.6.0.6.2.ip6.arpa'
-```
-
-`number` is a `bigint` for v6 and a `number` for v4, so `JSON.stringify` needs a
-replacer where you hand a v6 result on. Then `is_global` and `is_bogon`, `is_private`,
-`is_loopback`, `is_multicast`, `is_reserved`, `is_link_local`, `is_unique_local`,
-`is_documentation`, `is_shared` (100.64/10) and `is_benchmark` (198.18/15), bisected
-out of the IANA special-purpose registries.
-
-```js
-db.lookup("::ffff:8.8.8.8").tunnel;         // 'ipv4-mapped'
-db.lookup("::ffff:8.8.8.8").embedded_ipv4;  // '8.8.8.8'
-db.lookup("2002:808:808::1").is_6to4;       // true
-```
-
-`tunnel` is `ipv4-mapped`, `6to4`, `teredo`, `nat64` or `null`.
-
-```js
-db.lookup("2001:67c:e60:c0c:192:42:116:55").decimal_ipv4;  // '192.42.116.55'
-```
-
-`decimal_ipv4` is a guess and never a tunnel: the last four hextets where an operator
-wrote a v4 address into them as decimal. It is `null` wherever a real tunnel answers.
-
-```js
-db.lookup("8.8.8.8").as_ipv4_mapped;  // '::ffff:8.8.8.8'
-db.lookup("8.8.8.8").as_6to4;         // '2002:808:808::'
-db.lookup("8.8.8.8").as_nat64;        // '64:ff9b::808:808'
-```
-
-`as_ipv4_mapped`, `as_6to4` and `as_nat64` write a v4 address the other way about, as
-the v6 addresses that carry it; all three are `null` for a v6 address, where
-`embedded_ipv4` already says what it carries.
-
-## What DNS says, where you ask for it
-
-`lookup` never leaves the machine and stays synchronous. `resolve` is the same lookup
-with DNS behind a flag, and does nothing more than `lookup` unless the flag is set:
+`lookup` stays synchronous and offline. `resolve` adds DNS only when asked:
 
 ```js
 (await db.resolve("8.8.8.8", { dns: true })).dns;
 {
-  asked: '8.8.8.8',
-  hostname: 'dns.google',
-  hostnames: [ 'dns.google' ],
-  ipv4: '8.8.4.4',
-  ipv6: '2001:4860:4860::8888',
-  ipv4_addresses: [ '8.8.4.4', '8.8.8.8' ],
-  ipv6_addresses: [ '2001:4860:4860::8888', '2001:4860:4860::8844' ],
-  alias: null,
-  zone: '8.8.8.in-addr.arpa',
-  zone_primary: 'ns1.google.com',
-  zone_contact: 'dns-admin@google.com',
-  is_confirmed: true,
-  is_signed: true,
+  asked: '8.8.8.8', hostname: 'dns.google', hostnames: ['dns.google'],
+  ipv4: '8.8.4.4', ipv6: '2001:4860:4860::8888',
+  ipv4_addresses: ['8.8.4.4', '8.8.8.8'],
+  ipv6_addresses: ['2001:4860:4860::8888', '2001:4860:4860::8844'],
+  alias: null, zone: '8.8.8.in-addr.arpa', zone_primary: 'ns1.google.com',
+  zone_contact: 'dns-admin@google.com', is_confirmed: true, is_signed: true,
 }
 ```
 
-`hostname` is the first PTR name and `hostnames` all of them, `ipv4` and `ipv6` that
-name resolved forward with `ipv4_addresses` and `ipv6_addresses` all of those, so each
-address names its other half; `is_confirmed` says the name leads back to the address,
-which is forward-confirmed reverse DNS; `zone`, `zone_primary` and `zone_contact` come
-from the reverse zone's SOA, naming who runs the range; `is_signed` is the DNSSEC
-verdict and `alias` a CNAME in the way; `asked` is the address actually asked about,
-which for a tunnel is the v4 it carries. Four questions go out in two rounds, PTR and
-SOA on the reverse name together and then A and AAAA of the hostname: Node, Deno and
-Bun write those onto the wire themselves and send them to every server at once, so the
-machine's own from `node:dns` and 1.1.1.1, 8.8.8.8 and 9.9.9.9, so first real answer
-winning, TCP where one comes back truncated, while a browser or a worker, having no
-datagram, sends the same queries to Cloudflare and Google over DNS-over-HTTPS. Answers
-are kept for an hour, and nothing is asked where the flag is off, which keeps a bundled
-reader as offline as it was.
+- **Node, Deno, Bun:** raw DNS over UDP, raced across the system resolver plus
+  1.1.1.1, 8.8.8.8 and 9.9.9.9, with TCP on truncation.
+- **Browsers, workers:** DNS-over-HTTPS to Cloudflare and Google.
+- **Cache:** answers are kept for one hour.
 
-## The address this machine is seen as
-
-A lookup needs an address, and the client's own is the one the client cannot read off
-itself. `publicAddress` asks a STUN server for it: one 20-byte binding request, one
-datagram back carrying the address the server saw, no TLS handshake and no HTTP, which
-answers in tens of milliseconds:
+## Own address
 
 ```js
 import { publicAddress } from "plevinjs";
 
-const own = await publicAddress();  // '203.0.113.42', or null where nothing answers
+const own = await publicAddress();   // '203.0.113.42', or null
 own && db.lookup(own);
 ```
 
-Node, Deno and Bun send the datagram over `node:dgram`; a browser has no datagram, so
-the same question goes through `RTCPeerConnection` against the same STUN server and the
-address is read off the server-reflexive ICE candidate. Where neither is there, or
-neither answers within two seconds, `https://api.ipify.org` and then `icanhazip.com`
-echo it back instead. Whatever answers is parsed as an address before it is believed,
-so a broken echo reads as `null` rather than as text. STUN servers, echoes and the
-minute an answer is kept for are `STUN_SERVERS` and `ECHOES`; both are plain arrays,
-and a deployment that would rather ask its own can replace them.
+- **How:** one STUN binding request, answered in tens of milliseconds.
+- **Browsers:** go through `RTCPeerConnection` instead.
+- **Fallback:** after 2 s, asks `api.ipify.org`, then `icanhazip.com`.
 
-## One ASN, and the networks a name belongs to
+## ASNs
 
 ```js
 const found = db.system("AS13335");        // 'AS13335', 'as13335' or 13335
-found.handle;                              // 'CLOUDFLARENET'
 found.network.operator.brand;              // 'Cloudflare'
 found.abuse.network_risk;                  // 0.14
 
 db.search("hetzner").map((one) => one.asn);
 // [24940, 212317, 213230, 215859]
+
+const routes = db.routes("AS13335");
+routes.ipv4.length;                        // 1411
+routes.ipv4[0].cidr;                       // '152.114.0.0/17', widest first
+routes.ipv6_addresses >> 64n;              // space as /64 networks, a bigint
 ```
 
-`system()` answers a `System`, so the `asn`, the `handle`, the same `network` with its
-operator and carrier, and the ASN's own `abuse` record, without anything only an address
-fixes: no prefix, no CIDR, no RPKI, no place. `found` is `false` where the file carries
-no such ASN. It bisects the network table, so no spine is read and nothing about the
-address lookup changes.
+| call                      | answers                                                  |
+| ------------------------- | -------------------------------------------------------- |
+| `system(asn)`             | `System`: handle, network, operator, carrier, ASN abuse; `found` false if unknown |
+| `search(text, limit=20)`  | `System`s whose handle or company matches, best first    |
+| `routes(asn)`             | `Routes`: every announced prefix as a `Span`, widest first |
 
-`search(text, limit = 20)` matches the text against every handle and every company in
-the file and answers the same `System`, widest network first: a match at the head of a
-word beats one inside it, and then the network that touches most of the internet wins,
-which is its exchanges and its users. `search("13335")` is the ASN itself. The index is
-one lowercase text built on the first search, 0.32 s, and kept from then on.
+## HTTP
 
-## What an ASN announces
+The same JSON without a file, CORS open, no key:
 
-```js
-const routes = db.routes("AS13335");       // written however system() takes it
-routes.ipv4.length;                        // 1506
-routes.ipv4[0].cidr;                       // '152.114.0.0/17', the widest first
-routes.ipv4[0].addresses;                  // 32768
-routes.ipv4_addresses;                     // 616704, the space of all of them
-routes.ipv6_addresses >> 64n;              // 75037868032n, as /64 networks
+```bash
+curl https://plevin.tn3w.dev/api/1.1.1.1   # any address
+curl https://plevin.tn3w.dev/api/me        # the caller
+curl https://plevin.tn3w.dev/api/about     # build and fields
 ```
 
-`routes()` answers a `Routes`: every prefix the ASN is announced as, split into `ipv4`
-and `ipv6` and widest first, each one a `Span` with its `cidr`, `start`, `end`,
-`version`, `prefix` and `addresses`. `ipv4_addresses` is a number and `ipv6_addresses` a
-bigint, and both count the space once where a more specific sits inside its own cover.
-`found` is `false` where the file carries no such ASN.
-
-It reads the spine's network column whole, a block at a time, rather than a row at a
-time: 159 ms for the first ASN asked about and 2 to 9 ms for every one after it, each
-answer kept. Nothing an address lookup reads is touched.
-
-## In a browser
-
-No build step and no install: the package is plain ESM with no dependencies, so any npm
-CDN serves it as it is.
-
-```html
-<script type="module">
-  import { open } from "https://cdn.jsdelivr.net/npm/plevinjs";
-
-  const db = await open(
-    "https://plevin.tn3w.dev/db/plevin.place-country-code.plv"
-  );
-  const { flag, name } = db.lookup("1.1.1.1").place.country;
-  document.body.textContent = `${flag} ${name}`;             // '🇺🇸 United States'
-</script>
-```
-
-Open the smallest build a page actually needs: `plevin.place-country-code.plv` is
-390 KB against the 17.3 MB of `plevin.plv`, so the first lookup lands in a moment
-rather than a download.
-
-| | |
-| --- | --- |
-| `https://cdn.jsdelivr.net/npm/plevinjs` | `dist/plevin.min.js`, the whole reader in one file |
-| `https://unpkg.com/plevinjs` | the same as jsDelivr |
-| `https://esm.sh/plevinjs` | the modules as published, imports rewritten |
-| `https://plevin.tn3w.dev/plevin/plevin.min.js` | the reader beside the databases |
-
-jsDelivr and unpkg serve the bundle named by the `jsdelivr`/`unpkg` fields, 55 kB of
-JavaScript with no further requests. The bare `dist/index.js` is not usable from those
-URLs: it imports `./reader.js` and neighbours, which resolve against `/npm/` there and
-404. Pin a version for anything that ships: `cdn.jsdelivr.net/npm/plevinjs@0.1.2`.
-`plevinjs/node` is the only entry that touches Node, so a CDN import never reaches for
-`node:fs`.
-
-18 MB crosses the wire once, so keep it out of the critical path and out of the next
-visit's way:
-
-```js
-const store = await caches.open("plevin");
-const url = "https://plevin.tn3w.dev/db/plevin.plv";
-if (!(await store.match(url))) await store.add(url);
-
-const held = await store.match(url);
-const db = new Plevin(new Uint8Array(await held.arrayBuffer()));
-```
-
-`plevin.place-country-code.plv` is 390 KB where the country code is all a page needs.
-[The lookup page](https://plevin.tn3w.dev/) is the whole idea in one file of
-plain JavaScript: it reads the database in the tab and calls out only for the visitor's
-own address and for hostnames.
+Self-host with [`worker/`](https://github.com/tn3w/plevin/blob/master/worker).
 
 ## Speed
 
-Measured on the full file, Node 26, one core:
+Full file, Node 26, one core:
 
-| | |
-| --- | --- |
-| open | 14 ms, the header only |
-| first answer | 44 ms, the blocks it lands in |
-| repeats | 4,600,000/s |
-| uniformly random v4 | 13,000/s cold, 200,000/s over the same log again |
-| one ASN | 350,000/s, a bisect of the network table |
-| one ASN's prefixes | 159 ms for the first, 2 to 9 ms after, then kept |
-| search | 1 ms, after 0.32 s building the index |
+| operation    | speed                                  |
+| ------------ | -------------------------------------- |
+| open         | 9 ms, header only                      |
+| first lookup | 70 ms                                  |
+| repeats      | 5,000,000/s                            |
+| random v4    | 8,000/s cold, 72,000/s warm            |
+| `system`     | 1,000,000/s                            |
+| `routes`     | 100–160 ms, then cached                |
+| `search`     | 1 ms, after 0.07 s building the index  |
 
-Blocks decode on reach and stay decoded, so a real log lands between the two. Memory is
-the file plus whatever it decoded, around 120 MB of heap with the whole world touched.
+Blocks decode lazily, only as far as a lookup reaches, and stay decoded: about 160 MB
+of heap with the whole world touched.
 
-## Zstandard
+## LZMA
 
-The file is Zstandard with trained dictionaries, which no runtime decompresses on its
-own, so `DecompressionStream` has no zstd and Node's `zlib` takes no dictionary. So the
-package carries one, condensed from [fzstd](https://github.com/101arrowz/fzstd) (MIT)
-with the dictionary support it leaves out, and verified block for block against
-libzstd over the whole database.
+Blocks are raw LZMA1, which neither `DecompressionStream` nor `zlib` reads, so the
+package ships its own decoder, checked against liblzma on every block.
 
 ```js
-import { decompress, loadDictionary } from "plevin/zstd";
+import { decompress } from "plevinjs/lzma";
 
-decompress(frame);                          // one frame
-decompress(frame, loadDictionary(trained)); // with a trained dictionary
+decompress(block, [3, 0, 0]);   // tuning: literal context, literal position, match position bits
 ```
 
 ## Development
 
-`src` is flat, every module one job:
-
-| | |
-| --- | --- |
-| `index.ts` | `Plevin`, `open`, and the models a lookup answers with |
-| `reader.ts` | the file format: sections, blocks, groups, the spine a lookup bisects |
-| `zstd.ts` | decompression with trained dictionaries |
-| `address.ts` | parsing, spelling and the special ranges, before any file is opened |
-| `naming.ts` | DNS, and the address this machine is seen as, over datagrams first |
-| `extra.ts` | what a country code and a timezone imply, off `countries.ts`/`zones.ts` |
-| `derive.ts` | the answers the file does not store: brand, domain, capital |
-| `models.ts` | the published types |
-| `node.ts` | `openFile`, the one entry that touches `node:fs` |
+| module       | job                                                 |
+| ------------ | --------------------------------------------------- |
+| `index.ts`   | `Plevin`, `open`, result shaping                    |
+| `reader.ts`  | file format: sections, blocks, groups, bisection    |
+| `lzma.ts`    | resumable LZMA1 decoder                             |
+| `address.ts` | parsing, spelling, special ranges                   |
+| `naming.ts`  | DNS and own address                                 |
+| `extra.ts`   | country and clock, from `countries.ts`/`zones.ts`   |
+| `derive.ts`  | brand, domain, capital                              |
+| `models.ts`  | published types                                     |
+| `node.ts`    | `openFile`, the only `node:fs` import               |
 
 ```bash
-cd js
 npm ci
-npm test          # node --test, no database needed for most of it
-npm run lint      # biome
-npm run typecheck # tsc, strict
-npm run build     # dist/, ESM and .d.ts, plus the CDN bundle
-npm run bundle    # dist/plevin.min.js only (esbuild)
+npm test && npm run lint && npm run typecheck
+npm run build                                   # dist/ and the CDN bundle
 
 node test/compare.ts ../plevin.plv sample.json  # field for field against Python
-node test/blocks.ts ../plevin.plv 100000        # every block against libzstd
+node test/blocks.ts ../plevin.plv 100000        # every block against liblzma
 ```
 
 ## License
 
 Apache 2.0, see [LICENSE](https://github.com/tn3w/plevin/blob/master/LICENSE). The
-database carries the licenses of the sources it was built from, listed in
-[`builder/README.md`](https://github.com/tn3w/plevin/blob/master/builder/README.md#sources).
+database carries the licenses of its
+[sources](https://github.com/tn3w/plevin/blob/master/builder/README.md#sources).
 
 <!-- brand: Noto Sans 800, wordmark bar #1868f2 place, #6f42c1 network, #2ea043 abuse; #7d8894 address, ink #0b1220 light, #f0f6fc dark -->

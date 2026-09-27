@@ -84,7 +84,7 @@ jobs:
           jq -r '.[] | .name + " " + .url' $feeds |
             sed "s|{IP2LOCATION_TOKEN}|$IP2LOCATION_TOKEN|" |
             xargs -P 8 -L 1 bash -c 'curl -fsSL -A "$AGENT" --retry 6 \
-              --retry-all-errors --retry-delay 15 -o "$0" "$1" || echo "missed $0"'
+              --retry-delay 15 -o "$0" "$1" || echo "missed $0"'
           for name in $(jq -r '.[].name' $feeds); do
             case "$(file -b --mime-type "$name" 2>/dev/null)" in
               application/zip)
@@ -149,6 +149,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release list --limit 100 --json tagName --jq \
-            '[.[].tagName | select(test("^[0-9]{4}(\\.[0-9]{2}){2}(\\.[0-9]+)?$"))][7:][]' |
-            xargs -r -n1 gh release delete --yes --cleanup-tag
+          stale=$(gh release list --limit 100 --json tagName --jq \
+            '[.[].tagName | select(test("^[0-9]{4}(\\.[0-9]{2}){2}(\\.[0-9]+)?$"))][7:][]')
+          for tag in $stale; do
+            gh release delete "$tag" --yes
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" 2>/dev/null ||
+              echo "tag $tag already gone"
+          done

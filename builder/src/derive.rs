@@ -21,7 +21,6 @@ const HANDLE_TAIL: [&str; 13] = [
 ];
 const NETWORK_TAIL: [&str; 5] = ["NET", "COM", "TEL", "WEB", "LINE"];
 
-/// The name a network goes by: its handle where the company only spells it out.
 pub fn brand(handle: &str, company: &str) -> String {
     let legal = from_company(company);
     let short = from_handle(handle);
@@ -38,7 +37,6 @@ pub fn brand(handle: &str, company: &str) -> String {
     }
 }
 
-/// Aliases, legal forms and the words every network shares, all stripped.
 fn from_company(company: &str) -> String {
     let held = aliased(&traded(company));
     let mut tokens: Vec<&str> = held
@@ -57,7 +55,6 @@ fn from_company(company: &str) -> String {
     cased(&name[..name.len() - cut])
 }
 
-/// The first word of a registry handle, its country and network tails gone.
 fn from_handle(handle: &str) -> String {
     let Some(word) = handle.split_whitespace().next() else {
         return String::new();
@@ -76,7 +73,6 @@ fn from_handle(handle: &str) -> String {
     cased(held)
 }
 
-/// Everything up to the last "trading as", which is the name the network answers to.
 fn traded(company: &str) -> String {
     let held: Vec<char> = company.chars().collect();
     let mut at = 0;
@@ -95,7 +91,6 @@ fn traded(company: &str) -> String {
     held[at..].iter().collect::<String>().trim_start().to_string()
 }
 
-/// A word on its own: a mark only counts where letters do not run into it.
 fn edged(held: &[char], start: usize, stop: usize) -> bool {
     let bare = |one: Option<&char>| {
         one.is_none_or(|held| !held.is_alphanumeric() && *held != '_')
@@ -103,7 +98,6 @@ fn edged(held: &[char], start: usize, stop: usize) -> bool {
     bare(start.checked_sub(1).and_then(|at| held.get(at))) && bare(held.get(stop))
 }
 
-/// A bracketed aside, a comma or a spaced dash: from there on it is not the name.
 fn aliased(company: &str) -> String {
     let held: Vec<char> = company.chars().collect();
     let mut out = String::new();
@@ -137,7 +131,6 @@ fn dashed(held: &[char], at: usize) -> bool {
         && held.get(spot + 1).is_some_and(|one| one.is_whitespace())
 }
 
-/// Shouted words stop shouting, `GOOGLE` reading as `Google` and `IBM` as `IBM`.
 fn cased(text: &str) -> String {
     text.split(' ')
         .map(|word| {
@@ -176,13 +169,11 @@ fn ending(name: &str, tld: &str) -> bool {
     at.is_some_and(|at| name.is_char_boundary(at) && name[at..].eq_ignore_ascii_case(tld))
 }
 
-/// The legal forms and the words every network shares, both read as one list.
 fn tailing(token: &str) -> bool {
     let held = bare(token);
     held.is_empty() || listed(FORMS, &held) || listed(TAILS, &held)
 }
 
-/// A word as the readers compare it: only letters and digits, all lowercase.
 fn bare(token: &str) -> String {
     token
         .to_lowercase()

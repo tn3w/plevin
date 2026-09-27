@@ -82,7 +82,6 @@ impl Places {
 }
 
 impl Interning<'_> {
-    /// Which source answers this span, the city it snaps to, and how well they agree.
     fn resolve(
         &mut self,
         one: Option<&Coarse>,
@@ -180,7 +179,6 @@ impl Interning<'_> {
         FAR.iter().find(|(reach, _)| far < *reach).map(|(_, score)| *score).unwrap_or(35)
     }
 
-    /// The floor every accuracy in a granularity is held to, measured at nine tenths.
     fn floors(&mut self) -> [u16; 4] {
         let mut floors = [0u16; 4];
         for (floor, held) in floors.iter_mut().zip(&mut self.spread) {
@@ -198,7 +196,6 @@ fn round(degrees: f64) -> i32 {
     (degrees * DEGREES).round() as i32
 }
 
-/// Both databases read together, one segment per span where either of them changes.
 fn walk(
     fine: &[Coarse],
     coarse: &[Coarse],
@@ -231,7 +228,6 @@ fn walk(
     }
 }
 
-/// Runs no finer than a block, each block taking the point that covers most of it.
 fn collapse(segments: &[(u128, u128, u32)], shift: u32) -> Vec<(u128, u32)> {
     let mut runs: Vec<(u128, u32)> = Vec::new();
     let mut open: Option<(u128, u32, u128)> = None;

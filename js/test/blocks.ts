@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { decompress, loadDictionary } from "../src/zstd.ts";
+import { decompress, type Tuning } from "../src/lzma.ts";
 
 const data = new Uint8Array(readFileSync(process.argv[2]));
 const view = new DataView(data.buffer);
 const size = view.getUint32(8, true);
-type Entry = { offset: number };
+type Entry = { offset: number; lzma: Tuning };
 const head = JSON.parse(new TextDecoder().decode(data.subarray(12, 12 + size))) as {
   sections: Record<string, Entry>;
 };
@@ -17,17 +17,14 @@ for (const [name, entry] of Object.entries(head.sections) as [string, Entry][]) 
   const at = body + entry.offset;
   const blocks = view.getUint32(at, true);
   const width = view.getUint32(at + 4, true);
-  const book = view.getUint32(at + 8, true);
   const offsets = Array.from({ length: blocks + 1 }, (_, index) =>
-    view.getUint32(at + 12 + index * 4, true),
+    view.getUint32(at + 8 + index * 4, true),
   );
-  const start = at + 12 + 4 * (blocks + 1) + width * blocks;
-  const dictionary = book ? loadDictionary(data.subarray(start, start + book)) : null;
-  const held = start + book;
+  const held = at + 8 + 4 * (blocks + 1) + width * blocks;
   const digest = createHash("sha256");
   for (let index = 0; index < Math.min(blocks, limit); index += 1) {
     const block = data.subarray(held + offsets[index], held + offsets[index + 1]);
-    digest.update(decompress(block, dictionary));
+    digest.update(decompress(block, entry.lzma));
   }
   digests[name] = digest.digest("hex");
 }

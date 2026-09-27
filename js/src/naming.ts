@@ -1,4 +1,4 @@
-/** What DNS says about an address: datagrams where a runtime has them, HTTPS where not. */
+/** What DNS says about an address: datagrams where a runtime has them, else HTTPS. */
 
 import { parse, spelled, tunnel, written } from "./address.ts";
 import type { Dns } from "./models.ts";
@@ -55,7 +55,6 @@ export const encodeQuery = (name: string, kind: Kind): Uint8Array => {
   return message;
 };
 
-/** A name, following compression pointers, and where the record goes on. */
 const readName = (message: Uint8Array, from: number): [string, number] => {
   const labels: string[] = [];
   let at = from;
@@ -161,7 +160,6 @@ type Stream = {
   destroy(): void;
 };
 
-/** A node builtin named at runtime, which keeps bundlers from reaching for it. */
 const builtin = async <Module>(name: string): Promise<Module> =>
   (await import(/* @vite-ignore */ name)) as Module;
 
@@ -170,16 +168,13 @@ const onNode = (): boolean =>
 
 let servers: Promise<string[]> | null = null;
 
-/** The servers this machine resolves through, which only a node runtime knows. */
 const systemServers = async (): Promise<string[]> => {
   servers ??= (async () => {
     const found: string[] = [];
     try {
       const { getServers } = await builtin<{ getServers: () => string[] }>("node:dns");
       found.push(...getServers());
-    } catch {
-      /* a runtime without node:dns has the public servers and nothing else */
-    }
+    } catch {}
     const usable = found
       .map((server) => server.split("%")[0].replace(/^\[|]$/g, ""))
       .filter((server) => !/^(fe80|169\.254)/i.test(server));
@@ -188,7 +183,6 @@ const systemServers = async (): Promise<string[]> => {
   return servers;
 };
 
-/** The same question again where the datagram came back cut short. */
 const overTcp = async (server: string, query: Uint8Array): Promise<Reply | null> => {
   const { connect } = await builtin<{ connect: (port: number, host: string) => Stream }>(
     "node:net",
@@ -225,7 +219,6 @@ const overTcp = async (server: string, query: Uint8Array): Promise<Reply | null>
   });
 };
 
-/** Every server asked at once over UDP, the first real answer winning. */
 const overUdp = async (
   query: Uint8Array,
   carrying: Kind | null,
@@ -271,7 +264,6 @@ const overUdp = async (
   });
 };
 
-/** Every resolver asked at once over HTTPS, for runtimes without a datagram. */
 const overHttps = async (
   query: Uint8Array,
   carrying: Kind | null,
@@ -370,6 +362,15 @@ const MAPPED = 0x0001;
 const SRFLX = /^candidate:\S+ \S+ \S+ \S+ (\S+) \S+ typ srflx/;
 const OWN_FOR = 60_000;
 
+const unmasked = (reply: Uint8Array, at: number, xored: boolean): bigint => {
+  let held = 0n;
+  for (let step = 0; step < 16; step += 1) {
+    const mask = xored ? reply[4 + step] : 0;
+    held = (held << 8n) | BigInt(reply[at + step] ^ mask);
+  }
+  return held;
+};
+
 /** A binding request: twenty bytes, the cookie the reply xors the address with. */
 export const bindingRequest = (): Uint8Array => {
   const message = new Uint8Array(20);
@@ -398,21 +399,13 @@ export const bindingAddress = (reply: Uint8Array): string | null => {
           false,
         );
       }
-      if (family === 2) {
-        let held = 0n;
-        for (let step = 0; step < 16; step += 1) {
-          const mask = xored ? reply[4 + step] : 0;
-          held = (held << 8n) | BigInt(reply[body + 4 + step] ^ mask);
-        }
-        return written(held, true);
-      }
+      if (family === 2) return written(unmasked(reply, body + 4, xored), true);
     }
     at = body + length + ((4 - (length % 4)) % 4);
   }
   return null;
 };
 
-/** Whichever comes first settles and shuts: an address, an error, or the timeout. */
 const settler = (
   settle: (found: string | null) => void,
   shut: () => void,
@@ -429,7 +422,6 @@ const settler = (
   return finish;
 };
 
-/** One binding request over a datagram, which is a round trip and no handshake. */
 const overStun = async (server: string): Promise<string | null> => {
   const { createSocket } = await builtin<{ createSocket: (kind: string) => Datagram }>(
     "node:dgram",
@@ -444,7 +436,6 @@ const overStun = async (server: string): Promise<string | null> => {
   });
 };
 
-/** The same question in a browser, where ICE asks it and reports back a candidate. */
 const overIce = (server: string): Promise<string | null> => {
   const Peer = globalThis.RTCPeerConnection;
   if (!Peer) return Promise.resolve(null);
@@ -464,20 +455,16 @@ const overIce = (server: string): Promise<string | null> => {
   });
 };
 
-/** An echo over HTTPS, for a runtime with neither a datagram nor a peer connection. */
 const overEcho = async (): Promise<string | null> => {
   for (const echo of ECHOES) {
     try {
       const response = await fetch(echo, { signal: AbortSignal.timeout(TIMEOUT) });
       if (response.ok) return (await response.text()).trim();
-    } catch {
-      /* the next echo answers, and where none does the address is unknown */
-    }
+    } catch {}
   }
   return null;
 };
 
-/** An echo is a stranger's word for the address, so it counts only where it parses. */
 const address = (found: string | null): string | null => {
   if (!found) return null;
   try {

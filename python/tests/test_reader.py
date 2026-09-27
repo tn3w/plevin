@@ -9,7 +9,7 @@ import pytest
 
 from conftest import CLOUDFLARE, HOST_V4, HOST_V6, VOCABULARIES, written
 from plevin import reader
-from plv import Writer
+from plv import PLAIN, Writer, squeeze
 
 
 def rows(file: reader.File, value: int, wide: bool = False) -> reader.Row:
@@ -26,13 +26,13 @@ def spine(file: reader.File, name: str) -> reader.Index:
 
 def test_a_file_that_is_not_a_database_is_refused(tmp_path: Path) -> None:
     path = written(tmp_path / "wrong.plv", b"NOTPLV\0\1" + bytes(64))
-    with pytest.raises(ValueError, match="not a plevin 1 database"):
+    with pytest.raises(ValueError, match="not a plevin 2 database"):
         reader.File(path)
 
 
 def test_a_later_format_is_refused(tmp_path: Path) -> None:
-    path = written(tmp_path / "later.plv", reader.MAGIC + bytes([2]) + bytes(64))
-    with pytest.raises(ValueError, match="not a plevin 1 database"):
+    path = written(tmp_path / "later.plv", reader.MAGIC + bytes([3]) + bytes(64))
+    with pytest.raises(ValueError, match="not a plevin 2 database"):
         reader.File(path)
 
 
@@ -138,7 +138,6 @@ def test_a_big_endian_reader_turns_a_column_around(
 
 
 def test_a_stepped_column_sums_back_into_the_values(tmp_path: Path) -> None:
-    """Deltas restart every block, so a block reads without the one before it."""
     values = [3, 4, 4, 900, 901, 902, 902, 7, 8, 8]
     writer = Writer()
     writer.column("col.city.id", values, delta=True)
@@ -225,3 +224,18 @@ def test_a_search_reads_the_handles_and_the_companies(full: Path) -> None:
     assert [row["asn"] for row in file.find("google llc", 5)] == [15169, 396982]
     assert file.find("  ", 5) == []
     assert file.find("nothing at all", 5) == []
+
+
+def test_a_block_cut_short_is_refused() -> None:
+    filters = reader._filters(PLAIN)
+    packed = squeeze([bytes(range(256)) * 64], PLAIN)[0]
+    stream = reader.Stream(memoryview(packed[:40]), filters)
+    with pytest.raises(ValueError, match="ends early"):
+        stream.until(1 << 14)
+
+
+def test_a_block_decodes_only_as_far_as_it_is_read() -> None:
+    raw = bytes(range(256)) * 64
+    stream = reader.Stream(memoryview(squeeze([raw], PLAIN)[0]), reader._filters(PLAIN))
+    assert len(stream.until(10)) < len(raw)
+    assert bytes(stream.until(len(raw) + 1)) == raw
