@@ -6,11 +6,11 @@
 
 ![Rust 2024](https://img.shields.io/badge/rust-2024-CE422B?logo=rust&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
-![Full build](https://img.shields.io/badge/full%20build-17.3%20MB-2ea043)
+![Full build](https://img.shields.io/badge/full%20build-18.2%20MB-2ea043)
 ![Sources](https://img.shields.io/badge/sources-26%20files%20%2B%20210%20feeds%20%2B%20geofeeds-6f42c1)
 
-[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 17.3 MB ·
-[location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 5.4 MB ·
+[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 18.2 MB ·
+[location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 6.3 MB ·
 [network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.0 MB ·
 [abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 4.1 MB ·
 [country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 378 KB ·
@@ -37,7 +37,8 @@ cargo build --release
 About a minute from fetched inputs. [`build.yml`](../.github/workflows/build.yml)
 fetches, builds and releases daily, with secrets `IP2LOCATION_TOKEN` and
 `PEERINGDB_API_KEY`. The build log names **silent feeds**: listed feeds that matched
-nothing, a dead URL or a changed format.
+nothing, a dead URL or a changed format. The fetch log lists every feed's size
+(`size` lines) to spot a feed that came back thin.
 
 | path                  | holds                          |
 | --------------------- | ------------------------------ |
@@ -154,6 +155,7 @@ Each entry in [`data/feeds.json`](data/feeds.json) is a URL plus what its matche
 | `aged`         | halve service worth: never drops addresses or stopped updating       |
 | `trusted`      | operator-published range: damp reports, ignore scraped services      |
 | `suffix`       | widen each match to this prefix length                               |
+| `geofeed`      | the input is RFC 8805: its rows place the ranges they name           |
 
 ## Pipeline
 
@@ -175,12 +177,17 @@ flowchart LR
 ### Geofeeds
 
 - **Found** through `geofeed:` and `remarks: Geofeed …` on RIPE, APNIC and AFRINIC
-  objects, plus LACNIC's consolidated feed.
+  objects, plus LACNIC's consolidated feed and feeds marked `geofeed` (Cloudflare
+  WARP, iCloud Private Relay, Starlink, hosters).
 - **Vouched:** a row counts only inside the referencing object, or inside any object of
-  the same `org`. Rows claiming someone else's space are dropped.
+  the same `org`. Rows claiming someone else's space are dropped. Feeds marked
+  `geofeed` are vouched by the operator publishing them.
 - **Placed** at a GeoNames city: name within the row's ISO region first, then the
   country; alternate names count, so `Muenchen` and `Göteborg` match.
-- **Nested** feeds: the narrowest row wins. Snapped like every source to /24 and /40.
+- **Nested** feeds: the narrowest row wins.
+- **Exact:** rows narrower than /24 or /40 keep their own boundaries in builds with
+  coordinates; every other source, and builds without coordinates, snap to /24 and
+  /40. WARP and relay /32s land on their own city.
 - Against the rows themselves, city agreement rises from 59% to 80% on v4 and from 44%
   to 78% on v6.
 
@@ -203,7 +210,8 @@ two sources settle cheaply. Geofeed rows are never outvoted.
 ### Abuse scoring
 
 - **Record:** strongest claim wins: best evidence, then most specific service, `weak`
-  claims last.
+  claims last. The narrowest range names the user type: a crawler inside AWS reads
+  `search_engine_spider`, not `hosting`.
 - **Risk:** max within a feed `group`, noisy-OR across groups.
 - **Service floor:** risk never drops below what the service itself is worth:
 

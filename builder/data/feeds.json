@@ -161,6 +161,7 @@
     },
     {
         "name": "starlink_geofeed",
+        "geofeed": true,
         "provider": "Starlink",
         "url": "https://geoip.starlinkisp.net/feed.csv",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
@@ -185,6 +186,7 @@
     },
     {
         "name": "apple_relay",
+        "geofeed": true,
         "provider": "iCloud Private Relay",
         "url": "https://mask-api.icloud.com/egress-ip-ranges.csv",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
@@ -194,6 +196,7 @@
     },
     {
         "name": "cloudflare_warp",
+        "geofeed": true,
         "url": "https://api.cloudflare.com/warp-egress-ip-ranges.csv",
         "provider": "Cloudflare WARP",
         "regex": "^([0-9a-fA-F:.]+/\\d+),",
@@ -786,6 +789,7 @@
     },
     {
         "name": "digitalocean",
+        "geofeed": true,
         "provider": "DigitalOcean",
         "url": "https://digitalocean.com/geo/google.csv",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
@@ -807,6 +811,7 @@
     },
     {
         "name": "exoscale",
+        "geofeed": true,
         "provider": "Exoscale",
         "url": "https://exoscale-prefixes.sos.exo.io/exoscale_geofeed",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
@@ -814,6 +819,7 @@
     },
     {
         "name": "hostinger",
+        "geofeed": true,
         "provider": "Hostinger",
         "url": "https://raw.githubusercontent.com/hostinger/geofeed/main/geofeed.csv",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
@@ -821,6 +827,7 @@
     },
     {
         "name": "upcloud",
+        "geofeed": true,
         "provider": "UpCloud",
         "url": "https://upcloud.com/geofeed.csv",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
@@ -828,6 +835,7 @@
     },
     {
         "name": "equinix_metal",
+        "geofeed": true,
         "provider": "Equinix Metal",
         "url": "https://geofeed.equinixmetal.com/",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
@@ -835,6 +843,7 @@
     },
     {
         "name": "cherryservers",
+        "geofeed": true,
         "provider": "Cherry Servers",
         "url": "https://geofeed.cherryservers.com/geofeed.csv",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
@@ -849,6 +858,7 @@
     },
     {
         "name": "linode_geofeed",
+        "geofeed": true,
         "provider": "Akamai Linode",
         "url": "https://geoip.linode.com/",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
@@ -856,6 +866,7 @@
     },
     {
         "name": "vultr_geofeed",
+        "geofeed": true,
         "provider": "Vultr",
         "url": "https://geofeed.constant.com/",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",

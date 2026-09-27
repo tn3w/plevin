@@ -13,7 +13,7 @@ No API, no rate limit, no lookup leaving the machine.
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2&label=npm)](https://www.npmjs.com/package/plevinjs)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](LICENSE)
 [![Fields](https://img.shields.io/badge/fields-101-6f42c1)](#fields)
-[![Boundaries](https://img.shields.io/badge/boundaries-3.0M-6f42c1)](#data)
+[![Boundaries](https://img.shields.io/badge/boundaries-4.1M-6f42c1)](#data)
 [![Warm](https://img.shields.io/badge/warm%20lookups-2M%2Fs-2ea043)](python/README.md#speed)
 
 [Python](python/README.md) · [JavaScript](js/README.md) · [Builder](builder/README.md) ·
@@ -52,8 +52,8 @@ One file per build, rebuilt daily. Pick the smallest one that answers your quest
 
 | build   | pip extra         | size    | carries                                  |
 | ------- | ----------------- | ------- | ---------------------------------------- |
-| full    | `plevin[db]`      | 17.3 MB | every field                              |
-| place   | `plevin[place]`   | 5.4 MB  | city, region, postal, coordinates, metro |
+| full    | `plevin[db]`      | 18.2 MB | every field                              |
+| place   | `plevin[place]`   | 6.3 MB  | city, region, postal, coordinates, metro |
 | network | `plevin[network]` | 7.0 MB  | ASN, operator, routing                   |
 | abuse   | `plevin[abuse]`   | 4.1 MB  | abuse level, service and provider        |
 | country | `plevin[country]` | 378 KB  | country code                             |
@@ -146,8 +146,8 @@ python plevin_mini.py plevin.plv 8.8.8.8
 
 | rows              | count                                   |
 | ----------------- | --------------------------------------- |
-| v4 boundaries     | 2,848,750, plus 4,513,313 host overrides |
-| v6 boundaries     | 451,590                                 |
+| v4 boundaries     | 3,153,872, plus 4,513,368 host overrides |
+| v6 boundaries     | 896,417                                 |
 | cities            | 76,867 in 3,175 regions                 |
 | districts, metros | 19,997 and 210                          |
 | ASNs, networks    | 86,164 and 148,809 (registry holders included) |

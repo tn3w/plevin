@@ -19,6 +19,7 @@ pub struct Point {
 pub struct Places {
     pub points: Vec<Point>,
     pub runs: [Vec<(u128, u32)>; 2],
+    pub blocks: [Vec<(u128, u32)>; 2],
 }
 
 const DEGREES: f64 = 10_000.0;
@@ -57,6 +58,7 @@ impl Places {
             metros: HashMap::new(),
         };
         let mut runs = [Vec::new(), Vec::new()];
+        let mut blocks = [Vec::new(), Vec::new()];
         for (family, wide) in [(0, false), (1, true)] {
             let measured =
                 fine.as_ref().map(|held| held.ranges(wide)).unwrap_or_default();
@@ -64,11 +66,16 @@ impl Places {
             let voting = third.as_ref().map(|held| held.ranges(wide)).unwrap_or_default();
             let lists = [&declared[family][..], &measured, &backing, &voting];
             let mut segments = Vec::new();
+            let mut exact = Vec::new();
             walk(lists, ceiling(family), |first, last, held| {
                 let point = interning.resolve(held, last - first + 1);
                 segments.push((first, last, point));
+                if held[0].is_some() && (last - first) >> BLOCK[family] == 0 {
+                    exact.push((first, last, point));
+                }
             });
-            runs[family] = collapse(&segments, BLOCK[family]);
+            blocks[family] = collapse(&segments, BLOCK[family]);
+            runs[family] = refine(&blocks[family], &exact, ceiling(family));
         }
         let floors = interning.floors();
         let Interning { mut points, weight, metros, .. } = interning;
@@ -89,7 +96,7 @@ impl Places {
                 gazetteer.cities[city as usize].metro = *row;
             }
         }
-        Places { points, runs }
+        Places { points, runs, blocks }
     }
 }
 
@@ -238,8 +245,12 @@ impl Interning<'_> {
 
 fn declared(inputs: &Path, gazetteer: &Gazetteer) -> [Vec<Coarse>; 2] {
     let authorities = authorities(inputs);
+    let published = published();
+    let feeds = published.iter().flat_map(|name| {
+        read::lines(&inputs.join(name)).map(move |line| format!("{name},{line}"))
+    });
     let mut spans: [Vec<(u128, u128, u8, u32)>; 2] = [Vec::new(), Vec::new()];
-    for line in read::lines(&inputs.join("geofeeds")) {
+    for line in read::lines(&inputs.join("geofeeds")).chain(feeds) {
         let row: Vec<&str> = line.split(',').map(str::trim).collect();
         if row.len() < 5 || row[4].is_empty() {
             continue;
@@ -248,7 +259,7 @@ fn declared(inputs: &Path, gazetteer: &Gazetteer) -> [Vec<Coarse>; 2] {
         let vouched = authorities
             .get(&(row[0].to_string(), wide))
             .is_some_and(|held| inside(held, first, last));
-        if !vouched && row[0] != LACNIC {
+        if !vouched && row[0] != LACNIC && !published.iter().any(|name| name == row[0]) {
             continue;
         }
         let code = two(&row[2].to_uppercase());
@@ -278,6 +289,15 @@ fn declared(inputs: &Path, gazetteer: &Gazetteer) -> [Vec<Coarse>; 2] {
         }
         rows
     })
+}
+
+fn published() -> Vec<String> {
+    let listed = read::data("feeds.json");
+    let feeds = listed.as_array().into_iter().flatten();
+    feeds
+        .filter(|entry| entry["geofeed"].as_bool() == Some(true))
+        .filter_map(|entry| entry["name"].as_str().map(String::from))
+        .collect()
 }
 
 fn authorities(inputs: &Path) -> Authorities {
@@ -356,6 +376,41 @@ fn walk<const N: usize>(
         }
         at = stop + 1;
     }
+}
+
+fn refine(
+    runs: &[(u128, u32)],
+    exact: &[(u128, u128, u32)],
+    ceiling: u128,
+) -> Vec<(u128, u32)> {
+    let mut spliced: Vec<(u128, u32)> = Vec::with_capacity(runs.len() + exact.len() * 2);
+    let (mut spot, mut standing) = (0, 0);
+    for &(first, last, point) in exact {
+        while let Some(&(start, held)) = runs.get(spot).filter(|run| run.0 < first) {
+            spliced.push((start, held));
+            standing = held;
+            spot += 1;
+        }
+        spliced.push((first, point));
+        while let Some(&(_, held)) = runs.get(spot).filter(|run| run.0 <= last) {
+            standing = held;
+            spot += 1;
+        }
+        if last < ceiling && runs.get(spot).map(|run| run.0) != Some(last + 1) {
+            spliced.push((last + 1, standing));
+        }
+    }
+    spliced.extend_from_slice(&runs[spot..]);
+    let mut held: Vec<(u128, u32)> = Vec::with_capacity(spliced.len());
+    for run in spliced {
+        if held.last().is_some_and(|last| last.0 == run.0) {
+            held.pop();
+        }
+        if held.last().map(|last| last.1) != Some(run.1) {
+            held.push(run);
+        }
+    }
+    held
 }
 
 fn collapse(segments: &[(u128, u128, u32)], shift: u32) -> Vec<(u128, u32)> {

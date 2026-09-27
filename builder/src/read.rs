@@ -33,7 +33,7 @@ pub fn slurp(path: &Path) -> String {
     String::from_utf8_lossy(&raw(path)).into_owned()
 }
 
-pub fn lines(path: &Path) -> impl Iterator<Item = String> {
+pub fn lines(path: &Path) -> impl Iterator<Item = String> + use<> {
     let handle = File::open(path).ok();
     if handle.is_none() {
         eprintln!("missing {}", path.display());

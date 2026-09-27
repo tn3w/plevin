@@ -764,7 +764,7 @@ fn carried(
         };
         push_changed(&mut runs, at, stored);
         match whole.last() {
-            Some((_, _, last)) if *last == answer => {}
+            Some((_, kept, last)) if *last == answer && kept.trusted == held.trusted => {}
             _ => whole.push((at, held.clone(), answer)),
         }
     });
@@ -815,32 +815,34 @@ fn overlay(
     sources: &[Source],
     ceiling: u128,
 ) -> Vec<(u128, Folded)> {
-    let mut events: Vec<(u128, bool, u16)> = Vec::with_capacity(claims.len() * 2);
+    let mut events: Vec<(u128, bool, u128, u16)> = Vec::with_capacity(claims.len() * 2);
     for (first, last, source) in claims {
-        events.push((*first, true, *source));
+        let width = last - first;
+        events.push((*first, true, width, *source));
         if *last < ceiling {
-            events.push((*last + 1, false, *source));
+            events.push((*last + 1, false, width, *source));
         }
     }
     events.sort_unstable();
-    let mut active: Vec<u16> = Vec::new();
+    let mut active: Vec<(u128, u16)> = Vec::new();
     let mut runs: Vec<(u128, Folded)> = vec![(0, Folded::default())];
     let mut at = 0;
     while at < events.len() {
         let here = events[at].0;
         while at < events.len() && events[at].0 == here {
-            let (_, opening, source) = events[at];
-            match (opening, active.iter().position(|held| *held == source)) {
-                (true, _) => active.push(source),
-                (false, Some(spot)) => {
-                    active.swap_remove(spot);
+            let (_, opening, width, source) = events[at];
+            let claim = (width, source);
+            match (opening, active.binary_search(&claim)) {
+                (true, Ok(spot) | Err(spot)) => active.insert(spot, claim),
+                (false, Ok(spot)) => {
+                    active.remove(spot);
                 }
-                (false, None) => {}
+                (false, Err(_)) => {}
             }
             at += 1;
         }
         let mut held = Folded::default();
-        for source in &active {
+        for (_, source) in &active {
             held.take(&sources[*source as usize]);
         }
         runs.push((here, held));

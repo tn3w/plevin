@@ -132,6 +132,7 @@ jobs:
                 awk '{ print $1 }' | sort -u > held
               mv held "$name"
             done
+          jq -r '.[].name' $feeds | xargs wc -c 2>/dev/null | sort -n | sed 's/^/size /' || true
 
       - name: Build database
         working-directory: builder

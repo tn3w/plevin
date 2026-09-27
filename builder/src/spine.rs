@@ -48,6 +48,7 @@ pub struct World {
     pub systems: Systems,
     pub records: Records,
     pub spine: [Vec<(u128, Stop)>; 2],
+    pub blocks: [Vec<(u128, Stop)>; 2],
 }
 
 #[derive(Default)]
@@ -109,15 +110,26 @@ impl World {
         systems: Systems,
         records: Records,
     ) -> World {
-        let spine = [0, 1].map(|family| {
-            assemble(
-                &places.runs[family],
-                &systems.runs[family],
-                &records.spans[family],
-                &records.effective[family],
-            )
-        });
-        World { gazetteer, places, systems, records, spine }
+        let over = |runs: &[Vec<(u128, u32)>; 2]| {
+            [0, 1].map(|family| {
+                assemble(
+                    &runs[family],
+                    &systems.runs[family],
+                    &records.spans[family],
+                    &records.effective[family],
+                )
+            })
+        };
+        let spine = over(&places.runs);
+        let blocks = over(&places.blocks);
+        World { gazetteer, places, systems, records, spine, blocks }
+    }
+
+    fn spine_of(&self, selection: &Selection) -> &[Vec<(u128, Stop)>; 2] {
+        match selection.has("place.lat") {
+            true => &self.spine,
+            false => &self.blocks,
+        }
     }
 
     pub fn write(&self, selection: &Selection) -> Written {
@@ -184,7 +196,7 @@ impl World {
     }
 
     fn named(&self, family: usize, selection: &Selection) -> Vec<bool> {
-        let mut out = vec![true; self.spine[family].len()];
+        let mut out = vec![true; self.spine_of(selection)[family].len()];
         if !selection.sparse {
             return out;
         }
@@ -198,13 +210,13 @@ impl World {
                     && !matches!(kept, Some(Some(only)) if !only.contains(&service))
             }),
         };
-        for (at, (_, stop)) in self.spine[family].iter().enumerate() {
+        for (at, (_, stop)) in self.spine_of(selection)[family].iter().enumerate() {
             out[at] = serving(if falls { stop.abuse } else { stop.whole + 1 });
         }
         for (address, row) in &self.records.hosts[family] {
             if serving(row + 1) {
-                let at =
-                    self.spine[family].partition_point(|(start, _)| start <= address);
+                let at = self.spine_of(selection)[family]
+                    .partition_point(|(start, _)| start <= address);
                 if let Some(spot) = at.checked_sub(1) {
                     out[spot] = true;
                 }
@@ -244,7 +256,7 @@ impl World {
             slabs.iter().map(|slab| (slab.name, slab.keep.clone())).collect();
         touch(wanted.get_mut("abuse").unwrap(), 1);
         for (family, holds) in named.iter().enumerate() {
-            for (at, (_, stop)) in self.spine[family].iter().enumerate() {
+            for (at, (_, stop)) in self.spine_of(selection)[family].iter().enumerate() {
                 touch(wanted.get_mut("place").unwrap(), stop.place);
                 if holds[at] {
                     touch(wanted.get_mut("network").unwrap(), stop.network);
@@ -441,7 +453,8 @@ impl World {
         let falls = selection.has("network.abuse");
         [0, 1].map(|family| {
             let mut out: Vec<(u128, Stop)> = Vec::new();
-            for (spot, (at, stop)) in self.spine[family].iter().enumerate() {
+            for (spot, (at, stop)) in self.spine_of(selection)[family].iter().enumerate()
+            {
                 let record = match (selection.table("abuse"), falls) {
                     (false, _) => 0,
                     (true, true) => held("abuse").link(stop.abuse),

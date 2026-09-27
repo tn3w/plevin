@@ -50,8 +50,8 @@ installed, the richest wins.
 
 | extra             | size    | carries                                  |
 | ----------------- | ------- | ---------------------------------------- |
-| `plevin[db]`      | 17.3 MB | every field                              |
-| `plevin[place]`   | 5.4 MB  | city, region, postal, coordinates, metro |
+| `plevin[db]`      | 18.2 MB | every field                              |
+| `plevin[place]`   | 6.3 MB  | city, region, postal, coordinates, metro |
 | `plevin[network]` | 7.0 MB  | ASN, operator, routing                   |
 | `plevin[abuse]`   | 4.1 MB  | abuse level, service and provider        |
 | `plevin[country]` | 378 KB  | country code                             |
