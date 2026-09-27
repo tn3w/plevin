@@ -170,8 +170,8 @@
     {
         "name": "tor_onionoo",
         "provider": "Tor",
-        "url": "https://onionoo.torproject.org/details?type=relay&fields=or_addresses,exit_addresses",
-        "regex": "\"(?:\\[)?([0-9a-fA-F:.]+)(?:\\])?:[0-9]+\"",
+        "url": "https://onionoo.torproject.org/details?type=relay&flag=Exit&running=true&fields=or_addresses,exit_addresses",
+        "regex": "\"\\[?([0-9a-fA-F:.]+?)\\]?(?::[0-9]+)?\"",
         "service": "tor_exit_node",
         "evidence": "measured"
     },
@@ -189,6 +189,14 @@
         "url": "https://mask-api.icloud.com/egress-ip-ranges.csv",
         "regex": "^([0-9a-fA-F:.]+/\\d+)",
         "user": "residential",
+        "service": "private_relay",
+        "evidence": "published"
+    },
+    {
+        "name": "cloudflare_warp",
+        "url": "https://api.cloudflare.com/warp-egress-ip-ranges.csv",
+        "provider": "Cloudflare WARP",
+        "regex": "^([0-9a-fA-F:.]+/\\d+),",
         "service": "private_relay",
         "evidence": "published"
     },
@@ -214,7 +222,8 @@
         "url": "https://raw.githubusercontent.com/sudesh0sudesh/ExpressVPN-IPs/refs/heads/main/express_ips.csv",
         "regex": "^([0-9a-fA-F:.]+)",
         "service": "anonymous_vpn",
-        "evidence": "published"
+        "evidence": "published",
+        "aged": true
     },
     {
         "name": "surfshark",
@@ -222,7 +231,8 @@
         "url": "https://raw.githubusercontent.com/sudesh0sudesh/surfshark-IPs/refs/heads/main/surfshark_ips.csv",
         "regex": "^([0-9a-fA-F:.]+)",
         "service": "anonymous_vpn",
-        "evidence": "published"
+        "evidence": "published",
+        "aged": true
     },
     {
         "name": "pia",
@@ -286,7 +296,8 @@
         "url": "https://raw.githubusercontent.com/sudesh0sudesh/PIA-IPs/main/cyberghost_ips.csv",
         "regex": "^([0-9a-fA-F:.]+),",
         "service": "anonymous_vpn",
-        "evidence": "published"
+        "evidence": "published",
+        "aged": true
     },
     {
         "name": "astrill",
@@ -302,7 +313,8 @@
         "url": "https://raw.githubusercontent.com/sudesh0sudesh/TorGuardIPs/main/torguard-ips.csv",
         "regex": "^([0-9a-fA-F:.]+),",
         "service": "anonymous_vpn",
-        "evidence": "published"
+        "evidence": "published",
+        "aged": true
     },
     {
         "name": "vpngate",
@@ -317,6 +329,162 @@
         "provider": "Riseup VPN",
         "url": "https://api.black.riseup.net/3/config/eip-service.json",
         "regex": "\"ip_address\":\\s*\"([0-9a-fA-F:.]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "surfshark_servers",
+        "url": "https://api.surfshark.com/v4/server/clusters/all",
+        "hosts": "[a-z0-9-]+\\.prod\\.surfshark\\.com",
+        "provider": "Surfshark",
+        "regex": "^([0-9a-fA-F:.]+)$",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "hideme_servers",
+        "url": "https://api.hide.me/v1/network/paid/en",
+        "hosts": "[a-z0-9-]+\\.hideservers\\.net",
+        "provider": "hide.me",
+        "regex": "^([0-9a-fA-F:.]+)$",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "azirevpn_servers",
+        "url": "https://api.azirevpn.com/v3/locations",
+        "hosts": "[a-z0-9-]+\\.azirevpn\\.net",
+        "provider": "AzireVPN",
+        "regex": "^([0-9a-fA-F:.]+)$",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_cyberghost",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/cyberghost.json",
+        "provider": "CyberGhost",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_expressvpn",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/expressvpn.json",
+        "provider": "ExpressVPN",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_fastestvpn",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/fastestvpn.json",
+        "provider": "FastestVPN",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_giganews",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/giganews.json",
+        "provider": "Giganews VPN",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_hidemyass",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/hidemyass.json",
+        "provider": "HideMyAss",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published",
+        "aged": true
+    },
+    {
+        "name": "gluetun_ipvanish",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/ipvanish.json",
+        "provider": "IPVanish",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_privado",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/privado.json",
+        "provider": "PrivadoVPN",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_privatevpn",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/privatevpn.json",
+        "provider": "PrivateVPN",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_purevpn",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/purevpn.json",
+        "provider": "PureVPN",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_slickvpn",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/slickvpn.json",
+        "provider": "SlickVPN",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_surfshark",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/surfshark.json",
+        "provider": "Surfshark",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_torguard",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/torguard.json",
+        "provider": "TorGuard",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_vpn_unlimited",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/vpn%20unlimited.json",
+        "provider": "VPN Unlimited",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_vpnsecure",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/vpnsecure.json",
+        "provider": "VPNSecure",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_vyprvpn",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/vyprvpn.json",
+        "provider": "VyprVPN",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
+        "service": "anonymous_vpn",
+        "evidence": "published"
+    },
+    {
+        "name": "gluetun_windscribe",
+        "url": "https://raw.githubusercontent.com/qdm12/gluetun-servers/main/pkg/servers/windscribe.json",
+        "provider": "Windscribe",
+        "regex": "\"((?:[0-9]{1,3}\\.){3}[0-9]{1,3}|[0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)\"",
         "service": "anonymous_vpn",
         "evidence": "published"
     },
@@ -368,7 +536,7 @@
         "regex": "^([0-9.]+(?:/\\d+)?)",
         "service": "public_proxy",
         "evidence": "reported",
-        "aggregate": true
+        "aged": true
     },
     {
         "name": "thespeedx_http",
@@ -392,13 +560,6 @@
         "evidence": "reported"
     },
     {
-        "name": "jetkai_proxy",
-        "url": "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies.txt",
-        "regex": "^([0-9.]+):\\d+",
-        "service": "public_proxy",
-        "evidence": "reported"
-    },
-    {
         "name": "hideip_me",
         "url": "https://raw.githubusercontent.com/zloi-user/hideip.me/main/connect.txt",
         "regex": "^([0-9.]+):\\d+",
@@ -413,6 +574,34 @@
         "evidence": "reported"
     },
     {
+        "name": "socks_proxy",
+        "url": "https://iplists.firehol.org/files/socks_proxy_7d.ipset",
+        "regex": "^([0-9.]+)$",
+        "service": "public_proxy",
+        "evidence": "reported"
+    },
+    {
+        "name": "sslproxies",
+        "url": "https://iplists.firehol.org/files/sslproxies_7d.ipset",
+        "regex": "^([0-9.]+)$",
+        "service": "public_proxy",
+        "evidence": "reported"
+    },
+    {
+        "name": "vakhov_proxy",
+        "url": "https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/proxylist.txt",
+        "regex": "^([0-9.]+):\\d+",
+        "service": "public_proxy",
+        "evidence": "reported"
+    },
+    {
+        "name": "mmpx12_proxy",
+        "url": "https://raw.githubusercontent.com/mmpx12/proxy-list/master/proxies.txt",
+        "regex": "://([0-9.]+):\\d+",
+        "service": "public_proxy",
+        "evidence": "reported"
+    },
+    {
         "name": "ip2proxy_px11",
         "url": "https://www.ip2location.com/download/?token={IP2LOCATION_TOKEN}&file=PX11LITECSV",
         "format": "px11",
@@ -423,84 +612,96 @@
         "provider": "Googlebot",
         "url": "https://developers.google.com/static/search/apis/ipranges/googlebot.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "google_special_crawlers",
         "provider": "Google",
         "url": "https://developers.google.com/static/search/apis/ipranges/special-crawlers.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "bingbot",
         "provider": "Bingbot",
         "url": "https://www.bing.com/toolbox/bingbot.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "applebot",
         "provider": "Applebot",
         "url": "https://search.developer.apple.com/applebot.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "duckduckbot",
         "provider": "DuckDuckBot",
         "url": "https://duckduckgo.com/duckduckbot.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "openai_gptbot",
         "provider": "OpenAI GPTBot",
         "url": "https://openai.com/gptbot.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "openai_searchbot",
         "provider": "OpenAI SearchBot",
         "url": "https://openai.com/searchbot.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "perplexity_bot",
         "provider": "PerplexityBot",
         "url": "https://www.perplexity.com/perplexitybot.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "ahrefs",
         "provider": "AhrefsBot",
         "url": "https://api.ahrefs.com/v3/public/crawler-ip-ranges",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "google_fetchers",
         "provider": "Google",
         "url": "https://developers.google.com/static/search/apis/ipranges/user-triggered-fetchers.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "google_fetchers_own",
         "provider": "Google",
         "url": "https://developers.google.com/static/search/apis/ipranges/user-triggered-fetchers-google.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "openai_chatgpt_user",
         "provider": "OpenAI ChatGPT-User",
         "url": "https://openai.com/chatgpt-user.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "search_engine_spider"
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "duckassistbot",
@@ -508,6 +709,38 @@
         "url": "https://raw.githubusercontent.com/lord-alfred/ipranges/main/duckassistbot/ipv4.txt",
         "regex": "^([0-9.]+/\\d+)",
         "user": "search_engine_spider"
+    },
+    {
+        "name": "perplexity_user",
+        "url": "https://www.perplexity.com/perplexity-user.json",
+        "provider": "Perplexity-User",
+        "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
+        "user": "search_engine_spider",
+        "trusted": true
+    },
+    {
+        "name": "kagibot",
+        "url": "https://kagi.com/bot",
+        "provider": "Kagibot",
+        "regex": "((?:[0-9]{1,3}\\.){3}[0-9]{1,3})\\s+\\S*kagibot",
+        "user": "search_engine_spider",
+        "trusted": true
+    },
+    {
+        "name": "ccbot",
+        "url": "https://index.commoncrawl.org/ccbot.json",
+        "provider": "CCBot",
+        "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
+        "user": "search_engine_spider",
+        "trusted": true
+    },
+    {
+        "name": "mistral_user",
+        "url": "https://mistral.ai/mistralai-user-ips.json",
+        "provider": "MistralAI-User",
+        "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
+        "user": "search_engine_spider",
+        "trusted": true
     },
     {
         "name": "aws",
@@ -542,6 +775,13 @@
         "provider": "Oracle Cloud",
         "url": "https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json",
         "regex": "\"cidr\":\\s*\"([^\"]+)\"",
+        "user": "hosting"
+    },
+    {
+        "name": "ibm_cloud",
+        "url": "https://raw.githubusercontent.com/dprosper/cidr-calculator/main/data/datacenters.json",
+        "provider": "IBM Cloud",
+        "regex": "\"((?:[1-9]|1[1-9]|[2-9][0-9]|[12][0-9][0-9])\\.[0-9.]+/[0-9]+)\"",
         "user": "hosting"
     },
     {
@@ -633,49 +873,72 @@
         "provider": "Cloudflare",
         "url": "https://www.cloudflare.com/ips-v4/",
         "regex": "^([0-9.]+/\\d+)",
-        "user": "cdn"
+        "user": "cdn",
+        "trusted": true
     },
     {
         "name": "cloudflare_v6",
         "provider": "Cloudflare",
         "url": "https://www.cloudflare.com/ips-v6/",
         "regex": "^([0-9a-fA-F:]+/\\d+)",
-        "user": "cdn"
+        "user": "cdn",
+        "trusted": true
     },
     {
         "name": "fastly",
         "provider": "Fastly",
         "url": "https://api.fastly.com/public-ip-list",
         "regex": "\"([0-9a-fA-F:.]+/\\d{1,3})\"",
-        "user": "cdn"
+        "user": "cdn",
+        "trusted": true
     },
     {
         "name": "cloudfront",
         "provider": "Amazon CloudFront",
         "url": "https://d7uri8nf7uskq.cloudfront.net/tools/list-cloudfront-ips",
         "regex": "\"([0-9a-fA-F:.]+/\\d{1,3})\"",
-        "user": "cdn"
+        "user": "cdn",
+        "trusted": true
     },
     {
         "name": "bunny_cdn",
         "provider": "Bunny CDN",
         "url": "https://api.bunny.net/system/edgeserverlist",
         "regex": "\"([0-9.]+)\"",
-        "user": "cdn"
+        "user": "cdn",
+        "trusted": true
     },
     {
         "name": "cachefly",
         "provider": "CacheFly",
         "url": "https://cachefly.cachefly.net/ips/cdn.txt",
         "regex": "^([0-9.]+/\\d+)",
-        "user": "cdn"
+        "user": "cdn",
+        "trusted": true
+    },
+    {
+        "name": "gcore",
+        "url": "https://api.gcore.com/cdn/public-ip-list",
+        "provider": "Gcore",
+        "regex": "\"([0-9a-fA-F:.]+/\\d{1,3})\"",
+        "user": "cdn",
+        "trusted": true
+    },
+    {
+        "name": "imperva",
+        "url": "https://my.imperva.com/api/integration/v1/ips",
+        "provider": "Imperva",
+        "regex": "\"([0-9a-fA-F:.]+/\\d{1,3})\"",
+        "user": "cdn",
+        "trusted": true
     },
     {
         "name": "google_services",
         "provider": "Google",
         "url": "https://www.gstatic.com/ipranges/goog.json",
         "regex": "\"ipv[46]Prefix\":\\s*\"([0-9a-fA-F:.]+/\\d+)\"",
-        "user": "content"
+        "user": "content",
+        "weak": true
     },
     {
         "name": "meta",
@@ -699,6 +962,61 @@
         "user": "content"
     },
     {
+        "name": "yandex",
+        "url": "https://yandex.com/ips",
+        "provider": "Yandex",
+        "regex": "((?:[0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2})",
+        "user": "content"
+    },
+    {
+        "name": "atlassian",
+        "url": "https://ip-ranges.atlassian.com/",
+        "provider": "Atlassian",
+        "regex": "\"cidr\":\\s*\"([^\"]+)\"",
+        "user": "content"
+    },
+    {
+        "name": "zoom",
+        "url": "https://assets.zoom.us/docs/ipranges/Zoom.txt",
+        "provider": "Zoom",
+        "regex": "^([0-9a-fA-F:.]+/\\d+)",
+        "user": "content"
+    },
+    {
+        "name": "okta",
+        "url": "https://s3.amazonaws.com/okta-ip-ranges/ip_ranges.json",
+        "provider": "Okta",
+        "regex": "\"([0-9a-fA-F:.]+/\\d{1,3})\"",
+        "user": "content"
+    },
+    {
+        "name": "salesforce",
+        "url": "https://ip-ranges.salesforce.com/ip-ranges.json",
+        "provider": "Salesforce",
+        "regex": "\"([0-9a-fA-F:.]+/\\d{1,3})\"",
+        "user": "content"
+    },
+    {
+        "name": "stripe_api",
+        "url": "https://stripe.com/files/ips/ips_api.txt",
+        "provider": "Stripe",
+        "regex": "^([0-9a-fA-F:.]+)",
+        "user": "content"
+    },
+    {
+        "name": "stripe_webhooks",
+        "url": "https://stripe.com/files/ips/ips_webhooks.txt",
+        "provider": "Stripe",
+        "regex": "^([0-9a-fA-F:.]+)",
+        "user": "content"
+    },
+    {
+        "name": "peeringdb_ixpfx",
+        "url": "https://www.peeringdb.com/api/ixpfx",
+        "regex": "\"prefix\":\\s*\"([^\"]+)\"",
+        "user": "exchange"
+    },
+    {
         "name": "x4bnet_datacenter",
         "url": "https://raw.githubusercontent.com/X4BNet/lists_vpn/main/output/datacenter/ipv4.txt",
         "regex": "^([0-9.]+(?:/\\d+)?)",
@@ -716,6 +1034,13 @@
         "name": "firehol_datacenters",
         "url": "https://iplists.firehol.org/files/datacenters.netset",
         "regex": "^([0-9a-fA-F:.]+(?:/\\d+)?)",
+        "user": "hosting",
+        "weak": true
+    },
+    {
+        "name": "jhassine_datacenters",
+        "url": "https://raw.githubusercontent.com/jhassine/server-ip-addresses/master/data/datacenters.txt",
+        "regex": "^([0-9.]+(?:/\\d+)?)",
         "user": "hosting",
         "weak": true
     },
@@ -754,6 +1079,7 @@
         "name": "feodotracker",
         "url": "https://feodotracker.abuse.ch/downloads/ipblocklist.txt",
         "regex": "^([0-9a-fA-F:.]+(?:/\\d+)?)",
+        "threat": "botnet",
         "risk": 0.85,
         "group": "abusech",
         "window": 30
@@ -762,6 +1088,7 @@
         "name": "threatfox",
         "url": "https://threatfox.abuse.ch/export/csv/ip-port/recent/",
         "regex": "\"([0-9.]+):\\d+\"",
+        "threat": "botnet",
         "risk": 0.85,
         "group": "abusech",
         "window": 7
@@ -770,6 +1097,7 @@
         "name": "urlhaus",
         "url": "https://urlhaus.abuse.ch/downloads/text_online/",
         "regex": "https?://(\\[?[0-9a-fA-F:.]+\\]?)(?::\\d+)?/",
+        "threat": "malware",
         "risk": 0.75,
         "group": "abusech",
         "window": 7
@@ -778,6 +1106,7 @@
         "name": "drb_ra_c2",
         "url": "https://raw.githubusercontent.com/drb-ra/C2IntelFeeds/master/feeds/IPC2s-30day.csv",
         "regex": "^([0-9.]+)",
+        "threat": "botnet",
         "risk": 0.8,
         "group": "c2intel",
         "window": 30
@@ -786,6 +1115,7 @@
         "name": "phishing_active",
         "url": "https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/master/phishing-IPs-ACTIVE.txt",
         "regex": "^([0-9.]+)",
+        "threat": "phishing",
         "risk": 0.7,
         "group": "phishingdb",
         "window": 7
@@ -875,6 +1205,7 @@
         "name": "stopforumspam",
         "url": "https://www.stopforumspam.com/downloads/toxic_ip_cidr.txt",
         "regex": "^([0-9.]+/\\d+)",
+        "threat": "spam",
         "risk": 0.4,
         "group": "stopforumspam",
         "window": 90
@@ -883,8 +1214,140 @@
         "name": "sblam",
         "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/sblam.ipset",
         "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "spam",
         "risk": 0.5,
         "group": "sblam",
+        "window": 7
+    },
+    {
+        "name": "bruteforceblocker",
+        "url": "http://danger.rulez.sk/projects/bruteforceblocker/blist.php",
+        "regex": "^([0-9.]+)\\s",
+        "threat": "bruteforce",
+        "risk": 0.45,
+        "group": "bruteforceblocker",
+        "window": 30
+    },
+    {
+        "name": "threatview",
+        "url": "https://threatview.io/Downloads/IP-High-Confidence-Feed.txt",
+        "regex": "^([0-9.]+)$",
+        "risk": 0.6,
+        "group": "threatview",
+        "window": 7
+    },
+    {
+        "name": "interserver",
+        "url": "https://sigs.interserver.net/ipslim.txt",
+        "regex": "^([0-9.]+)$",
+        "risk": 0.5,
+        "group": "interserver",
+        "window": 7
+    },
+    {
+        "name": "datashield",
+        "url": "https://raw.githubusercontent.com/duggytuxy/Data-Shield_IPv4_Blocklist/main/prod_data-shield_ipv4_blocklist.txt",
+        "regex": "^([0-9.]+)$",
+        "risk": 0.45,
+        "group": "datashield",
+        "window": 30
+    },
+    {
+        "name": "ipthreat",
+        "url": "https://lists.ipthreat.net/file/ipthreat-lists/threat/threat-50.txt.gz",
+        "regex": "^([0-9a-fA-F:.]+(?:/\\d+)?)\\s",
+        "risk": 0.6,
+        "group": "ipthreat",
+        "window": 7
+    },
+    {
+        "name": "isc_top",
+        "url": "https://isc.sans.edu/api/sources/attacks/5000/?json",
+        "regex": "\"ip\":\"([0-9.]+)\"",
+        "threat": "scanner",
+        "risk": 0.35,
+        "group": "dshield",
+        "window": 30
+    },
+    {
+        "name": "tweetfeed",
+        "url": "https://api.tweetfeed.live/v1/month/ip",
+        "regex": "\"value\":\\s*\"([0-9a-fA-F:.]+)\"",
+        "threat": "malware",
+        "risk": 0.6,
+        "group": "tweetfeed",
+        "window": 30
+    },
+    {
+        "name": "honeypot_harvesters",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/php_harvesters_30d.ipset",
+        "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "spam",
+        "risk": 0.45,
+        "group": "projecthoneypot",
+        "window": 30
+    },
+    {
+        "name": "honeypot_spammers",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/php_spammers_30d.ipset",
+        "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "spam",
+        "risk": 0.45,
+        "group": "projecthoneypot",
+        "window": 30
+    },
+    {
+        "name": "honeypot_commenters",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/php_commenters_30d.ipset",
+        "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "spam",
+        "risk": 0.4,
+        "group": "projecthoneypot",
+        "window": 30
+    },
+    {
+        "name": "honeypot_dictionary",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/php_dictionary_30d.ipset",
+        "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "bruteforce",
+        "risk": 0.5,
+        "group": "projecthoneypot",
+        "window": 30
+    },
+    {
+        "name": "botscout",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/botscout_7d.ipset",
+        "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "spam",
+        "risk": 0.45,
+        "group": "botscout",
+        "window": 7
+    },
+    {
+        "name": "gpf_comics",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/gpf_comics.ipset",
+        "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "web_attack",
+        "risk": 0.4,
+        "group": "gpfcomics",
+        "window": 30
+    },
+    {
+        "name": "myip_bots",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/myip.ipset",
+        "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "web_attack",
+        "risk": 0.35,
+        "group": "myip",
+        "window": 30
+    },
+    {
+        "name": "stopforumspam_7d",
+        "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/stopforumspam_7d.ipset",
+        "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "spam",
+        "risk": 0.5,
+        "group": "stopforumspam",
         "window": 7
     },
     {
@@ -903,6 +1366,7 @@
         "name": "voipbl",
         "url": "https://www.voipbl.org/update/",
         "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "bruteforce",
         "risk": 0.4,
         "group": "voipbl",
         "window": 30
@@ -911,6 +1375,7 @@
         "name": "maltrail_scanner",
         "url": "https://raw.githubusercontent.com/stamparm/maltrail/master/data/mass_scanner.txt",
         "regex": "^([0-9.]+)\\s",
+        "threat": "scanner",
         "risk": 0.15,
         "group": "maltrail",
         "window": 90
@@ -919,6 +1384,7 @@
         "name": "maltrail_scanner_cidr",
         "url": "https://raw.githubusercontent.com/stamparm/maltrail/master/data/mass_scanner_cidr.txt",
         "regex": "^([0-9.]+/\\d+)",
+        "threat": "scanner",
         "risk": 0.15,
         "group": "maltrail",
         "window": 90
@@ -928,6 +1394,7 @@
         "provider": "Censys",
         "url": "https://raw.githubusercontent.com/borestad/blocklist-abuseipdb/main/.cron/sources/SOURCE.censys.ipv4",
         "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "scanner",
         "risk": 0.1,
         "group": "scanners",
         "window": 90
@@ -937,6 +1404,7 @@
         "provider": "Rapid7",
         "url": "https://raw.githubusercontent.com/borestad/blocklist-abuseipdb/main/.cron/sources/SOURCE.project-sonar.ipv4",
         "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "scanner",
         "risk": 0.1,
         "group": "scanners",
         "window": 90
@@ -946,6 +1414,7 @@
         "provider": "Palo Alto Networks",
         "url": "https://raw.githubusercontent.com/borestad/blocklist-abuseipdb/main/.cron/sources/SOURCE.paloaltonetworks.ipv4",
         "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "scanner",
         "risk": 0.1,
         "group": "scanners",
         "window": 90
@@ -955,6 +1424,7 @@
         "provider": "Modat",
         "url": "https://raw.githubusercontent.com/borestad/blocklist-abuseipdb/main/.cron/sources/SOURCE.modat.ipv4",
         "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "scanner",
         "risk": 0.1,
         "group": "scanners",
         "window": 90
@@ -1036,6 +1506,7 @@
         "regex": "^([0-9a-fA-F:.]+)",
         "group": "blocklistde",
         "window": 2,
+        "threat": "bruteforce",
         "risk": 0.45,
         "url": "https://lists.blocklist.de/lists/ssh.txt"
     },
@@ -1044,6 +1515,7 @@
         "regex": "^([0-9a-fA-F:.]+)",
         "group": "blocklistde",
         "window": 2,
+        "threat": "spam",
         "risk": 0.4,
         "url": "https://lists.blocklist.de/lists/mail.txt"
     },
@@ -1052,6 +1524,7 @@
         "regex": "^([0-9a-fA-F:.]+)",
         "group": "blocklistde",
         "window": 2,
+        "threat": "web_attack",
         "risk": 0.4,
         "url": "https://lists.blocklist.de/lists/apache.txt"
     },
@@ -1060,13 +1533,23 @@
         "regex": "^([0-9a-fA-F:.]+)",
         "group": "blocklistde",
         "window": 2,
+        "threat": "bruteforce",
         "risk": 0.45,
         "url": "https://lists.blocklist.de/lists/bruteforcelogin.txt"
+    },
+    {
+        "name": "blocklist_de_strong",
+        "url": "https://lists.blocklist.de/lists/strongips.txt",
+        "regex": "^([0-9a-fA-F:.]+)",
+        "group": "blocklistde",
+        "window": 60,
+        "risk": 0.6
     },
     {
         "name": "dataplane_sshclient",
         "url": "https://dataplane.org/sshclient.txt",
         "regex": "^\\s*\\d+\\s*\\|[^|]*\\|\\s*([0-9.]+)\\s*\\|",
+        "threat": "scanner",
         "risk": 0.4,
         "group": "dataplane",
         "window": 30
@@ -1075,6 +1558,7 @@
         "name": "dataplane_sshpwauth",
         "url": "https://dataplane.org/sshpwauth.txt",
         "regex": "^\\s*\\d+\\s*\\|[^|]*\\|\\s*([0-9.]+)\\s*\\|",
+        "threat": "bruteforce",
         "risk": 0.5,
         "group": "dataplane",
         "window": 30
@@ -1083,6 +1567,7 @@
         "name": "dataplane_telnetlogin",
         "url": "https://dataplane.org/telnetlogin.txt",
         "regex": "^\\s*\\d+\\s*\\|[^|]*\\|\\s*([0-9.]+)\\s*\\|",
+        "threat": "bruteforce",
         "risk": 0.5,
         "group": "dataplane",
         "window": 30
@@ -1091,6 +1576,7 @@
         "name": "dataplane_vncrfb",
         "url": "https://dataplane.org/vncrfb.txt",
         "regex": "^\\s*\\d+\\s*\\|[^|]*\\|\\s*([0-9.]+)\\s*\\|",
+        "threat": "scanner",
         "risk": 0.45,
         "group": "dataplane",
         "window": 30
@@ -1099,6 +1585,7 @@
         "name": "dataplane_sipquery",
         "url": "https://dataplane.org/sipquery.txt",
         "regex": "^\\s*\\d+\\s*\\|[^|]*\\|\\s*([0-9.]+)\\s*\\|",
+        "threat": "scanner",
         "risk": 0.4,
         "group": "dataplane",
         "window": 30
@@ -1107,6 +1594,7 @@
         "name": "dataplane_smtpgreet",
         "url": "https://dataplane.org/smtpgreet.txt",
         "regex": "^\\s*\\d+\\s*\\|[^|]*\\|\\s*([0-9.]+)\\s*\\|",
+        "threat": "spam",
         "risk": 0.4,
         "group": "dataplane",
         "window": 30
@@ -1115,6 +1603,7 @@
         "name": "dataplane_dnsrd",
         "url": "https://dataplane.org/dnsrd.txt",
         "regex": "^\\s*\\d+\\s*\\|[^|]*\\|\\s*([0-9.]+)\\s*\\|",
+        "threat": "scanner",
         "risk": 0.35,
         "group": "dataplane",
         "window": 30
@@ -1131,6 +1620,7 @@
         "name": "feodotracker_aggressive",
         "url": "https://feodotracker.abuse.ch/downloads/ipblocklist_aggressive.txt",
         "regex": "^([0-9a-fA-F:.]+(?:/\\d+)?)",
+        "threat": "botnet",
         "risk": 0.5,
         "group": "abusech",
         "window": 60
@@ -1139,6 +1629,7 @@
         "name": "cybercrime_tracker",
         "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/cybercrime.ipset",
         "regex": "^([0-9.]+(?:/\\d+)?)",
+        "threat": "botnet",
         "risk": 0.7,
         "group": "cybercrime",
         "window": 30
@@ -1147,6 +1638,7 @@
         "name": "stopforumspam_365",
         "url": "https://www.stopforumspam.com/downloads/listed_ip_365.zip",
         "regex": "^([0-9.]+)",
+        "threat": "spam",
         "risk": 0.3,
         "group": "stopforumspam",
         "window": 365

@@ -90,6 +90,7 @@ impl Systems {
         let mut systems = Systems { rows, index, runs: [Vec::new(), Vec::new()] };
         systems.registries(inputs, gazetteer);
         systems.peers(inputs, gazetteer);
+        systems.lacnic(inputs, gazetteer);
         systems.habits(feeds, gazetteer);
         systems.routes(inputs, gazetteer, announced);
         systems
@@ -257,10 +258,41 @@ impl Systems {
         }
     }
 
+    fn lacnic(&mut self, inputs: &Path, gazetteer: &Gazetteer) {
+        let raw = read::raw(&inputs.join("lacnic_db"));
+        let body: String = raw.iter().map(|byte| *byte as char).collect();
+        for object in body.split("\n\n") {
+            let field = |key: &str| {
+                let found = object.lines().find_map(|line| line.strip_prefix(key));
+                found.unwrap_or("").trim()
+            };
+            let Ok(asn) = field("aut-num:").parse::<u32>() else { continue };
+            let code = two(field("country:"));
+            let city = gazetteer.town(field("city:"), code);
+            let Some(system) = self.at(asn).filter(|held| held.city == 0) else {
+                continue;
+            };
+            system.city = city;
+            if system.country == 0 {
+                system.country = gazetteer.country(code);
+            }
+        }
+    }
+
     fn habits(&mut self, feeds: &Feeds, gazetteer: &Gazetteer) {
         for (asn, users) in &feeds.users {
             if let Some(system) = self.at(*asn) {
                 system.users = *users;
+            }
+        }
+        for (asn, domains) in &feeds.domains {
+            let Some(system) = self.at(*asn).filter(|held| held.website.is_empty())
+            else {
+                continue;
+            };
+            let common = domains.iter().max_by_key(|(domain, count)| (*count, *domain));
+            if let Some((domain, _)) = common {
+                system.website = format!("https://{domain}");
             }
         }
         for (asn, class) in &feeds.classes {
@@ -416,7 +448,7 @@ impl Systems {
     }
 }
 
-const WHOIS: &[(&str, &str)] = &[
+pub const WHOIS: &[(&str, &str)] = &[
     ("ripe_inetnum", "ripencc"),
     ("ripe_inet6num", "ripencc"),
     ("apnic_inetnum", "apnic"),
@@ -441,20 +473,26 @@ struct Whois {
 }
 
 #[derive(Default)]
-struct Object {
+pub struct Object {
     inetnum: String,
+    pub geofeed: String,
     netname: String,
     descr: String,
     country: String,
-    org: String,
+    pub org: String,
     organisation: String,
     org_name: String,
 }
 
 impl Object {
     fn take(&mut self, key: &str, value: &str) {
+        let value = match key {
+            "remarks" => linked(value),
+            _ => value,
+        };
         let held = match key {
             "inetnum" | "inet6num" => &mut self.inetnum,
+            "geofeed" | "remarks" => &mut self.geofeed,
             "netname" => &mut self.netname,
             "descr" => &mut self.descr,
             "country" => &mut self.country,
@@ -468,7 +506,7 @@ impl Object {
         }
     }
 
-    fn span(&self) -> Option<(u128, u128, bool)> {
+    pub fn span(&self) -> Option<(u128, u128, bool)> {
         let Some((first, last)) = self.inetnum.split_once(" - ") else {
             return read::span(&self.inetnum);
         };
@@ -500,7 +538,12 @@ fn organisations(inputs: &Path) -> HashMap<String, String> {
     out
 }
 
-fn objects(path: &Path, mut each: impl FnMut(&Object)) {
+fn linked(remark: &str) -> &str {
+    let Some(at) = remark.find("http") else { return "" };
+    remark[at..].split_whitespace().next().unwrap_or("")
+}
+
+pub fn objects(path: &Path, mut each: impl FnMut(&Object)) {
     let mut held = Object::default();
     let mut open = false;
     for line in read::lines(path) {
@@ -619,7 +662,7 @@ fn cidrs(first: &str, count: u128, rir: u32) -> Vec<(u128, u128, u8, u32)> {
     out
 }
 
-fn runs_of<T: PartialEq>(
+pub fn runs_of<T: PartialEq>(
     spans: &mut [(u128, u128, u8, u32)],
     ceiling: u128,
     value: impl Fn(u128, u32, u8) -> T,

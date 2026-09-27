@@ -52,11 +52,11 @@ One file per build, rebuilt daily. Pick the smallest one that answers your quest
 
 | build   | pip extra         | size    | carries                                  |
 | ------- | ----------------- | ------- | ---------------------------------------- |
-| full    | `plevin[db]`      | 16.4 MB | every field                              |
-| place   | `plevin[place]`   | 5.1 MB  | city, region, postal, coordinates, metro |
+| full    | `plevin[db]`      | 17.3 MB | every field                              |
+| place   | `plevin[place]`   | 5.4 MB  | city, region, postal, coordinates, metro |
 | network | `plevin[network]` | 7.0 MB  | ASN, operator, routing                   |
-| abuse   | `plevin[abuse]`   | 3.8 MB  | abuse level, service and provider        |
-| country | `plevin[country]` | 376 KB  | country code                             |
+| abuse   | `plevin[abuse]`   | 4.1 MB  | abuse level, service and provider        |
+| country | `plevin[country]` | 378 KB  | country code                             |
 
 Download from the [latest release](https://github.com/tn3w/plevin/releases/latest), or
 from [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/) with open CORS.
@@ -72,7 +72,7 @@ from [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/) with open CORS.
 | --------- | --------------------------------------------------------------------------- |
 | `place`   | coordinates, accuracy, city, region, district, metro, country, local time   |
 | `network` | ASN, handle, CIDR, registry, RPKI, operator with address, mobile carrier    |
-| `abuse`   | risk, level, service (Tor, VPN, proxy, relay), evidence, provider, flags    |
+| `abuse`   | risk, level, service (Tor, VPN, proxy, relay), threat, evidence, provider, flags |
 | address   | spellings, special ranges, tunnels, embedded IPv4, no database needed      |
 | `dns`     | PTR, forward-confirmed name, SOA, DNSSEC, only when asked                  |
 
@@ -82,7 +82,7 @@ A missing value is `None`/`null`, never `""` or `0`. Full reference with every f
 ## Blocklist
 
 [`blocklist.netset`](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset)
-holds 478k CIDRs, 7 MB: every address feeds reported at 40 or above, plus every address a
+holds 542k CIDRs, 8.2 MB: every address feeds reported at 40 or above, plus every address a
 current list names as an anonymising service. Per-address only: no ASN-wide scores, no
 reserved space.
 
@@ -146,17 +146,17 @@ python plevin_mini.py plevin.plv 8.8.8.8
 
 | rows              | count                                   |
 | ----------------- | --------------------------------------- |
-| v4 boundaries     | 2,649,639, plus 4,245,740 host overrides |
-| v6 boundaries     | 396,430                                 |
-| cities            | 76,999 in 3,167 regions                 |
-| districts, metros | 19,970 and 210                          |
-| ASNs, networks    | 86,164 and 147,621 (registry holders included) |
+| v4 boundaries     | 2,848,750, plus 4,513,313 host overrides |
+| v6 boundaries     | 451,590                                 |
+| cities            | 76,867 in 3,175 regions                 |
+| districts, metros | 19,997 and 210                          |
+| ASNs, networks    | 86,164 and 148,809 (registry holders included) |
 | timezones         | 394                                     |
-| abuse records     | 2,661 from 155 feeds                    |
+| abuse records     | 5,630 from 210 feeds                    |
 
-Sources: MaxMind GeoLite2, IP2Location LITE, GeoNames, Natural Earth, RIPE RIS, RPKI,
-NRO, RIPE/APNIC/AFRINIC whois, CAIDA, PeeringDB, [asn-abuse](https://github.com/tn3w/asn-abuse)
-and [155 feeds](builder/README.md#sources).
+Sources: MaxMind GeoLite2, IP2Location LITE, DB-IP Lite, GeoNames, Natural Earth, RIPE RIS, RPKI,
+NRO, RIPE/APNIC/AFRINIC/LACNIC whois, operator geofeeds, CAIDA, PeeringDB, [asn-abuse](https://github.com/tn3w/asn-abuse)
+and [210 feeds](builder/README.md#sources).
 
 ## Development
 

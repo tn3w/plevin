@@ -2,8 +2,9 @@
 
 use crate::ceiling;
 use crate::gazetteer::{Gazetteer, kilometres};
-use crate::read::{COUNTRY, Coarse, Location, Mmdb, NOWHERE, REGION};
-use std::collections::HashMap;
+use crate::network::{WHOIS, objects, runs_of};
+use crate::read::{self, CITY, COUNTRY, Coarse, Location, Mmdb, NOWHERE, REGION, two};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 pub struct Point {
@@ -23,6 +24,12 @@ pub struct Places {
 const DEGREES: f64 = 10_000.0;
 const BLOCK: [u32; 2] = [8, 88];
 const FAR: [(f64, u8); 4] = [(25.0, 80), (100.0, 65), (500.0, 50), (f64::MAX, 35)];
+const DECLARED: u16 = 10;
+const SECONDED: u8 = 90;
+const NEARBY: f64 = 25.0;
+const LACNIC: &str = "https://milacnic.lacnic.net/lacnic/geofeeds";
+
+type Authorities = HashMap<(String, bool), Vec<(u128, u128)>>;
 
 struct Interning<'a> {
     gazetteer: &'a Gazetteer,
@@ -38,6 +45,8 @@ impl Places {
     pub fn read(inputs: &Path, gazetteer: &mut Gazetteer) -> Places {
         let fine = Mmdb::open(&inputs.join("GeoLite2-City.mmdb"));
         let coarse = Location::open(&inputs.join("IP2LOCATION-LITE-DB11.IPV6.BIN"));
+        let third = Mmdb::open(&inputs.join("dbip-city-lite.mmdb"));
+        let declared = declared(inputs, gazetteer);
         let mut interning = Interning {
             gazetteer,
             points: Vec::new(),
@@ -49,11 +58,14 @@ impl Places {
         };
         let mut runs = [Vec::new(), Vec::new()];
         for (family, wide) in [(0, false), (1, true)] {
-            let leading = fine.as_ref().map(|held| held.ranges(wide)).unwrap_or_default();
+            let measured =
+                fine.as_ref().map(|held| held.ranges(wide)).unwrap_or_default();
             let backing = coarse.as_ref().map(|held| held.rows(wide)).unwrap_or_default();
+            let voting = third.as_ref().map(|held| held.ranges(wide)).unwrap_or_default();
+            let lists = [&declared[family][..], &measured, &backing, &voting];
             let mut segments = Vec::new();
-            walk(&leading, &backing, ceiling(family), |first, last, one, other| {
-                let point = interning.resolve(one, other, last - first + 1);
+            walk(lists, ceiling(family), |first, last, held| {
+                let point = interning.resolve(held, last - first + 1);
                 segments.push((first, last, point));
             });
             runs[family] = collapse(&segments, BLOCK[family]);
@@ -82,12 +94,9 @@ impl Places {
 }
 
 impl Interning<'_> {
-    fn resolve(
-        &mut self,
-        one: Option<&Coarse>,
-        other: Option<&Coarse>,
-        mass: u128,
-    ) -> u32 {
+    fn resolve(&mut self, held: [Option<&Coarse>; 4], mass: u128) -> u32 {
+        let [declared, measured, other, third] = held;
+        let one = declared.or(measured);
         let leading = one.filter(|held| held.grain <= REGION);
         let chosen = match (leading, other) {
             (Some(held), _) => held,
@@ -100,8 +109,16 @@ impl Interning<'_> {
                 },
             },
         };
+        let chosen = match declared {
+            None => self.outvoted(chosen, other, third),
+            Some(_) => chosen,
+        };
         let (city, snap) = self.snap(chosen);
         let confidence = self.agreement(one, other, chosen.grain);
+        let confidence = match self.seconds(chosen, third) {
+            true => confidence.max(SECONDED),
+            false => confidence,
+        };
         let accuracy = chosen.radius.max(snap.round() as u16);
         let key = (round(chosen.lat), round(chosen.lon), chosen.grain);
         let at = match self.index.get(&key) {
@@ -125,13 +142,40 @@ impl Interning<'_> {
         self.weight[at as usize].0 += confidence as u64;
         self.weight[at as usize].1 += 1;
         self.spread[chosen.grain as usize].push(accuracy as u32);
-        if let Some(metro) = one.filter(|held| held.metro > 0)
+        if let Some(metro) =
+            one.filter(|held| held.metro > 0 && std::ptr::eq(*held, chosen))
             && city > 0
         {
             *self.metros.entry(city - 1).or_default().entry(metro.metro).or_default() +=
                 mass;
         }
         at + 1
+    }
+
+    fn outvoted<'a>(
+        &mut self,
+        chosen: &'a Coarse,
+        other: Option<&'a Coarse>,
+        third: Option<&'a Coarse>,
+    ) -> &'a Coarse {
+        let (Some(other), Some(third)) = (other, third) else { return chosen };
+        if chosen.grain != CITY || other.grain != CITY || third.grain != CITY {
+            return chosen;
+        }
+        let near = kilometres((chosen.lat, chosen.lon), (other.lat, other.lon)) <= NEARBY;
+        let (mine, theirs) = (self.snap(chosen).0, self.snap(other).0);
+        match near && mine != theirs && theirs != 0 && self.snap(third).0 == theirs {
+            true => other,
+            false => chosen,
+        }
+    }
+
+    fn seconds(&mut self, chosen: &Coarse, third: Option<&Coarse>) -> bool {
+        let Some(third) = third.filter(|held| held.grain == chosen.grain) else {
+            return false;
+        };
+        let here = self.snap(chosen).0;
+        here != 0 && self.snap(third).0 == here
     }
 
     fn snap(&mut self, row: &Coarse) -> (u32, f64) {
@@ -192,22 +236,108 @@ impl Interning<'_> {
     }
 }
 
+fn declared(inputs: &Path, gazetteer: &Gazetteer) -> [Vec<Coarse>; 2] {
+    let authorities = authorities(inputs);
+    let mut spans: [Vec<(u128, u128, u8, u32)>; 2] = [Vec::new(), Vec::new()];
+    for line in read::lines(&inputs.join("geofeeds")) {
+        let row: Vec<&str> = line.split(',').map(str::trim).collect();
+        if row.len() < 5 || row[4].is_empty() {
+            continue;
+        }
+        let Some((first, last, wide)) = read::span(row[1]) else { continue };
+        let vouched = authorities
+            .get(&(row[0].to_string(), wide))
+            .is_some_and(|held| inside(held, first, last));
+        if !vouched && row[0] != LACNIC {
+            continue;
+        }
+        let code = two(&row[2].to_uppercase());
+        let city = gazetteer.locate(row[4], &row[3].to_uppercase(), code);
+        if city > 0 {
+            spans[wide as usize].push((first, last, 0, city));
+        }
+    }
+    [0, 1].map(|family| {
+        let runs = runs_of(&mut spans[family], ceiling(family), |_, city, _| city);
+        let mut rows = Vec::new();
+        for (at, (first, city)) in runs.iter().enumerate() {
+            let Some(held) = city.checked_sub(1).map(|at| &gazetteer.cities[at as usize])
+            else {
+                continue;
+            };
+            rows.push(Coarse {
+                first: *first,
+                last: runs.get(at + 1).map(|next| next.0 - 1).unwrap_or(ceiling(family)),
+                lat: held.lat,
+                lon: held.lon,
+                radius: DECLARED,
+                grain: CITY,
+                country: two(gazetteer.code(held.country)),
+                metro: 0,
+            });
+        }
+        rows
+    })
+}
+
+fn authorities(inputs: &Path) -> Authorities {
+    let mut owned: HashMap<String, Vec<(u128, u128, bool)>> = HashMap::new();
+    let mut vouched: HashSet<(String, String)> = HashSet::new();
+    let mut held: Authorities = HashMap::new();
+    for (name, _) in WHOIS {
+        objects(&inputs.join(name), |object| {
+            let Some((first, last, wide)) = object.span() else { return };
+            if !object.org.is_empty() {
+                owned.entry(object.org.clone()).or_default().push((first, last, wide));
+            }
+            if !object.geofeed.is_empty() {
+                let key = (object.geofeed.clone(), wide);
+                held.entry(key).or_default().push((first, last));
+                vouched.insert((object.geofeed.clone(), object.org.clone()));
+            }
+        });
+    }
+    for (url, org) in vouched {
+        for &(first, last, wide) in owned.get(&org).into_iter().flatten() {
+            held.entry((url.clone(), wide)).or_default().push((first, last));
+        }
+    }
+    for spans in held.values_mut() {
+        spans.sort_unstable();
+        let mut merged: Vec<(u128, u128)> = Vec::with_capacity(spans.len());
+        for &(first, last) in spans.iter() {
+            match merged.last_mut() {
+                Some(open) if first <= open.1.saturating_add(1) => {
+                    open.1 = open.1.max(last)
+                }
+                _ => merged.push((first, last)),
+            }
+        }
+        *spans = merged;
+    }
+    held
+}
+
+fn inside(spans: &[(u128, u128)], first: u128, last: u128) -> bool {
+    let spot = spans.partition_point(|(start, _)| *start <= first);
+    spot > 0 && spans[spot - 1].1 >= last
+}
+
 fn round(degrees: f64) -> i32 {
     (degrees * DEGREES).round() as i32
 }
 
-fn walk(
-    fine: &[Coarse],
-    coarse: &[Coarse],
+fn walk<const N: usize>(
+    lists: [&[Coarse]; N],
     ceiling: u128,
-    mut each: impl FnMut(u128, u128, Option<&Coarse>, Option<&Coarse>),
+    mut each: impl FnMut(u128, u128, [Option<&Coarse>; N]),
 ) {
-    let mut cursors = [0usize, 0usize];
+    let mut cursors = [0usize; N];
     let mut at = 0u128;
     loop {
         let mut stop = ceiling;
-        let mut holding: [Option<&Coarse>; 2] = [None, None];
-        for (side, rows) in [fine, coarse].into_iter().enumerate() {
+        let mut holding: [Option<&Coarse>; N] = [None; N];
+        for (side, rows) in lists.into_iter().enumerate() {
             while cursors[side] < rows.len() && rows[cursors[side]].last < at {
                 cursors[side] += 1;
             }
@@ -220,7 +350,7 @@ fn walk(
                 None => {}
             }
         }
-        each(at, stop, holding[0], holding[1]);
+        each(at, stop, holding);
         if stop >= ceiling {
             return;
         }

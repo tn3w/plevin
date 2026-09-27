@@ -4,7 +4,8 @@ use crate::gazetteer::fold;
 use crate::network::{Route, Systems};
 use crate::read::{self, two};
 use crate::{
-    CATEGORIES, EVIDENCE, SERVICES, SPECIFIC, UNSEEN, ceiling, push_changed, word, worded,
+    CATEGORIES, EVIDENCE, SERVICES, SPECIFIC, THREATS, UNSEEN, ceiling, push_changed,
+    word, worded,
 };
 use regex::Regex;
 use std::collections::HashMap;
@@ -17,12 +18,14 @@ pub struct Source {
     pub user: u8,
     pub service: u8,
     pub evidence: u8,
+    pub threat: u8,
     pub risk: f32,
     pub network_risk: f32,
     pub group: u16,
     pub window: u16,
     pub weak: bool,
-    pub aggregate: bool,
+    pub aged: bool,
+    pub trusted: bool,
     pub anycast: bool,
     pub satellite: bool,
 }
@@ -55,6 +58,8 @@ pub struct Feeds {
     pub carriers: Vec<Carrier>,
     pub brands: HashMap<String, Vec<String>>,
     pub satellites: Vec<u32>,
+    pub silent: Vec<String>,
+    pub domains: HashMap<u32, HashMap<String, u32>>,
 }
 
 #[derive(Default)]
@@ -72,6 +77,7 @@ pub struct Record {
     pub evidence: u8,
     pub anycast: u8,
     pub satellite: u8,
+    pub threat: u8,
     pub risk: u8,
     pub last_seen: u16,
 }
@@ -92,9 +98,12 @@ struct Folded {
     service: u8,
     evidence: u8,
     aged: bool,
+    trusted: bool,
     anycast: bool,
     satellite: bool,
     window: u16,
+    threat: u8,
+    menace: f32,
     risks: Vec<(u16, f32)>,
 }
 
@@ -120,6 +129,12 @@ const STALE: f32 = 0.5;
 
 const CERTAIN: u8 = 99;
 
+const VOUCHED: f32 = 0.25;
+
+fn doubted(evidence: u8) -> bool {
+    evidence >= word(EVIDENCE, "reported")
+}
+
 fn exposure(service: u8, evidence: u8, aged: bool) -> f32 {
     let named = SERVICES[service as usize];
     let standing = STANDING.get(evidence as usize).copied().unwrap_or(0.85);
@@ -129,6 +144,9 @@ fn exposure(service: u8, evidence: u8, aged: bool) -> f32 {
         None => 0.0,
     }
 }
+
+const MENACES: &[(&str, &str)] =
+    &[("BOTNET", "botnet"), ("SPAM", "spam"), ("SCANNER", "scanner")];
 
 const USAGE: &[(&str, &str)] = &[
     ("DCH", "hosting"),
@@ -172,6 +190,7 @@ impl Feeds {
                 user: word(CATEGORIES, &text("user")),
                 service: word(SERVICES, &text("service")),
                 evidence: word(EVIDENCE, &text("evidence")),
+                threat: word(THREATS, &text("threat")),
                 risk: number("risk") as f32,
                 network_risk: number("network_risk") as f32,
                 group: match named.is_empty() {
@@ -180,7 +199,8 @@ impl Feeds {
                 },
                 window: number("window") as u16,
                 weak: entry["weak"].as_bool().unwrap_or(false),
-                aggregate: entry["aggregate"].as_bool().unwrap_or(false),
+                aged: entry["aged"].as_bool().unwrap_or(false),
+                trusted: entry["trusted"].as_bool().unwrap_or(false),
                 anycast: marked("is_anycast"),
                 satellite: marked("is_satellite"),
             });
@@ -219,9 +239,30 @@ impl Feeds {
                 self.hosts[family].extend(&held.hosts[family]);
             }
         }
+        self.silent = self.unheard(&matched);
         for shape in shapes.iter().filter(|held| !held.kind.is_empty()) {
             self.shaped(inputs, shape);
         }
+    }
+
+    fn unheard(&self, matched: &[&Shape]) -> Vec<String> {
+        let mut heard = vec![false; self.sources.len()];
+        for (_, source) in &self.asn {
+            heard[*source as usize] = true;
+        }
+        for family in 0..2 {
+            for (_, _, source) in &self.spans[family] {
+                heard[*source as usize] = true;
+            }
+            for (_, source) in &self.hosts[family] {
+                heard[*source as usize] = true;
+            }
+        }
+        matched
+            .iter()
+            .filter(|shape| !heard[shape.at])
+            .map(|shape| self.sources[shape.at].name.clone())
+            .collect()
     }
 
     fn shaped(&mut self, inputs: &Path, shape: &Shape) {
@@ -304,7 +345,7 @@ impl Feeds {
 
     fn proxies(&mut self, path: &Path, at: usize) {
         let body = read::slurp(path);
-        let mut minted: HashMap<(u8, u8, u16, String), u16> = HashMap::new();
+        let mut minted: HashMap<(u8, u8, u16, String, u8), u16> = HashMap::new();
         for line in body.lines() {
             let row: Vec<&str> = line.trim_matches('"').split("\",\"").collect();
             if row.len() < 15 {
@@ -314,11 +355,17 @@ impl Feeds {
             let Ok(last) = row[1].parse::<u128>() else { continue };
             let held = PROXIES.iter().find(|(code, _)| *code == row[2]);
             let usage = USAGE.iter().find(|(code, _)| *code == row[9]);
+            let menace = MENACES.iter().find(|(code, _)| row[13].contains(code));
+            if let (Ok(asn), true) = (row[10].parse::<u32>(), row[8].contains('.')) {
+                let counted = self.domains.entry(asn).or_default();
+                *counted.entry(row[8].into()).or_default() += 1;
+            }
             let key = (
                 word(SERVICES, held.map(|(_, name)| *name).unwrap_or("")),
                 word(CATEGORIES, usage.map(|(_, name)| *name).unwrap_or("")),
                 window(row[12].parse().unwrap_or(0)),
                 row[14].to_string(),
+                word(THREATS, menace.map(|(_, name)| *name).unwrap_or("")),
             );
             let source = *minted.entry(key.clone()).or_insert_with(|| {
                 let held = Source {
@@ -330,6 +377,7 @@ impl Feeds {
                         named => named.to_string(),
                     },
                     evidence: word(EVIDENCE, "reported"),
+                    threat: key.4,
                     ..self.sources[at].clone()
                 };
                 self.sources.push(held);
@@ -446,11 +494,13 @@ impl Folded {
             self.user = claim.user;
             self.weak = claim.weak;
         }
-        if claim.service > 0 && self.stronger(claim.evidence, claim.service) {
-            self.service = claim.service;
-            self.evidence = claim.evidence;
-            self.aged = claim.aggregate;
-            self.provider = claim.provider.clone();
+        self.trusted |= claim.trusted;
+        if self.trusted && doubted(self.evidence) {
+            self.claim(0, 0, false, "");
+        }
+        let vouched = self.trusted && doubted(claim.evidence);
+        if claim.service > 0 && !vouched && self.stronger(claim.evidence, claim.service) {
+            self.claim(claim.service, claim.evidence, claim.aged, &claim.provider);
         }
         self.anycast |= claim.anycast;
         self.satellite |= claim.satellite;
@@ -460,6 +510,21 @@ impl Folded {
         if claim.risk > 0.0 {
             self.risk(claim.group, claim.risk);
         }
+        self.threaten(claim.threat, claim.risk.max(f32::EPSILON));
+    }
+
+    fn threaten(&mut self, threat: u8, menace: f32) {
+        if threat > 0 && menace > self.menace {
+            self.threat = threat;
+            self.menace = menace;
+        }
+    }
+
+    fn claim(&mut self, service: u8, evidence: u8, aged: bool, provider: &str) {
+        self.service = service;
+        self.evidence = evidence;
+        self.aged = aged;
+        self.provider = provider.to_string();
     }
 
     fn absorb(&mut self, other: &Folded) {
@@ -469,7 +534,8 @@ impl Folded {
             weak: other.weak,
             service: other.service,
             evidence: other.evidence,
-            aggregate: other.aged,
+            aged: other.aged,
+            trusted: other.trusted,
             anycast: other.anycast,
             satellite: other.satellite,
             window: other.window,
@@ -478,6 +544,7 @@ impl Folded {
         for (group, risk) in &other.risks {
             self.risk(*group, *risk);
         }
+        self.threaten(other.threat, other.menace);
     }
 
     fn risk(&mut self, group: u16, risk: f32) {
@@ -500,9 +567,14 @@ impl Folded {
         (evidence, rank(service)) < (self.evidence, rank(self.service))
     }
 
-    fn reported(&self) -> u8 {
+    fn observed(&self) -> f32 {
         let left = self.risks.iter().fold(1.0f32, |held, (_, risk)| held * (1.0 - risk));
-        (((1.0 - left) * 100.0).round() as u8).min(CERTAIN)
+        let damped = if self.trusted { VOUCHED } else { 1.0 };
+        (1.0 - left) * damped
+    }
+
+    fn reported(&self) -> u8 {
+        ((self.observed() * 100.0).round() as u8).min(CERTAIN)
     }
 
     fn blocked(&self) -> bool {
@@ -511,9 +583,8 @@ impl Folded {
     }
 
     fn share(&self) -> f32 {
-        let exposed = 1.0 - exposure(self.service, self.evidence, self.aged);
-        let left = self.risks.iter().fold(exposed, |held, (_, risk)| held * (1.0 - risk));
-        1.0 - left
+        let exposed = exposure(self.service, self.evidence, self.aged);
+        1.0 - (1.0 - exposed) * (1.0 - self.observed())
     }
 
     fn record(&self) -> Record {
@@ -522,6 +593,7 @@ impl Folded {
             user_type: self.user,
             service: self.service,
             evidence: self.evidence,
+            threat: self.threat,
             anycast: self.anycast as u8,
             satellite: self.satellite as u8,
             risk: match self.risks.is_empty() && self.service == 0 {

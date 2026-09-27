@@ -44,6 +44,7 @@ const BOOKS: Record<string, string> = {
   "abuse.user_type": "categories",
   "abuse.service": "services",
   "abuse.evidence": "evidence",
+  "abuse.threat": "threats",
   "abuse.level": "levels",
 };
 

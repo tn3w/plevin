@@ -50,11 +50,11 @@ installed, the richest wins.
 
 | extra             | size    | carries                                  |
 | ----------------- | ------- | ---------------------------------------- |
-| `plevin[db]`      | 16.4 MB | every field                              |
-| `plevin[place]`   | 5.1 MB  | city, region, postal, coordinates, metro |
+| `plevin[db]`      | 17.3 MB | every field                              |
+| `plevin[place]`   | 5.4 MB  | city, region, postal, coordinates, metro |
 | `plevin[network]` | 7.0 MB  | ASN, operator, routing                   |
-| `plevin[abuse]`   | 3.8 MB  | abuse level, service and provider        |
-| `plevin[country]` | 376 KB  | country code                             |
+| `plevin[abuse]`   | 4.1 MB  | abuse level, service and provider        |
+| `plevin[country]` | 378 KB  | country code                             |
 
 Your own file: `PLEVIN_DB=/path/to/plevin.plv`, `plevin.use(path)`, or
 `plevin.Plevin(path)` for a separate instance. `.built`, `.selection` and `.fields`
@@ -149,7 +149,7 @@ ARIN and LACNIC publish no holders, so their unannounced space has no name.
 ```python
 Abuse(
     name='Tor', provider='Tor', service='tor_exit_node', evidence='measured',
-    level='high', risk=0.99, network_risk=0.86, last_seen_days=1,
+    threat='spam', level='high', risk=0.99, network_risk=0.86, last_seen_days=1,
     is_malicious=True, is_anycast=False, is_satellite=False,
     is_hosting_provider=True, is_proxy=False, is_public_proxy=False,
     is_residential_proxy=False, is_anonymous_vpn=False, is_tor_exit_node=True,
@@ -165,6 +165,7 @@ Abuse(
 | `is_malicious` | a level is set                                                           |
 | `service`      | `tor_exit_node`, `private_relay`, `anonymous_vpn`, `residential_proxy`, `public_proxy` |
 | `evidence`     | `published`, `measured`, `reported`, `inferred` (strongest first)        |
+| `threat`       | what the address was reported for: `botnet`, `malware`, `phishing`, `bruteforce`, `web_attack`, `spam`, `scanner` |
 | `provider`     | who runs the service: the feed's name, else the network's brand          |
 | booleans       | derived from `service` and the carrier type                              |
 

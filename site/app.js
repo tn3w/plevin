@@ -478,8 +478,8 @@ const routingPanel = (db, asn) => {
 
 /** The flags alone already ride in the header, so a record of only flags says nothing. */
 const told = (abuse) =>
-  Boolean(abuse) && [abuse.name, abuse.service, abuse.evidence, abuse.risk,
-    abuse.network_risk, abuse.last_seen_days].some((value) => value != null);
+  Boolean(abuse) && [abuse.name, abuse.service, abuse.evidence, abuse.threat,
+    abuse.risk, abuse.network_risk, abuse.last_seen_days].some((value) => value != null);
 
 const ADDRESS_TIP = "How often this single address itself was reported by the abuse " +
   "feeds, and never under what the anonymity service it runs is worth on its own. " +
@@ -510,6 +510,7 @@ const abusePanel = (abuse, address = true) => {
     ["Seen as", abuse.name ?? abuse.service],
     ["Service", abuse.service],
     ["Evidence", abuse.evidence],
+    ["Threat", abuse.threat?.replace(/_/g, " ")],
     ["Last seen", abuse.last_seen_days === null
       ? null
       : `${abuse.last_seen_days} day${abuse.last_seen_days === 1 ? "" : "s"} ago`],

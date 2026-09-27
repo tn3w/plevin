@@ -52,11 +52,11 @@ Open once, reuse for every lookup. Nothing is downloaded or cached for you.
 
 | file                                                  | size    | carries                                  |
 | ----------------------------------------------------- | ------- | ---------------------------------------- |
-| `plevin.plv`                                          | 16.4 MB | every field                              |
-| `plevin.metro-place.plv`                              | 5.1 MB  | city, region, postal, coordinates, metro |
+| `plevin.plv`                                          | 17.3 MB | every field                              |
+| `plevin.metro-place.plv`                              | 5.4 MB  | city, region, postal, coordinates, metro |
 | `plevin.network.plv`                                  | 7.0 MB  | ASN, operator, routing                   |
-| `plevin.abuse-level-abuse-provider-abuse-service.plv` | 3.8 MB  | abuse level, service and provider        |
-| `plevin.place-country-code.plv`                       | 376 KB  | country code                             |
+| `plevin.abuse-level-abuse-provider-abuse-service.plv` | 4.1 MB  | abuse level, service and provider        |
+| `plevin.place-country-code.plv`                       | 378 KB  | country code                             |
 
 All are served with open CORS from [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/);
 GitHub release downloads send no CORS header.
@@ -82,8 +82,8 @@ No build step:
 | `https://esm.sh/plevinjs`                      | the modules, imports rewritten    |
 | `https://plevin.tn3w.dev/plevin/plevin.min.js` | the bundle beside the databases   |
 
-- **Pin a version for production:** `cdn.jsdelivr.net/npm/plevinjs@0.2.0`.
-- **Pick the smallest build:** the country build is 376 KB against 16.4 MB.
+- **Pin a version for production:** `cdn.jsdelivr.net/npm/plevinjs@0.2.1`.
+- **Pick the smallest build:** the country build is 378 KB against 17.3 MB.
 - **Cache the file** so it downloads once per visitor:
 
 ```js
@@ -146,7 +146,7 @@ found.network;
 db.lookup("185.220.101.1").abuse;
 {
   name: 'Tor', provider: 'Tor', service: 'tor_exit_node', evidence: 'measured',
-  level: 'high', risk: 0.99, network_risk: 0.86, last_seen_days: 1,
+  threat: 'spam', level: 'high', risk: 0.99, network_risk: 0.86, last_seen_days: 1,
   is_malicious: true, is_anycast: false, is_satellite: false,
   is_hosting_provider: true, is_proxy: false, is_public_proxy: false,
   is_residential_proxy: false, is_anonymous_vpn: false, is_tor_exit_node: true,

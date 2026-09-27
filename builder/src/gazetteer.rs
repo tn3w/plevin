@@ -57,6 +57,8 @@ pub struct Gazetteer {
     cells: HashMap<i32, Vec<u32>>,
     borders: Vec<Border>,
     named: HashMap<(u16, String), u32>,
+    placed: HashMap<(u32, String), u32>,
+    isos: HashMap<String, u32>,
 }
 
 const FEATURES: &[&str] = &[
@@ -214,6 +216,9 @@ impl Gazetteer {
             let kind =
                 by_code.get(&listed).map(|held| held.1.clone()).unwrap_or_default();
             index.insert(row[0].to_string(), self.regions.len() as u32 + 1);
+            if !listed.is_empty() {
+                self.isos.insert(listed.clone(), self.regions.len() as u32 + 1);
+            }
             self.regions.push(Region {
                 name,
                 code: code.to_string(),
@@ -247,6 +252,7 @@ impl Gazetteer {
         regions: &HashMap<String, u32>,
         districts: &HashMap<String, u32>,
     ) {
+        let mut aliases: Vec<(u32, String)> = Vec::new();
         for line in body.lines() {
             let Some(row) = columns(line, 18) else { continue };
             let country = row[8];
@@ -255,6 +261,7 @@ impl Gazetteer {
             let elevation = row[15].parse().or_else(|_| row[16].parse()).unwrap_or(0);
             let zone = self.zones.binary_search(&row[17].to_string());
             let at = self.cities.len() as u32;
+            aliases.extend(row[3].split(',').map(|alias| (at, fold(alias))));
             let (lat, lon) =
                 (row[4].parse().unwrap_or(0.0), row[5].parse().unwrap_or(0.0));
             self.cells.entry(cell(lat, lon)).or_default().push(at);
@@ -284,6 +291,21 @@ impl Gazetteer {
             if held.unwrap_or(0) <= city.population {
                 self.named.insert(key, at as u32);
             }
+            for name in [fold(&city.ascii), fold(&city.name)] {
+                let key = (city.region, name);
+                let held = self
+                    .placed
+                    .get(&key)
+                    .map(|other| self.cities[*other as usize].population);
+                if held.unwrap_or(0) <= city.population {
+                    self.placed.insert(key, at as u32);
+                }
+            }
+        }
+        for (at, alias) in aliases {
+            let city = &self.cities[at as usize];
+            self.named.entry((city.country as u16, alias.clone())).or_insert(at);
+            self.placed.entry((city.region, alias)).or_insert(at);
         }
     }
 
@@ -414,6 +436,14 @@ impl Gazetteer {
             .map(|(at, city)| (at, kilometres((lat, lon), (city.lat, city.lon))))
             .filter(|(_, far)| *far <= reach)
             .min_by(|one, other| one.1.total_cmp(&other.1))
+    }
+
+    pub fn locate(&self, name: &str, region: &str, code: [u8; 2]) -> u32 {
+        let within = self.isos.get(region).copied().unwrap_or(0);
+        match self.placed.get(&(within, fold(name))) {
+            Some(at) if within > 0 => at + 1,
+            _ => self.town(name, code),
+        }
     }
 
     pub fn town(&self, name: &str, code: [u8; 2]) -> u32 {

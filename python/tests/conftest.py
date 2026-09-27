@@ -39,6 +39,8 @@ VOCABULARIES = {
     "services": ["", "public_proxy", "residential_proxy", "anonymous_vpn",
                  "tor_exit_node", "private_relay"],
     "evidence": ["", "published", "measured", "reported", "inferred"],
+    "threats": ["", "botnet", "malware", "phishing", "bruteforce", "web_attack", "spam",
+                "scanner"],
     "granularity": ["city", "region", "country"],
     "place_types": ["city", "national capital", "regional capital"],
     "rpki": ["unknown", "valid", "invalid"],
@@ -110,6 +112,7 @@ def _tables(writer: Writer) -> None:
     writer.column("col.abuse.name", [0, TEXT["Tor"], TEXT["A" * 200]], read="text")
     writer.column("col.abuse.service", [0, 4, 1])
     writer.column("col.abuse.evidence", [0, 2, 0])
+    writer.column("col.abuse.threat", [0, 0, 7])
     writer.column("col.abuse.is_anycast", [0, 0, 1])
     writer.column("col.abuse.is_satellite", [0, 1, 0])
     writer.column("col.abuse.risk", [255, 97, 20])

@@ -107,6 +107,7 @@ def test_a_public_proxy_on_a_home_line_is_read_as_a_resold_one(opened: Path) -> 
     assert abuse is not None
     assert abuse.service == "residential_proxy"
     assert abuse.evidence == "inferred"
+    assert abuse.threat == "scanner"
     assert abuse.is_proxy and abuse.is_residential_proxy and abuse.is_anonymous
     assert not abuse.is_public_proxy
     assert not abuse.is_hosting_provider
@@ -121,6 +122,7 @@ def test_an_exit_node_is_read_as_one(opened: Path) -> None:
     assert abuse is not None
     assert (abuse.name, abuse.service) == ("Tor", "tor_exit_node")
     assert abuse.evidence == "measured"
+    assert abuse.threat is None
     assert abuse.is_tor_exit_node and abuse.is_anonymous and abuse.is_satellite
     assert abuse.is_hosting_provider
     assert abuse.risk == 0.97

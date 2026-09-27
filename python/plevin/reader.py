@@ -45,6 +45,7 @@ BOOKS = {"rpki": "rpki", "rir": "rirs", "place.granularity": "granularity",
          "city.type": "place_types",
          "operator.category": "categories", "abuse.user_type": "categories",
          "abuse.service": "services", "abuse.evidence": "evidence",
+         "abuse.threat": "threats",
          "abuse.level": "levels"}
 
 

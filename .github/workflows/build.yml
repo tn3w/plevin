@@ -53,8 +53,9 @@ jobs:
           done
           ripe=https://ftp.ripe.net/ripe/dbase/split
           apnic=https://ftp.apnic.net/apnic/whois
-          keys='^(inetnum|inet6num|netname|descr|country|org|organisation|org-name):|^$'
-          whois() { get "$2" | gzip -dc | grep -E "$keys" > "$1"; }
+          keys='^(inetnum|inet6num|netname|descr|country|org|organisation|org-name|geofeed):'
+          keys="$keys|^remarks:.*[Gg]eo[Ff]eed|^$"
+          whois() { get "$2" | gzip -dc | grep -aE "$keys" > "$1"; }
           whois ripe_inetnum $ripe/ripe.db.inetnum.gz
           whois ripe_inet6num $ripe/ripe.db.inet6num.gz
           whois ripe_organisation $ripe/ripe.db.organisation.gz
@@ -62,6 +63,10 @@ jobs:
           whois apnic_inet6num $apnic/apnic.db.inet6num.gz
           whois apnic_organisation $apnic/apnic.db.organisation.gz
           whois afrinic_db https://ftp.afrinic.net/dbase/afrinic.db.gz
+          get https://ftp.lacnic.net/lacnic/dbase/lacnic.db.gz | gzip -dc > lacnic_db
+          dbip=https://download.db-ip.com/free/dbip-city-lite
+          get -o dbip-city-lite.mmdb.gz "$dbip-$(date -u +%Y-%m).mmdb.gz" ||
+            get -o dbip-city-lite.mmdb.gz "$dbip-$(date -u -d '-1 month' +%Y-%m).mmdb.gz"
           get -o DB11LITEBINIPV6.zip \
             "https://www.ip2location.com/download/?token=$IP2LOCATION_TOKEN&file=DB11LITEBINIPV6"
           for endpoint in net org netixlan; do
@@ -74,6 +79,25 @@ jobs:
           gunzip -f *.gz && bunzip2 -f *.bz2 && rm *.zip
           mv latest-bview bview
           for dated in *.as-*.txt; do mv "$dated" "${dated#*.}"; done
+
+      - name: Download geofeeds
+        working-directory: builder/inputs
+        run: |
+          { grep -ahiE '^(geofeed|remarks):' ripe_* apnic_* afrinic_db |
+              grep -oE "https?://[^][:space:]\"'<>[]+"
+            echo https://milacnic.lacnic.net/lacnic/geofeeds; } | sort -u > geofeed_urls
+          mkdir -p held
+          nl -ba geofeed_urls | xargs -P 64 -L 1 bash -c 'curl -fsSL -m 25 \
+            --max-filesize 67108864 -A "$AGENT" -o "held/$0" "$1" 2>/dev/null || true'
+          nl -ba geofeed_urls | while read -r at url; do
+            [ -s "held/$at" ] || continue
+            case "$(file -b --mime-type "held/$at")" in
+              application/gzip | application/x-gzip) gzip -dc "held/$at" ;;
+              text/*) cat "held/$at" ;;
+            esac | awk -v url="$url" -F, 'NF > 3 && !/^#/ { print url "," $0 }'
+          done > geofeeds
+          rm -rf held geofeed_urls
+          echo "geofeeds: $(wc -l < geofeeds) rows"
 
       - name: Download feeds
         env:
@@ -100,6 +124,14 @@ jobs:
             esac
             mv held "$name"
           done
+          jq -r '.[] | select(.hosts) | .name + " " + .hosts' $feeds |
+            while read -r name hosts; do
+              [ -s "$name" ] || continue
+              grep -oE "$hosts" "$name" | sort -u |
+                xargs -P 16 -I {} sh -c 'getent ahosts {} || true' |
+                awk '{ print $1 }' | sort -u > held
+              mv held "$name"
+            done
 
       - name: Build database
         working-directory: builder
@@ -122,7 +154,8 @@ jobs:
           {
             echo "Location, network and abuse information for any IP address in one"
             echo "offline file, built $(date -u '+%Y-%m-%d %H:%M UTC') from"
-            echo "$(jq length data/feeds.json) abuse feeds and 24 source files."
+            echo "$(jq length data/feeds.json) feeds, 26 source files and $(wc -l < inputs/geofeeds)"
+            echo "operator geofeed rows."
             echo
             echo "| file | size | bytes |"
             echo "|---|---|---|"

@@ -34,6 +34,9 @@ fn main() {
     let started = Instant::now();
     let feeds = abuse::Feeds::read(inputs);
     say(started, &format!("feeds: {} sources", feeds.sources.len()));
+    if !feeds.silent.is_empty() {
+        say(started, &format!("silent feeds: {}", feeds.silent.join(", ")));
+    }
 
     let mut gazetteer = gazetteer::Gazetteer::read(inputs);
     say(started, &format!("gazetteer: {} places", gazetteer.cities.len()));
@@ -151,6 +154,7 @@ pub const COLUMNS: &[Column] = &[
     column("abuse.user_type", Number),
     column("abuse.service", Number),
     column("abuse.evidence", Number),
+    column("abuse.threat", Number),
     column("abuse.is_anycast", Number),
     column("abuse.is_satellite", Number),
     column("abuse.risk", Number),
@@ -194,6 +198,7 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("abuse.provider", &["abuse.name", "abuse.service", "network.brand"]),
     ("abuse.risk", &["abuse.risk"]),
     ("abuse.service", &["abuse.service"]),
+    ("abuse.threat", &["abuse.threat"]),
     ("metro.code", &["place.city", "city.metro", "metro.code"]),
     ("metro.label", &["place.city", "city.metro", "metro.label"]),
     ("network.asn", &["network.asn"]),
@@ -303,6 +308,8 @@ pub const SERVICES: &[&str] = &[
     "tor_exit_node",
     "private_relay",
 ];
+pub const THREATS: &[&str] =
+    &["", "botnet", "malware", "phishing", "bruteforce", "web_attack", "spam", "scanner"];
 pub const EVIDENCE: &[&str] = &["", "published", "measured", "reported", "inferred"];
 pub const GRANULARITY: &[&str] = &["city", "region", "country"];
 pub const RPKI: &[&str] = &["unknown", "valid", "invalid"];
@@ -383,10 +390,11 @@ pub fn vocabularies(
     zones: Option<&[String]>,
 ) -> Vec<(&'static str, Vec<String>)> {
     let named = |book: &[&str]| book.iter().map(|held| held.to_string()).collect();
-    let held: [(&'static str, &[&str], &[&str]); 8] = [
+    let held: [(&'static str, &[&str], &[&str]); 9] = [
         ("categories", CATEGORIES, &["abuse.user_type", "operator.category"]),
         ("services", SERVICES, &["abuse.service"]),
         ("evidence", EVIDENCE, &["abuse.evidence"]),
+        ("threats", THREATS, &["abuse.threat"]),
         ("levels", LEVELS, &["abuse.level"]),
         ("granularity", GRANULARITY, &["place.granularity"]),
         ("rpki", RPKI, &["spine.rpki"]),

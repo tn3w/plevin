@@ -392,6 +392,7 @@ impl World {
             "abuse.user_type" => self.records.rows[row].user_type as i64,
             "abuse.service" => self.records.rows[row].service as i64,
             "abuse.evidence" => self.records.rows[row].evidence as i64,
+            "abuse.threat" => self.records.rows[row].threat as i64,
             "abuse.is_anycast" => self.records.rows[row].anycast as i64,
             "abuse.is_satellite" => self.records.rows[row].satellite as i64,
             "abuse.risk" => self.records.rows[row].risk as i64,

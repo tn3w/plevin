@@ -2,25 +2,25 @@
 
 # plevin builder
 
-**Turns 24 source files and 155 abuse feeds into one offline `.plv` database.**
+**26 source files, operator geofeeds and 210 feeds in one offline `.plv` database.**
 
 ![Rust 2024](https://img.shields.io/badge/rust-2024-CE422B?logo=rust&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
-![Full build](https://img.shields.io/badge/full%20build-16.4%20MB-2ea043)
-![Sources](https://img.shields.io/badge/sources-24%20files%20%2B%20155%20feeds-6f42c1)
+![Full build](https://img.shields.io/badge/full%20build-17.3%20MB-2ea043)
+![Sources](https://img.shields.io/badge/sources-26%20files%20%2B%20210%20feeds%20%2B%20geofeeds-6f42c1)
 
-[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 16.4 MB ·
-[location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 5.1 MB ·
+[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 17.3 MB ·
+[location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 5.4 MB ·
 [network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.0 MB ·
-[abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 3.8 MB ·
-[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 376 KB ·
-[blocklist](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset) 7 MB
+[abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 4.1 MB ·
+[country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 378 KB ·
+[blocklist](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset) 8.2 MB
 
 </div>
 
 ```mermaid
 flowchart LR
-    S["24 files + 155 feeds"] --> B[builder] --> D[("plevin.plv")] --> Q["lookup(8.8.8.8)"]
+    S["26 files + geofeeds + 210 feeds"] --> B[builder] --> D[("plevin.plv")] --> Q["lookup(8.8.8.8)"]
 ```
 
 ## Build
@@ -36,12 +36,13 @@ cargo build --release
 
 About a minute from fetched inputs. [`build.yml`](../.github/workflows/build.yml)
 fetches, builds and releases daily, with secrets `IP2LOCATION_TOKEN` and
-`PEERINGDB_API_KEY`.
+`PEERINGDB_API_KEY`. The build log names **silent feeds**: listed feeds that matched
+nothing, a dead URL or a changed format.
 
 | path                  | holds                          |
 | --------------------- | ------------------------------ |
 | `src/`                | the builder, ten files         |
-| `data/feeds.json`     | abuse feeds, one entry each    |
+| `data/feeds.json`     | feeds, one entry each          |
 | `data/operators.json` | brands and satellite ASNs      |
 | `data/regions.json`   | region code fixes              |
 | `data/metros.json`    | US market labels               |
@@ -74,11 +75,12 @@ flowchart LR
 `blocklist.netset`: addresses feeds reported at 40 or above, plus addresses a current
 list names as an anonymising service (`published` or `measured` evidence only). It
 reads what was said about the address itself, not what its service is worth or what
-its ASN scores. Ranges are merged into the fewest aligned CIDRs, reserved space cut.
+its ASN scores. Published CDN and crawler ranges never make it: reports there are
+shared-edge noise. Ranges are merged into the fewest aligned CIDRs, reserved space cut.
 
 ## Sources
 
-![CC BY 4.0](https://img.shields.io/badge/CC%20BY%204.0-6%20sources-1868f2)
+![CC BY 4.0](https://img.shields.io/badge/CC%20BY%204.0-7%20sources-1868f2)
 ![CC BY-SA 4.0](https://img.shields.io/badge/CC%20BY--SA%204.0-IP2Location-1868f2)
 ![Public domain](https://img.shields.io/badge/public%20domain-Natural%20Earth-2ea043)
 ![EULA](https://img.shields.io/badge/EULA-GeoLite2-orange)
@@ -89,6 +91,7 @@ Fetched flat into `inputs/`; gzip inflated, zip reduced to its largest member.
 | ----------------------------------------------------- | ----------------------------------------------------------- | ---------------- |
 | `GeoLite2-City.mmdb`                                  | `github.com/P3TERX/GeoLite.mmdb`, latest release            | GeoLite2 EULA    |
 | `IP2LOCATION-LITE-DB11.IPV6.BIN`                      | `ip2location.com/download?token=…&file=DB11LITEBINIPV6`     | CC BY-SA 4.0     |
+| `dbip-city-lite.mmdb`                                 | `download.db-ip.com/free/`, this or last month              | CC BY 4.0        |
 | `cities500.txt`, `allCountries.txt`                   | `download.geonames.org/export/dump/`, `/export/zip/`        | CC BY 4.0        |
 | `admin1CodesASCII.txt`, `admin2Codes.txt`             | `download.geonames.org/export/dump/`                        | CC BY 4.0        |
 | `ne_10m_admin_0_countries.*`, `ne_10m_admin_1_…dbf`   | `naciscdn.org/naturalearth/10m/cultural/`                   | public domain    |
@@ -103,12 +106,54 @@ Fetched flat into `inputs/`; gzip inflated, zip reduced to its largest member.
 | `ripe_inetnum`, `ripe_inet6num`, `ripe_organisation`  | `ftp.ripe.net/ripe/dbase/split/`                            | RIPE NCC terms   |
 | `apnic_inetnum`, `apnic_inet6num`, `apnic_organisation` | `ftp.apnic.net/apnic/whois/`                              | APNIC terms      |
 | `afrinic_db`                                          | `ftp.afrinic.net/dbase/afrinic.db.gz`                       | AFRINIC terms    |
+| `lacnic_db`                                           | `ftp.lacnic.net/lacnic/dbase/lacnic.db.gz`, Latin-1         | LACNIC terms     |
+| `geofeeds`                                            | every RFC 8805 feed the dumps above reference, plus LACNIC's | per operator     |
 | feeds                                                 | [`data/feeds.json`](data/feeds.json)                        | per publisher    |
 
-- **Registry dumps** are cut to the seven keys the builder reads while fetching, and
-  read line by line, tolerating invalid UTF-8.
+- **Registry dumps** are cut to the keys the builder reads while fetching (`grep -a`:
+  dumps hold invalid UTF-8), plus `geofeed:` and geofeed `remarks:`, and read line by
+  line.
+- **Geofeeds** are fetched concurrently into one file, each row prefixed with its URL.
+- **Hostname feeds** (`hosts` key) are resolved to addresses while fetching.
 - **ARIN and LACNIC** publish no holder data, so their unannounced space has a registry
   and a block but no name.
+
+### Feed coverage
+
+| kind                          | feeds | examples                                               |
+| ----------------------------- | ----: | ------------------------------------------------------ |
+| abuse reports                 |    67 | AbuseIPDB, abuse.ch, blocklist.de, DShield, Project Honey Pot |
+| VPN servers                   |    37 | provider APIs, [gluetun-servers](https://github.com/qdm12/gluetun-servers), resolved hostnames |
+| public proxies                |    14 | scraped proxy lists, IP2Proxy                          |
+| Tor, relays                   |     4 | Onionoo exits, iCloud Private Relay, Cloudflare WARP   |
+| cloud, hosting                |    21 | AWS, GCP, Azure, Oracle, IBM, geofeeds of hosters      |
+| crawlers                      |    17 | Google, Bing, Apple, OpenAI, Perplexity, CCBot, Kagi   |
+| CDN, content, SaaS            |    19 | Cloudflare, Fastly, Gcore, Imperva, Atlassian, Stripe  |
+| exchanges                     |     1 | PeeringDB IXP peering LANs                             |
+| ASN tags, DROP                |    19 | bgp.tools, Spamhaus DROP and ASN-DROP, risk-db         |
+| satellite, SASE               |     2 | Starlink geofeed, Zscaler                              |
+| dedicated parsers, flags      |     9 | IP2Proxy PX11, IPsum, APNIC users, MCC-MNC, anycast    |
+
+### Feed keys
+
+Each entry in [`data/feeds.json`](data/feeds.json) is a URL plus what its matches mean.
+
+| key            | meaning                                                              |
+| -------------- | -------------------------------------------------------------------- |
+| `regex`        | first group is an address, CIDR or (with `scope: "asn"`) an ASN      |
+| `format`       | a dedicated parser instead: `ipsum`, `px11`, `asns`, `aspop`, …      |
+| `hosts`        | resolve these hostnames while fetching, then match `regex`           |
+| `provider`     | named operator of the service or range                               |
+| `user`         | category the range is used as                                        |
+| `service`, `evidence` | anonymising service and how it is known                       |
+| `threat`       | what reporting feeds saw the address do                              |
+| `risk`, `group`, `window` | reported risk, shared upstream, days a listing covers     |
+| `network_risk` | ASN-wide risk for `scope: "asn"` or prefix feeds                     |
+| `flags`        | `is_anycast`, `is_satellite`, `is_mobile`                            |
+| `weak`         | `user` yields to any other claim                                     |
+| `aged`         | halve service worth: never drops addresses or stopped updating       |
+| `trusted`      | operator-published range: damp reports, ignore scraped services      |
+| `suffix`       | widen each match to this prefix length                               |
 
 ## Pipeline
 
@@ -122,10 +167,38 @@ flowchart LR
 | stage     | does                                                                          |
 | --------- | ----------------------------------------------------------------------------- |
 | gazetteer | cities, regions, districts, postal codes from GeoNames; country of a coordinate from Natural Earth; region ISO codes from `iso_3166-2.json`, then `data/regions.json`, never one ISO does not list |
-| place     | MaxMind first, IP2Location where MaxMind has only a country; points interned at 1e-4°; nearest city in the same country within 500 km, else within 3000 km; accuracy is the largest of source radius, snap distance and a per-granularity floor |
-| network   | origin ASN by majority of RIS peers; ROAs → `rpki`, `roas`; NRO → registry and year; CAIDA → company, tier; PeeringDB → website, category, peering, address; carriers need a name match, APNIC users and an eyeball network |
+| place     | operator geofeeds first, then MaxMind, IP2Location where MaxMind has only a country; IP2Location instead when it and DB-IP agree on another city within 25 km; DB-IP agreeing lifts confidence to 90; points interned at 1e-4°; nearest city in the same country within 500 km, else within 3000 km; accuracy is the largest of source radius, snap distance and a per-granularity floor |
+| network   | origin ASN by majority of RIS peers; ROAs → `rpki`, `roas`; NRO → registry and year; CAIDA → company, tier; PeeringDB → website, category, peering, address; LACNIC `aut-num` → city where PeeringDB has none; IP2Proxy's most common range domain → website where PeeringDB has none; carriers need a name match, APNIC users and an eyeball network |
 | abuse     | one record per span plus an ASN baseline, from feeds declared in `data/feeds.json` |
 | spine     | one boundary set carrying place, network and abuse; ids ranked by use       |
+
+### Geofeeds
+
+- **Found** through `geofeed:` and `remarks: Geofeed …` on RIPE, APNIC and AFRINIC
+  objects, plus LACNIC's consolidated feed.
+- **Vouched:** a row counts only inside the referencing object, or inside any object of
+  the same `org`. Rows claiming someone else's space are dropped.
+- **Placed** at a GeoNames city: name within the row's ISO region first, then the
+  country; alternate names count, so `Muenchen` and `Göteborg` match.
+- **Nested** feeds: the narrowest row wins. Snapped like every source to /24 and /40.
+- Against the rows themselves, city agreement rises from 59% to 80% on v4 and from 44%
+  to 78% on v6.
+
+### Location votes
+
+DB-IP City Lite is a third opinion, never a leading source. Against held-out geofeed
+rows:
+
+| DB-IP use                                  | city agreement | place build |
+| ------------------------------------------ | -------------: | ----------: |
+| none                                       |          61.0% |     5.06 MB |
+| confidence only                            |          61.0% |     5.07 MB |
+| outvote MaxMind, any distance              |          64.7% |     5.97 MB |
+| outvote MaxMind within 25 km (**used**)    |          64.0% |     5.38 MB |
+| outvote MaxMind beyond 100 km              |          61.3% |     5.50 MB |
+
+Far disagreements are rare and cost boundaries; near ones are suburb-versus-city calls
+two sources settle cheaply. Geofeed rows are never outvoted.
 
 ### Abuse scoring
 
@@ -142,8 +215,13 @@ flowchart LR
   | VPN               | 0.50  |
   | private relay     | 0.15  |
 
-  Times 0.85 when reported, 0.6 when inferred, halved again for `aggregate` feeds that
-  never drop an address.
+  Times 0.85 when reported, 0.6 when inferred, halved again for `aged` feeds: lists that
+  never drop an address or stopped updating.
+- **Trusted ranges:** operator-published CDN and crawler ranges keep a quarter of their
+  reported risk and ignore `reported` or `inferred` service claims. Scraped proxy lists
+  and URL feeds name shared edges, not culprits.
+- **Threat:** the category of the strongest reporting claim; IP2Proxy's own threat
+  column counts at the lowest weight.
 - **ASN baseline:** its own feeds, noisy-OR the square root of the risk-weighted share
   of its announced space that was reported. v4 is counted in addresses, v6 in /64s,
   and the worse family stands. Under 0.01 the ASN reads as unseen.
@@ -166,7 +244,7 @@ flowchart LR
 | `place`   | point: lat, lon, accuracy, granularity, confidence; city: name, ascii, id, population, type, postal, postal_partial, timezone, elevation, country; region: name, code, iso, type, id; district: name, code, id |
 | `metro`   | code, label                                                                   |
 | `network` | asn, handle, prefix, rir, rpki, roas; operator: company, website, category, tier, peering, scope, rir, since, street, city, state, postal, abuse_email, country; carrier: user_type, user_count, mcc, mnc |
-| `abuse`   | name, service, evidence, is_anycast, is_satellite, risk, level, network_risk, last_seen_days |
+| `abuse`   | name, service, evidence, threat, is_anycast, is_satellite, risk, level, network_risk, last_seen_days |
 
 Derived by the readers: every `is_*` flag except `is_anycast` and `is_satellite`,
 `operator.brand` (from handle and company) and `operator.domain` (stored only where
@@ -190,6 +268,7 @@ sentinel above.
 | vocabulary  | members                                                                       |
 | ----------- | ----------------------------------------------------------------------------- |
 | evidence    | published, measured, reported, inferred                                       |
+| threat      | botnet, malware, phishing, bruteforce, web_attack, spam, scanner              |
 | service     | tor_exit_node, private_relay, anonymous_vpn, residential_proxy, public_proxy  |
 | category    | residential, business, hosting, education, government, military, cdn, content, infrastructure, cellular, search_engine_spider, traveler, transit, exchange, non-profit |
 | granularity | city, region, country                                                         |

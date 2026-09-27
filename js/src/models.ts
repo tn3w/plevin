@@ -101,6 +101,7 @@ export type Abuse = {
   provider: string | null;
   service: string | null;
   evidence: string | null;
+  threat: string | null;
   level: string | null;
   risk: number | null;
   network_risk: number | null;

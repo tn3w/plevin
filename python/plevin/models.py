@@ -116,6 +116,7 @@ class Abuse:
     provider: str | None = None
     service: str | None = None
     evidence: str | None = None
+    threat: str | None = None
     level: str | None = None
     risk: float | None = None
     network_risk: float | None = None

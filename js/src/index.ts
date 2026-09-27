@@ -169,6 +169,7 @@ const abuseOf = (
     provider: text(name || (named ? brand : "")),
     service: text(named),
     evidence: text(String(found.evidence ?? "") || inferred),
+    threat: text(String(found.threat ?? "")),
     level: text(level),
     risk: number(found.risk),
     network_risk: system ? number(system.risk) : null,
