@@ -78,13 +78,17 @@ jobs:
       - name: Download feeds
         env:
           IP2LOCATION_TOKEN: ${{ secrets.IP2LOCATION_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         working-directory: builder/inputs
         run: |
           feeds=../data/feeds.json
           jq -r '.[] | .name + " " + .url' $feeds |
             sed "s|{IP2LOCATION_TOKEN}|$IP2LOCATION_TOKEN|" |
-            xargs -P 8 -L 1 bash -c 'curl -fsSL -A "$AGENT" --retry 6 \
-              --retry-all-errors --retry-delay 15 -o "$0" "$1" || echo "missed $0"'
+            xargs -P 8 -L 1 bash -c 'auth=()
+              [[ $1 == https://api.github.com/* ]] &&
+                auth=(-H "Authorization: Bearer $GH_TOKEN")
+              curl -fsSL -A "$AGENT" "${auth[@]}" --retry 6 --retry-all-errors \
+                --retry-delay 15 -o "$0" "$1" || echo "missed $0"'
           for name in $(jq -r '.[].name' $feeds); do
             case "$(file -b --mime-type "$name" 2>/dev/null)" in
               application/zip)
