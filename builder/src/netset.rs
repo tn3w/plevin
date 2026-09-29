@@ -1,6 +1,7 @@
 //! The addresses plevin scores high enough to turn away, as CIDR a firewall can read.
 
 use crate::abuse::Records;
+use crate::ceiling;
 use std::fmt::Write;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -79,21 +80,50 @@ const RESERVED: &[(u128, u128)] = &[
     v4(240, 0, 0, 0, 4),
 ];
 
+const fn v6(first: u16, second: u16, prefix: u32) -> (u128, u128) {
+    let at = (first as u128) << 112 | (second as u128) << 96;
+    (at, at + (1 << (128 - prefix)) - 1)
+}
+
+const RESERVED_V6: &[(u128, u128)] =
+    &[v6(0x2001, 0, 23), v6(0x2001, 0x0db8, 32), v6(0x2002, 0, 16), v6(0x3fff, 0, 20)];
+
 const UNICAST: (u128, u128) = (1 << 125, (1 << 126) - 1);
 
 fn routable(held: (u128, u128), family: usize) -> Vec<(u128, u128)> {
-    if family == 1 {
-        let (first, last) = (held.0.max(UNICAST.0), held.1.min(UNICAST.1));
-        return match first <= last {
-            true => vec![(first, last)],
-            false => Vec::new(),
-        };
+    let (held, cuts) = match family {
+        0 => (held, RESERVED),
+        _ => ((held.0.max(UNICAST.0), held.1.min(UNICAST.1)), RESERVED_V6),
+    };
+    if held.0 > held.1 {
+        return Vec::new();
     }
     let mut out = vec![held];
-    for cut in RESERVED {
+    for cut in cuts {
         out = out.into_iter().flat_map(|range| without(range, *cut)).collect();
     }
     out
+}
+
+pub fn public(family: usize) -> Vec<(u128, bool)> {
+    let mut runs = Vec::new();
+    let mut at = 0u128;
+    for (first, last) in routable((0, ceiling(family)), family) {
+        if first > at {
+            runs.push((at, false));
+        }
+        runs.push((first, true));
+        at = last + 1;
+    }
+    if at <= ceiling(family) {
+        runs.push((at, false));
+    }
+    runs
+}
+
+pub fn opens(runs: &[(u128, bool)], address: u128) -> bool {
+    let at = runs.partition_point(|(start, _)| *start <= address);
+    at > 0 && runs[at - 1].1
 }
 
 fn without(
@@ -163,7 +193,7 @@ pub fn write(records: &Records, date: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{blocks, merged, routable};
+    use super::{blocks, merged, opens, public, routable};
 
     fn held(first: u128, last: u128, bits: u32) -> Vec<String> {
         let mut out = Vec::new();
@@ -198,6 +228,24 @@ mod tests {
         assert_eq!(routable((0x0A00_0000, 0x0A00_0001), 0), []);
         assert_eq!(routable((0x0100_0000, 0x0100_0001), 0), [(0x0100_0000, 0x0100_0001)]);
         assert_eq!(routable((1, 1 << 125), 1), [(1 << 125, 1 << 125)]);
+    }
+
+    #[test]
+    fn reserved_v6_space_is_closed() {
+        let runs = public(1);
+        assert!(!opens(&runs, 1));
+        assert!(opens(&runs, 0x2a01 << 112));
+        assert!(!opens(&runs, 0x2001_0db8 << 96));
+        assert!(!opens(&runs, 0x2002 << 112));
+        assert!(!opens(&runs, 0xfe80 << 112));
+    }
+
+    #[test]
+    fn public_v4_space_is_open() {
+        let runs = public(0);
+        assert!(opens(&runs, 0x0101_0101));
+        assert!(!opens(&runs, 0x0A00_0001));
+        assert!(!opens(&runs, u32::MAX as u128));
     }
 
     #[test]

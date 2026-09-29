@@ -10,6 +10,9 @@ const held = { skip: missing && "no database beside the package" };
 const registry = {
   skip: held.skip || (!db?.fields.includes("network.rir") && "a build before rir"),
 };
+const registered = {
+  skip: held.skip || (!db?.fields.includes("network.country") && "a build before 1.1"),
+};
 
 test("opens a database and says what it carries", held, () => {
   assert.match(db?.built ?? "", /^\d{4}-\d{2}-\d{2}$/);
@@ -42,6 +45,32 @@ test("names who a registry gave a span to where no one announces it", registry, 
   assert.equal(found?.network?.rir, "apnic");
   assert.equal(found?.network?.handle, "GMTECH-BD");
   assert.equal(found?.network?.operator?.company, "GM Tech");
+});
+
+test("names the country and year a registry gave a block out", registered, () => {
+  const found = db?.lookup("36.50.238.1");
+  assert.equal(found?.network?.country, "BD");
+  assert.ok((found?.network?.since ?? 0) > 1980);
+  assert.equal(found?.network?.rpki, null);
+  assert.equal(found?.network?.roas, null);
+  assert.equal(db?.lookup("100.64.0.1").network, null);
+});
+
+test("reads a country's currency, calling code and languages", held, () => {
+  const found = db?.lookup("8.8.8.8").place?.country;
+  assert.equal(found?.currency, "USD");
+  assert.equal(found?.currency_name, "US Dollar");
+  assert.equal(found?.calling_code, "+1");
+  assert.deepEqual(found?.languages, ["en"]);
+});
+
+test("flags crawlers and names no town for a point coarser than one", held, () => {
+  const found = db?.lookup("66.249.66.1");
+  assert.equal(found?.abuse?.is_crawler, true);
+  for (const value of ["1.1.1.1", "8.8.8.8", "185.220.101.1"]) {
+    const place = db?.lookup(value).place;
+    if (place?.granularity !== "city") assert.equal(place?.city?.name, null);
+  }
 });
 
 test("answers what has been seen from an address", held, () => {

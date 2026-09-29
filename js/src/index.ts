@@ -117,6 +117,26 @@ const city = shaped((row: Row): City => {
   };
 });
 
+const coarse = shaped((row: Row, granularity: string): City => {
+  const town = city(row) as City;
+  return {
+    id: null,
+    name: null,
+    ascii: null,
+    country: town.country,
+    population: null,
+    elevation: null,
+    postal: null,
+    postal_partial: null,
+    timezone: town.timezone,
+    type: null,
+    capital: null,
+    region: granularity === "region" ? town.region : null,
+    district: null,
+    metro: null,
+  };
+});
+
 const operator = shaped((row: Row, handle: string, brand: string): Operator => {
   const company = String(row.company ?? "");
   const website = String(row.website ?? "");
@@ -177,6 +197,7 @@ const abuseOf = (
     is_malicious: Boolean(level),
     is_anycast: Boolean(found.is_anycast),
     is_satellite: Boolean(found.is_satellite),
+    is_crawler: userType === derive.CRAWLER,
     is_hosting_provider: derive.SERVERS.has(userType),
     is_proxy: derive.PROXIES.has(named),
     is_public_proxy: named === "public_proxy",
@@ -190,11 +211,33 @@ const abuseOf = (
 
 type Ground = [Omit<Place, "time">, string];
 type Wires = [Omit<Network, "prefix" | "cidr" | "start" | "end">, number | null];
+
+const EMPTY_OPERATOR: Operator = {
+  company: null,
+  brand: null,
+  domain: null,
+  website: null,
+  category: null,
+  tier: null,
+  peering: null,
+  scope: null,
+  rir: null,
+  since: null,
+  street: null,
+  state: null,
+  postal: null,
+  country: null,
+  abuse_email: null,
+  city: null,
+};
 type Stored = [Ground | null, Wires | null, Abuse | null];
 
 const place = (row: Row | undefined): Ground | null => {
   if (!row) return null;
-  const found = city(held(row, "city"));
+  const granularity = String(row.granularity ?? "");
+  const town = held(row, "city");
+  const found =
+    granularity === "city" || !granularity ? city(town) : coarse(town, granularity);
   const code = found?.country ?? "";
   const zone = found?.timezone ?? "";
   return [
@@ -213,8 +256,8 @@ const place = (row: Row | undefined): Ground | null => {
 
 const holder = (row: Row, handle: string, brand: string): Operator | null => {
   const found = held(row, "operator");
-  if (!found && !brand) return null;
-  return operator(found ?? row, handle, brand);
+  if (found) return operator(found, handle, brand);
+  return brand ? { ...EMPTY_OPERATOR, brand } : null;
 };
 
 const network = (row: Row, userType: string): Wires => {
@@ -224,8 +267,10 @@ const network = (row: Row, userType: string): Wires => {
       asn: count(row.asn),
       handle: text(handle),
       rir: text(row.rir),
+      country: text(row.country),
+      since: count(row.since),
       rpki: text(row.rpki),
-      roas: number(row.roas),
+      roas: count(row.roas),
       operator: holder(row, handle, String(row.brand ?? "")),
       carrier: carrier(held(row, "carrier"), userType),
     },
@@ -237,7 +282,8 @@ const userTypeOf = (record: Row | undefined, system: Row | undefined): string =>
   String(record?.user_type || system?.user_type || "");
 
 const stored = (row: Row): Stored => {
-  const wires = held(row, "network");
+  const spanned = held(row, "network");
+  const wires = spanned && Object.values(spanned).some(Boolean) ? spanned : undefined;
   const system = held(wires, "abuse");
   const userType = userTypeOf(held(row, "abuse"), system);
   const found = wires ? network(wires, userType) : null;
@@ -265,6 +311,8 @@ const systemOf = (row: Row): System => {
       start: null,
       end: null,
       rir: null,
+      country: null,
+      since: null,
       rpki: null,
       roas: null,
       operator,

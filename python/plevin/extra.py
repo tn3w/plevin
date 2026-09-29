@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from functools import cache, lru_cache
+from importlib import import_module
 from itertools import pairwise
 from time import time as time_now
 from typing import Any
@@ -18,7 +19,7 @@ EU_MEMBERS = frozenset(
 LEFT_DRIVING = frozenset(
     "AG AI AU BB BD BM BN BS BT BW CC CK CX CY DM FJ FK GB GD GG GY HK ID IE IM IN JE"
     " JM JP KE KI KN KY LC LK LS MO MS MT MU MV MW MY MZ NA NF NP NR NU NZ PG PK PN SB"
-    " SC SG SH SR SZ TC TH TL TO TT TV TZ UG VC VG WS ZA ZM ZW".split()
+    " SC SG SH SR SZ TC TH TL TO TT TV TZ UG VC VG VI WS ZA ZM ZW".split()
 )
 
 ZONE_CACHE = 2_048
@@ -35,12 +36,39 @@ def flag(code: str) -> str:
 
 
 @cache
-def _table() -> Any:
+def _module(name: str) -> Any:
     try:
-        from pycountry import countries
+        return import_module(name)
     except ModuleNotFoundError:
         return None
-    return countries
+
+
+def _table() -> Any:
+    found = _module("pycountry")
+    return None if found is None else found.countries
+
+
+def _money(code: str) -> tuple[str | None, str | None]:
+    numbers = _module("babel.numbers")
+    if numbers is None:
+        return None, None
+    held = numbers.get_territory_currencies(code)
+    if not held:
+        return None, None
+    return held[0], numbers.get_currency_name(held[0], locale="en")
+
+
+def _spoken(code: str) -> tuple[str, ...]:
+    languages = _module("babel.languages")
+    if languages is None:
+        return ()
+    return tuple(languages.get_official_languages(code, de_facto=True))
+
+
+def _calling(code: str) -> str | None:
+    numbers = _module("phonenumbers")
+    prefix = 0 if numbers is None else numbers.country_code_for_region(code)
+    return f"+{prefix}" if prefix else None
 
 
 @cache
@@ -49,6 +77,7 @@ def country(code: str) -> Country | None:
         return None
     known = _table()
     found = None if known is None else known.get(alpha_2=code)
+    currency, currency_name = _money(code)
     return Country(
         code=code,
         name=getattr(found, "name", None),
@@ -57,6 +86,10 @@ def country(code: str) -> Country | None:
         iso3=getattr(found, "alpha_3", None),
         numeric=getattr(found, "numeric", None),
         flag=flag(code) or None,
+        currency=currency,
+        currency_name=currency_name,
+        calling_code=_calling(code),
+        languages=_spoken(code),
         european_union=code in EU_MEMBERS,
         driving_side="left" if code in LEFT_DRIVING else "right",
     )

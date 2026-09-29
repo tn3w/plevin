@@ -12,7 +12,7 @@ No API, no rate limit, no lookup leaving the machine.
 [![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)](https://pypi.org/project/plevin)
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2&label=npm)](https://www.npmjs.com/package/plevinjs)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](LICENSE)
-[![Fields](https://img.shields.io/badge/fields-101-6f42c1)](#fields)
+[![Fields](https://img.shields.io/badge/fields-108-6f42c1)](#fields)
 [![Boundaries](https://img.shields.io/badge/boundaries-4.1M-6f42c1)](#data)
 [![Warm](https://img.shields.io/badge/warm%20lookups-2M%2Fs-2ea043)](python/README.md#speed)
 
@@ -52,9 +52,9 @@ One file per build, rebuilt daily. Pick the smallest one that answers your quest
 
 | build   | pip extra         | size    | carries                                  |
 | ------- | ----------------- | ------- | ---------------------------------------- |
-| full    | `plevin[db]`      | 18.2 MB | every field                              |
+| full    | `plevin[db]`      | 18.7 MB | every field                              |
 | place   | `plevin[place]`   | 6.3 MB  | city, region, postal, coordinates, metro |
-| network | `plevin[network]` | 7.0 MB  | ASN, operator, routing                   |
+| network | `plevin[network]` | 7.4 MB  | ASN, operator, routing, registry         |
 | abuse   | `plevin[abuse]`   | 4.1 MB  | abuse level, service and provider        |
 | country | `plevin[country]` | 378 KB  | country code                             |
 
@@ -70,13 +70,15 @@ from [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/) with open CORS.
 
 | group     | answers                                                                     |
 | --------- | --------------------------------------------------------------------------- |
-| `place`   | coordinates, accuracy, city, region, district, metro, country, local time   |
-| `network` | ASN, handle, CIDR, registry, RPKI, operator with address, mobile carrier    |
-| `abuse`   | risk, level, service (Tor, VPN, proxy, relay), threat, evidence, provider, flags |
+| `place`   | coordinates, accuracy, city, region, district, metro, local time, country with currency, calling code, languages |
+| `network` | ASN, handle, CIDR, registry with its country and year, RPKI, operator with address, mobile carrier |
+| `abuse`   | risk, level, service (Tor, VPN, proxy, relay), threat, evidence, provider, crawler and other flags |
 | address   | spellings, special ranges, tunnels, embedded IPv4, no database needed      |
 | `dns`     | PTR, forward-confirmed name, SOA, DNSSEC, only when asked                  |
 
-A missing value is `None`/`null`, never `""` or `0`. Full reference with every field:
+A missing value is `None`/`null`, never `""` or `0`. Reserved space (private, loopback,
+documentation, …) answers from the address alone: no place, network or abuse. A point
+known only to a region or country names no town. Full reference with every field:
 [Python](python/README.md#fields) · [JavaScript](js/README.md#fields).
 
 ## Blocklist
@@ -149,17 +151,18 @@ Go, Java, Kotlin, C#, PHP, Ruby and Perl so far, with Lua and Elixir still to co
 
 | rows              | count                                   |
 | ----------------- | --------------------------------------- |
-| v4 boundaries     | 3,153,872, plus 4,513,368 host overrides |
-| v6 boundaries     | 896,417                                 |
-| cities            | 76,867 in 3,175 regions                 |
-| districts, metros | 19,997 and 210                          |
+| v4 boundaries     | 3,154,886, plus 4,513,257 host overrides |
+| v6 boundaries     | 896,909                                 |
+| cities            | 81,672 in 3,220 regions                 |
+| districts, metros | 20,591 and 210                          |
 | ASNs, networks    | 86,164 and 148,809 (registry holders included) |
 | timezones         | 394                                     |
-| abuse records     | 5,630 from 210 feeds                    |
+| abuse records     | 5,576 from 209 feeds                    |
 
 Sources: MaxMind GeoLite2, IP2Location LITE, DB-IP Lite, GeoNames, Natural Earth, RIPE RIS, RPKI,
 NRO, RIPE/APNIC/AFRINIC/LACNIC whois, operator geofeeds, CAIDA, PeeringDB, [asn-abuse](https://github.com/tn3w/asn-abuse)
-and [210 feeds](builder/README.md#sources).
+and [209 feeds](builder/README.md#sources). Readers derive country facts from pycountry,
+Babel and phonenumbers.
 
 ## Development
 
@@ -173,7 +176,8 @@ cd ../builder && cargo fmt --check && cargo clippy && cargo test
 ```
 
 `js/test/compare.ts` checks both readers field for field; `js/test/blocks.ts` checks
-the JavaScript LZMA decoder against liblzma on every block.
+the JavaScript LZMA decoder against liblzma on every block. `js/test/countries.py`
+regenerates `js/src/countries.ts` from the libraries the Python `full` extra uses.
 
 ## License
 

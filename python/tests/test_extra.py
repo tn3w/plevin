@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import builtins
-from collections.abc import Callable
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -14,7 +12,7 @@ from plevin import extra
 
 @pytest.fixture(autouse=True)
 def _fresh() -> None:
-    extra._table.cache_clear()
+    extra._module.cache_clear()
     extra.country.cache_clear()
 
 
@@ -33,6 +31,8 @@ def test_a_known_code_carries_everything_the_tables_name() -> None:
     assert found.flag == "🇺🇸"
     assert found.driving_side == "right"
     assert not found.european_union
+    assert (found.currency, found.currency_name) == ("USD", "US Dollar")
+    assert (found.calling_code, found.languages) == ("+1", ("en",))
 
 
 def test_a_member_state_drives_on_the_side_its_neighbours_do() -> None:
@@ -46,6 +46,7 @@ def test_a_code_no_table_names_keeps_the_code() -> None:
     found = extra.country("ZZ")
     assert found is not None
     assert (found.code, found.name, found.iso3) == ("ZZ", None, None)
+    assert (found.currency, found.calling_code, found.languages) == (None, None, ())
 
 
 def test_no_code_is_no_country() -> None:
@@ -53,18 +54,15 @@ def test_no_code_is_no_country() -> None:
 
 
 def test_the_tables_are_optional(monkeypatch: pytest.MonkeyPatch) -> None:
-    real: Callable[..., Any] = builtins.__import__
+    def refuse(name: str) -> Any:
+        raise ModuleNotFoundError(name)
 
-    def refuse(name: str, *rest: Any) -> Any:
-        if name == "pycountry":
-            raise ModuleNotFoundError(name)
-        return real(name, *rest)
-
-    monkeypatch.setattr(builtins, "__import__", refuse)
+    monkeypatch.setattr(extra, "import_module", refuse)
     assert extra._table() is None
     found = extra.country("US")
     assert found is not None
     assert (found.code, found.name, found.flag) == ("US", None, "🇺🇸")
+    assert (found.currency, found.calling_code, found.languages) == (None, None, ())
 
 
 def test_a_zone_the_system_does_not_know_keeps_its_name() -> None:

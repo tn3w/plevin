@@ -22,8 +22,11 @@ def test_shouted_words_stop_shouting(text: str, cased: str) -> None:
         ("Acme Inc, a Delaware corporation", "Acme"),
         ("Contoso (Europe) GmbH", "Contoso"),
         ("Somebody trading as Fastnet Ltd", "Fastnet"),
-        ("The Hosting Company", ""),
-        ('"Quoted" Networks', "Quoted"),
+        ("The Hosting Company", "Hosting"),
+        ('"Quoted" Networks', "Quoted Networks"),
+        ("China Telecom (Group)", "China Telecom"),
+        ("Turk Telekomunikasyon Anonim Sirketi", "Turk Telekomunikasyon"),
+        ("Comcast Cable Communications, LLC", "Comcast Cable"),
         ("example.com", "example"),
         ("Hosting", "Hosting"),
         ("", ""),
@@ -42,10 +45,10 @@ def test_a_company_reduces_to_the_name_it_is_known_by(company: str, name: str) -
         ("ONE-AS", "ONE"),
         ("AS15169", ""),
         ("", ""),
-        ("TWO WORDS", "TWO"),
+        ("TWO WORDS", ""),
     ],
 )
-def test_a_handle_reduces_to_its_first_word(handle: str, head: str) -> None:
+def test_a_one_word_handle_reduces_to_its_head(handle: str, head: str) -> None:
     assert derive._from_handle(handle) == head
 
 
@@ -59,6 +62,8 @@ def test_a_handle_reduces_to_its_first_word(handle: str, head: str) -> None:
         ("HETZNER-AS", "Hetzner Online GmbH", "Hetzner"),
         ("EXAMPLE", "Example Holdings of Somewhere", "Example"),
         ("", "", ""),
+        ("TE-AS", "TE-AS", "TE"),
+        ("Telecom Algeria", "Telecom Algeria", "Telecom Algeria"),
     ],
 )
 def test_a_network_goes_by_the_shorter_of_its_two_names(

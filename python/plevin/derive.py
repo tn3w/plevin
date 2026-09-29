@@ -10,7 +10,7 @@ FORMS = frozenset(
     " sal saog sac sas sarl srl spa nv bv cv asa aps oyj kft zrt nyrt doo sro ooo zao"
     " pao pjsc jsc ojsc llp plc pte pteltd pty corp corporation company holding"
     " holdings group uab sia tov oao pt sdn bhd coltd coltda eireli ead ood eood sti"
-    " ltdsti spzoo".split()
+    " ltdsti spzoo anonim sirketi tbk".split()
 )
 TAILS = frozenset(
     "de me epp co as ab ad dd bt lc lp se sl slu sp z oo zoo oy ao esp kg network"
@@ -24,7 +24,7 @@ LEAD = frozenset(
     "the llc ltd gmbh sarl ooo zao pao ao oao jsc ojsc pjsc uab sia tov pt pp ps ip"
     " spolka".split()
 )
-TAIL = FORMS | TAILS | frozenset({""})
+LEGAL = FORMS | frozenset({""})
 TLDS = (".com", ".net", ".org", ".io")
 
 TRADING = re.compile(r"(?i).*\b(?:trading as|d/b/a|dba)\b\s*")
@@ -38,6 +38,7 @@ AUTHORITY = re.compile(r"[/?#]")
 SERVERS = frozenset({"hosting", "cdn", "content"})
 ACCESS = frozenset({"residential", "cellular"})
 PROXIES = frozenset({"public_proxy", "residential_proxy"})
+CRAWLER = "search_engine_spider"
 NAMES = 1 << 13
 CAPITALS = {"national capital": "country", "regional capital": "region",
             "district capital": "district"}
@@ -50,10 +51,15 @@ def _cased(text: str) -> str:
     )
 
 
+def _trailing(tokens: list[str]) -> bool:
+    word = BARE.sub("", tokens[-1].lower()) if tokens else ""
+    return (len(tokens) > 1 and word in LEGAL) or (len(tokens) > 2 and word in TAILS)
+
+
 def _from_company(company: str) -> str:
     words = ALIAS.sub("", TRADING.sub("", company)).split()
     tokens = [token for word in words if (token := word.strip("\"'"))]
-    while len(tokens) > 1 and BARE.sub("", tokens[-1].lower()) in TAIL:
+    while _trailing(tokens):
         tokens.pop()
     while tokens and BARE.sub("", tokens[0].lower()) in LEAD:
         tokens.pop(0)
@@ -64,7 +70,7 @@ def _from_company(company: str) -> str:
 
 def _from_handle(handle: str) -> str:
     words = handle.split()
-    head = HANDLE_TAIL.sub("", words[0]) if words else ""
+    head = HANDLE_TAIL.sub("", words[0]) if len(words) == 1 else ""
     if NUMBERED.fullmatch(head):
         return ""
     if len(head) > 4 and head.isupper():
@@ -75,6 +81,8 @@ def _from_handle(handle: str) -> str:
 @lru_cache(maxsize=NAMES)
 def brand(handle: str, company: str) -> str:
     legal, short = _from_company(company), _from_handle(handle)
+    if company.lower() == handle.lower():
+        return short or legal
     if not legal or not short:
         return legal or short
     if legal.lower() == short.lower():

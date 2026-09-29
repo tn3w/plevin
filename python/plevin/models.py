@@ -54,6 +54,10 @@ class Country:
     iso3: str | None = None
     numeric: str | None = None
     flag: str | None = None
+    currency: str | None = None
+    currency_name: str | None = None
+    calling_code: str | None = None
+    languages: tuple[str, ...] = ()
     european_union: bool = False
     driving_side: str | None = None
 
@@ -124,6 +128,7 @@ class Abuse:
     is_malicious: bool = False
     is_anycast: bool = False
     is_satellite: bool = False
+    is_crawler: bool = False
     is_hosting_provider: bool = False
     is_proxy: bool = False
     is_public_proxy: bool = False
@@ -143,6 +148,8 @@ class Network:
     start: str | None = None
     end: str | None = None
     rir: str | None = None
+    country: str | None = None
+    since: int | None = None
     rpki: str | None = None
     roas: int | None = None
     operator: Operator | None = None

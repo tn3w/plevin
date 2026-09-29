@@ -141,13 +141,6 @@
         "network_risk": 0.2
     },
     {
-        "name": "riskdb_asn_crawler",
-        "url": "https://raw.githubusercontent.com/O-X-L/risk-db-lists/refs/heads/main/asn/kind_crawler.txt",
-        "regex": "^(?:AS)?([0-9]+)",
-        "scope": "asn",
-        "user": "search_engine_spider"
-    },
-    {
         "name": "anycast_census_v4",
         "url": "https://raw.githubusercontent.com/ut-dacs/Anycast-Census/main/IPv4-latest.csv",
         "regex": "^([0-9.]+/\\d+)",

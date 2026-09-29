@@ -40,12 +40,16 @@ pub struct Route {
     pub rpki: u8,
     pub roas: u16,
     pub rir: u8,
+    pub country: u16,
+    pub since: u16,
 }
 
 #[derive(Clone, Copy, Default, PartialEq)]
 pub struct Block {
     pub rir: u8,
     pub prefix: u8,
+    pub country: u16,
+    pub since: u16,
 }
 
 pub struct Systems {
@@ -133,11 +137,13 @@ impl Systems {
             };
             if let Some(system) = self.at(asn) {
                 system.handle = handle.to_string();
-                system.company = tail.to_string();
+                if !addressed(tail) {
+                    system.company = tail.to_string();
+                }
             }
         }
         let mut orgs: HashMap<String, String> = HashMap::new();
-        let mut named: Vec<(u32, String)> = Vec::new();
+        let mut named: Vec<(u32, String, String, String)> = Vec::new();
         for line in read::slurp(&inputs.join("as-org2info.txt")).lines() {
             let row: Vec<&str> = line.split('|').collect();
             match (line.starts_with('#'), row.len()) {
@@ -146,19 +152,31 @@ impl Systems {
                     orgs.insert(row[0].to_string(), row[2].to_string());
                 }
                 (_, 6) => match row[0].parse::<u32>() {
-                    Ok(asn) => named.push((asn, row[3].to_string())),
+                    Ok(asn) => named.push((
+                        asn,
+                        row[3].to_string(),
+                        row[2].to_string(),
+                        registry(row[5]).to_string(),
+                    )),
                     Err(_) => continue,
                 },
                 _ => continue,
             }
         }
-        for (asn, org) in named {
-            let Some(company) = orgs.get(&org).filter(|held| !held.is_empty()).cloned()
-            else {
-                continue;
-            };
-            if let Some(system) = self.at(asn) {
+        for (asn, org, handle, rir) in named {
+            let company = orgs
+                .get(&org)
+                .filter(|held| !held.is_empty() && !addressed(held))
+                .cloned();
+            let Some(system) = self.at(asn) else { continue };
+            if let Some(company) = company {
                 system.company = company;
+            }
+            if system.handle.is_empty() {
+                system.handle = handle;
+            }
+            if system.rir.is_empty() {
+                system.rir = rir;
             }
         }
         self.graph(inputs);
@@ -233,9 +251,9 @@ impl Systems {
             let street = text("address1");
             let state = text("state");
             let postal = text("zipcode");
-            let website = match row["website"].as_str().unwrap_or("") {
-                "" => text("website"),
-                held => held.to_string(),
+            let website = match row["website"].as_str().unwrap_or("").trim() {
+                "" => schemed(&text("website")),
+                held => schemed(held),
             };
             let company = text("name");
             let Some(system) = self.at(asn) else { continue };
@@ -304,10 +322,13 @@ impl Systems {
             }
         }
         let cellular = word(CATEGORIES, "cellular");
+        let backbone = [word(CATEGORIES, "transit"), word(CATEGORIES, "content")];
         for (asn, source) in &feeds.asn {
             let claim = &feeds.sources[*source as usize];
             let Some(system) = self.at(*asn) else { continue };
-            let names = system.category == 0 || (claim.user == cellular && !claim.weak);
+            let mobile = claim.user == cellular && !claim.weak;
+            let names =
+                system.category == 0 || (mobile && !backbone.contains(&system.category));
             if claim.user > 0 && names {
                 system.category = claim.user;
             }
@@ -366,12 +387,12 @@ impl Systems {
 
     fn routes(&mut self, inputs: &Path, gazetteer: &Gazetteer, announced: Vec<Announce>) {
         let roas = Roas::read(inputs);
-        let allocated = allocations(inputs);
+        let allocated = allocations(inputs, gazetteer);
         let mut announces: [Vec<(u128, Route)>; 2] = [Vec::new(), Vec::new()];
         for (family, wide) in [(0, false), (1, true)] {
             let mut spans: Vec<(u128, u128, u8, u32)> = announced
                 .iter()
-                .filter(|span| span.wide == wide)
+                .filter(|span| span.wide == wide && span.length >= WIDEST_ROUTE[family])
                 .map(|span| {
                     let spare = if wide { 128 } else { 32 } - span.length as u32;
                     (span.first, span.first | read::fill(spare), span.length, span.asn)
@@ -387,7 +408,7 @@ impl Systems {
                             prefix: length,
                             rpki,
                             roas: count,
-                            rir: 0,
+                            ..Route::default()
                         }
                     }
                 });
@@ -448,6 +469,34 @@ impl Systems {
     }
 }
 
+const STREETS: [&str; 5] = ["street", "road", "avenue", "floor", "building"];
+
+fn addressed(company: &str) -> bool {
+    let lower = company.to_lowercase();
+    let numbered =
+        lower.starts_with("no.") || lower.starts_with(|one: char| one.is_ascii_digit());
+    numbered && STREETS.iter().any(|street| lower.contains(street))
+}
+
+fn schemed(website: &str) -> String {
+    match website.trim().split_once("://") {
+        Some((scheme, rest)) => format!("{}://{rest}", scheme.to_lowercase()),
+        None if website.contains('.') => format!("http://{}", website.trim()),
+        None => String::new(),
+    }
+}
+
+fn registry(source: &str) -> &'static str {
+    match source {
+        "ARIN" => "arin",
+        "RIPE" => "ripencc",
+        "LACNIC" => "lacnic",
+        "AFRINIC" => "afrinic",
+        "APNIC" | "JPNIC" | "KRNIC" | "TWNIC" | "CNNIC" | "IDNIC" => "apnic",
+        _ => "",
+    }
+}
+
 pub const WHOIS: &[(&str, &str)] = &[
     ("ripe_inetnum", "ripencc"),
     ("ripe_inet6num", "ripencc"),
@@ -457,6 +506,8 @@ pub const WHOIS: &[(&str, &str)] = &[
 ];
 
 const WIDEST: u128 = (1 << 24) - 1;
+
+const WIDEST_ROUTE: [u8; 2] = [8, 16];
 
 #[derive(Clone, Copy, Default, PartialEq)]
 struct Holder {
@@ -610,6 +661,8 @@ fn registered(
     together(&named, blocks, |at, route, block| {
         let mut held = *route;
         held.rir = block.rir;
+        held.country = block.country;
+        held.since = block.since;
         if held.prefix == 0 {
             held.prefix = block.prefix;
         }
@@ -618,14 +671,24 @@ fn registered(
     out
 }
 
-fn allocations(inputs: &Path) -> [Vec<(u128, Block)>; 2] {
+fn allocations(inputs: &Path, gazetteer: &Gazetteer) -> [Vec<(u128, Block)>; 2] {
     let mut spans: [Vec<(u128, u128, u8, u32)>; 2] = [Vec::new(), Vec::new()];
+    let mut kinds: Vec<Block> = Vec::new();
+    let mut seen: HashMap<(u8, u16, u16), u32> = HashMap::new();
     for line in read::slurp(&inputs.join("nro-delegated-stats")).lines() {
         let row: Vec<&str> = line.split('|').collect();
         if row.len() < 7 || row[6] != "assigned" {
             continue;
         }
-        let rir = word(RIRS, row[0]) as u32;
+        let key = (
+            word(RIRS, row[0]),
+            gazetteer.country(two(row[1])) as u16,
+            row[5].get(..4).and_then(|year| year.parse().ok()).unwrap_or(0),
+        );
+        let rir = *seen.entry(key).or_insert_with(|| {
+            kinds.push(Block { rir: key.0, prefix: 0, country: key.1, since: key.2 });
+            kinds.len() as u32
+        });
         let count: u32 = row[4].parse().unwrap_or(0);
         match row[2] {
             "ipv4" => spans[0].extend(cidrs(row[3], count as u128, rir)),
@@ -641,9 +704,9 @@ fn allocations(inputs: &Path) -> [Vec<(u128, Block)>; 2] {
         }
     }
     [0, 1].map(|family| {
-        runs_of(&mut spans[family], ceiling(family), |_, rir, prefix| match rir {
+        runs_of(&mut spans[family], ceiling(family), |_, kind, prefix| match kind {
             0 => Block::default(),
-            _ => Block { rir: rir as u8, prefix },
+            _ => Block { prefix, ..kinds[kind as usize - 1] },
         })
     })
 }
@@ -743,8 +806,7 @@ impl Roas {
         let bits: u8 = if wide { 128 } else { 32 };
         let (mut covering, mut matching) = (0u16, 0u16);
         for shorter in (0..=length).rev() {
-            let spare = (bits - shorter) as u32;
-            let key = (first >> spare << spare, shorter, wide);
+            let key = (first & !read::fill((bits - shorter) as u32), shorter, wide);
             let Some(held) = self.held.get(&key) else { continue };
             covering = covering.saturating_add(held.len() as u16);
             let mine = held
@@ -753,9 +815,9 @@ impl Roas {
             matching = matching.saturating_add(mine.count() as u16);
         }
         match (covering, matching) {
-            (0, _) => (0, 0),
-            (_, 0) => (2, covering),
-            _ => (1, matching),
+            (0, _) => (1, 0),
+            (_, 0) => (3, covering),
+            _ => (2, matching),
         }
     }
 }

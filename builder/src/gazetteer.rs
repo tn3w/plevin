@@ -142,6 +142,7 @@ impl Gazetteer {
             }
         }
         codes.remove("");
+        codes.remove("ZZ");
         zones.remove("");
         let countries: Vec<String> = codes.into_iter().collect();
         let zones: Vec<String> = zones.into_iter().collect();
@@ -261,7 +262,8 @@ impl Gazetteer {
             let elevation = row[15].parse().or_else(|_| row[16].parse()).unwrap_or(0);
             let zone = self.zones.binary_search(&row[17].to_string());
             let at = self.cities.len() as u32;
-            aliases.extend(row[3].split(',').map(|alias| (at, fold(alias))));
+            let named = row[3].split(',').map(fold).filter(|alias| !alias.is_empty());
+            aliases.extend(named.map(|alias| (at, alias)));
             let (lat, lon) =
                 (row[4].parse().unwrap_or(0.0), row[5].parse().unwrap_or(0.0));
             self.cells.entry(cell(lat, lon)).or_default().push(at);
@@ -448,7 +450,10 @@ impl Gazetteer {
 
     pub fn town(&self, name: &str, code: [u8; 2]) -> u32 {
         let key = (self.country(code) as u16, fold(name));
-        self.named.get(&key).map(|at| at + 1).unwrap_or(0)
+        match key.1.is_empty() {
+            true => 0,
+            false => self.named.get(&key).map(|at| at + 1).unwrap_or(0),
+        }
     }
 }
 

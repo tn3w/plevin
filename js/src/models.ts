@@ -44,6 +44,10 @@ export type Country = {
   iso3: string | null;
   numeric: string | null;
   flag: string | null;
+  currency: string | null;
+  currency_name: string | null;
+  calling_code: string | null;
+  languages: string[];
   european_union: boolean;
   driving_side: string | null;
 };
@@ -109,6 +113,7 @@ export type Abuse = {
   is_malicious: boolean;
   is_anycast: boolean;
   is_satellite: boolean;
+  is_crawler: boolean;
   is_hosting_provider: boolean;
   is_proxy: boolean;
   is_public_proxy: boolean;
@@ -127,6 +132,8 @@ export type Network = {
   start: string | null;
   end: string | null;
   rir: string | null;
+  country: string | null;
+  since: number | null;
   rpki: string | null;
   roas: number | null;
   operator: Operator | null;

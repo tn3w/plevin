@@ -23,6 +23,86 @@
         "iso": "BE-WAL",
         "note": "Wallonia"
     },
+    "CI.76": {
+        "iso": "CI-BS",
+        "note": "district, ISO drops the suffix"
+    },
+    "CI.77": {
+        "iso": "CI-DN",
+        "note": "district, ISO drops the suffix"
+    },
+    "CI.81": {
+        "iso": "CI-LC",
+        "note": "district, ISO drops the suffix"
+    },
+    "CI.82": {
+        "iso": "CI-LG",
+        "note": "district, ISO drops the suffix"
+    },
+    "CI.87": {
+        "iso": "CI-SV",
+        "note": "district, ISO drops the suffix"
+    },
+    "CI.90": {
+        "iso": "CI-VB",
+        "note": "district, ISO drops the suffix"
+    },
+    "CI.92": {
+        "iso": "CI-ZZ",
+        "note": "district, ISO drops the suffix"
+    },
+    "CI.93": {
+        "iso": "CI-AB",
+        "note": "district, ISO drops the suffix"
+    },
+    "CI.94": {
+        "iso": "CI-CM",
+        "note": "district, ISO drops the suffix"
+    },
+    "CZ.78": {
+        "iso": "CZ-64",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.79": {
+        "iso": "CZ-31",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.81": {
+        "iso": "CZ-41",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.82": {
+        "iso": "CZ-52",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.83": {
+        "iso": "CZ-51",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.84": {
+        "iso": "CZ-71",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.85": {
+        "iso": "CZ-80",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.86": {
+        "iso": "CZ-53",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.87": {
+        "iso": "CZ-32",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.88": {
+        "iso": "CZ-20",
+        "note": "ISO renumbered the regions"
+    },
+    "CZ.89": {
+        "iso": "CZ-42",
+        "note": "ISO renumbered the regions"
+    },
     "ES.07": {
         "iso": "ES-IB",
         "note": "Illes Balears, the community, not ES-PM the province"
@@ -35,13 +115,49 @@
         "iso": "ES-NC",
         "note": "Navarra, the community, not ES-NA the province"
     },
+    "ES.51": {
+        "iso": "ES-AN",
+        "note": "English GeoNames name, Spanish ISO name"
+    },
+    "ES.53": {
+        "iso": "ES-CN",
+        "note": "English GeoNames name, Spanish ISO name"
+    },
+    "ES.54": {
+        "iso": "ES-CM",
+        "note": "English GeoNames name, Spanish ISO name"
+    },
+    "ES.55": {
+        "iso": "ES-CL",
+        "note": "English GeoNames name, Spanish ISO name"
+    },
+    "ES.56": {
+        "iso": "ES-CT",
+        "note": "English GeoNames name, Spanish ISO name"
+    },
+    "ES.58": {
+        "iso": "ES-GA",
+        "note": "English GeoNames name, Spanish ISO name"
+    },
+    "ES.59": {
+        "iso": "ES-PV",
+        "note": "English GeoNames name, Spanish ISO name"
+    },
     "ES.ML": {
         "iso": "ES-ML",
         "note": "Melilla; Natural Earth files it under Ceuta's code"
     },
+    "FR.75": {
+        "iso": "FR-NAQ",
+        "note": "English GeoNames name, French ISO name"
+    },
     "FR.94": {
         "iso": "FR-20R",
         "note": "Corse; Natural Earth still carries the retired FR-COR"
+    },
+    "GR.ESYE31": {
+        "iso": "GR-I",
+        "note": "Attica"
     },
     "HR.11": {
         "iso": "HR-11",
@@ -63,6 +179,54 @@
         "iso": "IE-C",
         "note": "Connacht, spelt Connaught by ISO"
     },
+    "IT.02": {
+        "iso": "IT-77",
+        "note": "English GeoNames name, Italian ISO name"
+    },
+    "IT.09": {
+        "iso": "IT-25",
+        "note": "English GeoNames name, Italian ISO name"
+    },
+    "IT.10": {
+        "iso": "IT-57",
+        "note": "English GeoNames name, Italian ISO name"
+    },
+    "IT.12": {
+        "iso": "IT-21",
+        "note": "English GeoNames name, Italian ISO name"
+    },
+    "IT.13": {
+        "iso": "IT-75",
+        "note": "English GeoNames name, Italian ISO name"
+    },
+    "IT.14": {
+        "iso": "IT-88",
+        "note": "English GeoNames name, Italian ISO name"
+    },
+    "IT.15": {
+        "iso": "IT-82",
+        "note": "English GeoNames name, Italian ISO name"
+    },
+    "IT.16": {
+        "iso": "IT-52",
+        "note": "English GeoNames name, Italian ISO name"
+    },
+    "IT.19": {
+        "iso": "IT-23",
+        "note": "English GeoNames name, Italian ISO name"
+    },
+    "KH.31": {
+        "iso": "KH-25",
+        "note": "Tboung Khmum"
+    },
+    "KZ.03": {
+        "iso": "KZ-11",
+        "note": "ISO renumbered the regions"
+    },
+    "KZ.12": {
+        "iso": "KZ-35",
+        "note": "ISO renumbered the regions"
+    },
     "KZ.12510143": {
         "iso": "KZ-10",
         "note": "Abai, spelt Abay oblysy by ISO"
@@ -70,6 +234,18 @@
     "KZ.12510144": {
         "iso": "KZ-33",
         "note": "Zhetysu, spelt Zhetisu oblysy by ISO"
+    },
+    "KZ.13": {
+        "iso": "KZ-39",
+        "note": "ISO renumbered the regions"
+    },
+    "KZ.16": {
+        "iso": "KZ-59",
+        "note": "ISO renumbered the regions"
+    },
+    "LB.11": {
+        "iso": "LB-BH",
+        "note": "Baalbek-Hermel"
     },
     "MA.02": {
         "iso": "MA-02",
@@ -83,6 +259,10 @@
         "iso": "MD-SN",
         "note": "Transnistria, spelt Stinga Nistrului by ISO"
     },
+    "MG.11": {
+        "iso": "MG-T",
+        "note": "Analamanga lies in the former Antananarivo province"
+    },
     "MH.150": {
         "iso": "MH-KWA",
         "note": "Kwajalein Atoll"
@@ -90,6 +270,70 @@
     "MH.190": {
         "iso": "MH-MAJ",
         "note": "Majuro Atoll"
+    },
+    "MX.09": {
+        "iso": "MX-CMX",
+        "note": "Mexico City, not the State of Mexico"
+    },
+    "PA.13": {
+        "iso": "PA-10",
+        "note": "Panamá Oeste"
+    },
+    "PL.72": {
+        "iso": "PL-02",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.74": {
+        "iso": "PL-10",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.75": {
+        "iso": "PL-06",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.76": {
+        "iso": "PL-08",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.77": {
+        "iso": "PL-12",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.78": {
+        "iso": "PL-14",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.79": {
+        "iso": "PL-16",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.80": {
+        "iso": "PL-18",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.81": {
+        "iso": "PL-20",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.82": {
+        "iso": "PL-22",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.83": {
+        "iso": "PL-24",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.85": {
+        "iso": "PL-28",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.86": {
+        "iso": "PL-30",
+        "note": "ISO renumbered the voivodeships"
+    },
+    "PL.87": {
+        "iso": "PL-32",
+        "note": "ISO renumbered the voivodeships"
     },
     "QA.14": {
         "iso": "QA-SH",
@@ -115,6 +359,10 @@
         "iso": "SL-NW",
         "note": "North West, spelt North Western by ISO"
     },
+    "TJ.RR": {
+        "iso": "TJ-RA",
+        "note": "Districts of Republican Subordination"
+    },
     "TM.S": {
         "iso": "TM-S",
         "note": "Ashgabat, spelt Asgabat by ISO"
@@ -122,6 +370,22 @@
     "TN.38": {
         "iso": "TN-12",
         "note": "Ariana, spelt L'Ariana by ISO"
+    },
+    "VN.11": {
+        "iso": "VN-71",
+        "note": "English GeoNames name, Vietnamese ISO name"
+    },
+    "VN.12": {
+        "iso": "VN-01",
+        "note": "English GeoNames name, Vietnamese ISO name"
+    },
+    "VN.38": {
+        "iso": "VN-21",
+        "note": "English GeoNames name, Vietnamese ISO name"
+    },
+    "VN.42": {
+        "iso": "VN-23",
+        "note": "English GeoNames name, Vietnamese ISO name"
     },
     "VN.79": {
         "iso": "VN-SG",

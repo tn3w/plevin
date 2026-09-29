@@ -381,7 +381,8 @@ const placePanel = (place) => {
       city.population ? `${city.population.toLocaleString("en-US")} people` : null,
       city.elevation == null ? null : `${city.elevation} m`])],
     ["Country facts", listed([place.country?.european_union ? "EU member" : null,
-      place.country?.driving_side ? `drives ${place.country.driving_side}` : null])],
+      place.country?.driving_side ? `drives ${place.country.driving_side}` : null,
+      place.country?.currency, place.country?.calling_code])],
   ]));
   return section;
 };
@@ -400,9 +401,10 @@ const networkPanel = (found) => {
     ["Company", operator.company],
     ["Handle", network.handle, true],
     [network.asn === null ? "Allocation" : "Announcement", network.cidr, true],
-    ["RPKI", network.rpki ? `${network.rpki}, ${network.roas} ROA` : null],
+    ["RPKI", listed([network.rpki, network.roas && `${network.roas} ROA`])],
     ["Category", operator.category],
-    ["Registry", (network.rir ?? operator.rir)?.toUpperCase()],
+    ["Registry", listed([(network.rir ?? operator.rir)?.toUpperCase(),
+      based(network.country), network.since])],
     ["Tier", operator.tier === null ? null : `tier ${operator.tier}`],
     ["Peering", operator.peering === null ? null : `${operator.peering} exchanges`],
     ["Since", operator.since],

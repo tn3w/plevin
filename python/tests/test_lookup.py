@@ -77,7 +77,7 @@ def test_a_network_carries_the_announcement_it_falls_in(opened: Path) -> None:
     assert (network.cidr, network.start, network.end) == (
         "8.8.8.0/24", "8.8.8.0", "8.8.8.255")
     assert (network.rpki, network.roas, network.prefix) == ("valid", 1, 24)
-    assert network.rir == "arin"
+    assert (network.rir, network.country, network.since) == ("arin", "US", 1992)
 
 
 def test_an_operator_is_named_by_the_shorter_of_its_names(opened: Path) -> None:
@@ -136,13 +136,36 @@ def test_a_boundary_without_an_abuse_record_still_reads_the_asn(opened: Path) ->
     assert found.network.operator is None
     assert found.network.carrier is None
     assert found.place is not None
+    assert found.place.granularity == "country"
     assert found.place.city is not None
-    assert found.place.city.capital == "country"
+    assert found.place.city.name is None
+    assert found.place.city.capital is None
     assert found.place.city.country is None
-    assert found.place.city.metro is None
+    assert found.place.city.region is None
+    assert (found.network.rpki, found.network.roas) == ("unknown", None)
+    assert (found.network.country, found.network.since) == ("DE", None)
     assert found.place.country is None
     assert found.place.time is not None
     assert found.place.time.timezone == "UTC"
+
+
+def test_a_region_wide_point_names_the_region_but_no_town(opened: Path) -> None:
+    place = plevin.lookup("14.0.0.1").place
+    assert place is not None
+    assert place.granularity == "region"
+    assert place.city is not None
+    assert (place.city.name, place.city.id, place.city.population) == (None, None, None)
+    assert place.city.region is not None
+    assert place.city.region.iso == "US-CA"
+    assert (place.city.country, place.city.timezone) == ("US", "America/Los_Angeles")
+    assert place.country is not None
+    assert place.country.code == "US"
+
+
+def test_a_crawler_range_reads_as_one(opened: Path) -> None:
+    found = plevin.lookup("8.8.8.8")
+    assert found.abuse is not None
+    assert not found.abuse.is_crawler
 
 
 def test_a_v6_address_reads_the_same_way(opened: Path) -> None:

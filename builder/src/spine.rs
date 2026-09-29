@@ -1,8 +1,9 @@
 //! One boundary set carrying place, network and abuse together, cut to a selection.
 
-use crate::abuse::Records;
+use crate::abuse::{Records, together};
 use crate::derive::brand;
 use crate::gazetteer::Gazetteer;
+use crate::netset::{opens, public};
 use crate::network::{Route, Systems};
 use crate::place::Places;
 use crate::{
@@ -20,6 +21,8 @@ pub struct Stop {
     pub rpki: u8,
     pub roas: u16,
     pub rir: u8,
+    pub country: u16,
+    pub since: u16,
 }
 
 pub struct Sheet {
@@ -110,14 +113,28 @@ impl World {
         systems: Systems,
         records: Records,
     ) -> World {
+        let mut records = records;
+        let open = [0, 1].map(public);
+        for (hosts, runs) in records.hosts.iter_mut().zip(&open) {
+            hosts.retain(|(address, _)| opens(runs, *address));
+        }
         let over = |runs: &[Vec<(u128, u32)>; 2]| {
             [0, 1].map(|family| {
-                assemble(
+                let held = assemble(
                     &runs[family],
                     &systems.runs[family],
                     &records.spans[family],
                     &records.effective[family],
-                )
+                );
+                let mut out = Vec::with_capacity(held.len());
+                together(&held, &open[family], |at, stop, routed| {
+                    push_changed(
+                        &mut out,
+                        at,
+                        if routed { *stop } else { Stop::default() },
+                    );
+                });
+                out
             })
         };
         let spine = over(&places.runs);
@@ -183,6 +200,11 @@ impl World {
         parts.extend(self.lay(selection, &spines, &slabs, &ranks));
         parts.push(Part::Strings(pool));
         let zones = selection.has("city.timezone").then(|| self.gazetteer.zones.clone());
+        let countries = selection.has("spine.country").then(|| {
+            let mut named = vec![String::new()];
+            named.extend(self.gazetteer.countries.iter().cloned());
+            named
+        });
         Written {
             parts,
             carries: [
@@ -191,7 +213,7 @@ impl World {
                 selection.table("abuse"),
             ],
             fields: selection.fields.clone(),
-            books: vocabularies(selection, zones.as_deref()),
+            books: vocabularies(selection, zones.as_deref(), countries.as_deref()),
         }
     }
 
@@ -478,6 +500,11 @@ impl World {
                     rpki: if selection.has("spine.rpki") { stop.rpki } else { 0 },
                     roas: if selection.has("spine.roas") { stop.roas } else { 0 },
                     rir: if selection.has("spine.rir") { stop.rir } else { 0 },
+                    country: match selection.has("spine.country") {
+                        true => stop.country,
+                        false => 0,
+                    },
+                    since: if selection.has("spine.since") { stop.since } else { 0 },
                 };
                 push_changed(&mut out, *at, cut);
             }
@@ -586,6 +613,8 @@ impl Stop {
             "prefix" => self.prefix as i64,
             "rpki" => self.rpki as i64,
             "roas" => self.roas as i64,
+            "country" => self.country as i64,
+            "since" => self.since as i64,
             _ => self.rir as i64,
         }
     }
@@ -758,6 +787,8 @@ fn assemble(
             rpki: route.rpki,
             roas: route.roas,
             rir: route.rir,
+            country: route.country,
+            since: route.since,
         };
         push_changed(&mut out, at, stop);
     }

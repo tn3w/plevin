@@ -12,7 +12,7 @@ No API, no rate limit, no lookup leaving the machine.
 [![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)](https://pypi.org/project/plevin)
 [![Python](https://img.shields.io/badge/python-3.10%2B-1868f2)](https://pypi.org/project/plevin)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](https://github.com/tn3w/plevin/blob/master/LICENSE)
-[![Fields](https://img.shields.io/badge/fields-101-6f42c1)](#fields)
+[![Fields](https://img.shields.io/badge/fields-108-6f42c1)](#fields)
 [![Warm](https://img.shields.io/badge/warm%20lookups-2M%2Fs-2ea043)](#speed)
 
 </div>
@@ -40,8 +40,8 @@ pip install "plevin[db,full]"
 
 - `lookup` always answers a `Result` and raises `ValueError` for non-addresses.
 - Integers up to `0xFFFFFFFF` are v4, so `lookup(1)` is `0.0.0.1`.
-- No dependencies. `full` adds `pycountry` (and `tzdata` on Windows) for country names
-  and local time.
+- No dependencies. `full` adds `pycountry`, `babel` and `phonenumbers` (and `tzdata` on
+  Windows) for country names, currency, calling code, languages and local time.
 
 ## Databases
 
@@ -50,9 +50,9 @@ installed, the richest wins.
 
 | extra             | size    | carries                                  |
 | ----------------- | ------- | ---------------------------------------- |
-| `plevin[db]`      | 18.2 MB | every field                              |
+| `plevin[db]`      | 18.7 MB | every field                              |
 | `plevin[place]`   | 6.3 MB  | city, region, postal, coordinates, metro |
-| `plevin[network]` | 7.0 MB  | ASN, operator, routing                   |
+| `plevin[network]` | 7.4 MB  | ASN, operator, routing, registry         |
 | `plevin[abuse]`   | 4.1 MB  | abuse level, service and provider        |
 | `plevin[country]` | 378 KB  | country code                             |
 
@@ -86,7 +86,9 @@ Place(
     ),
     country=Country(
         code='AU', name='Australia', official=None, common=None, iso3='AUS',
-        numeric='036', flag='🇦🇺', european_union=False, driving_side='left',
+        numeric='036', flag='🇦🇺', currency='AUD', currency_name='Australian Dollar',
+        calling_code='+61', languages=('en',), european_union=False,
+        driving_side='left',
     ),
     time=Time(
         timezone='Australia/Brisbane', abbreviation='AEST',
@@ -103,14 +105,17 @@ Place(
 | `capital`        | which capital the city is, if any                               |
 | `region.iso`     | ISO 3166-2; `region.code` is the GeoNames admin1 code           |
 | `postal_partial` | leading part of `postal`, where a source knows only that much   |
-| `country`, `time`| derived; names and clock need the `full` extra                  |
+| `granularity`    | `city`; `region` or `country` leaves `city` only its `region`, `country` and `timezone` |
+| `country`, `time`| derived; names, currency, calling code, languages and clock need the `full` extra |
+| `languages`      | official and de facto languages, most spoken first             |
 
 ### Network
 
 ```python
 Network(
     asn=13335, handle='CLOUDFLARENET', prefix=24, cidr='1.1.1.0/24',
-    start='1.1.1.0', end='1.1.1.255', rir='apnic', rpki='valid', roas=1,
+    start='1.1.1.0', end='1.1.1.255', rir='apnic', country='AU', since=2011,
+    rpki='valid', roas=1,
     operator=Operator(
         company='Cloudflare, Inc.', brand='Cloudflare', domain='cloudflare.com',
         website='https://www.cloudflare.com', category='content', tier=2,
@@ -127,7 +132,9 @@ Network(
 | ---------- | ----------------------------------------------------------------------- |
 | `cidr`     | the announced prefix the address falls in                               |
 | `rir`      | registry of the address, which may differ from the ASN's (`operator.rir`) |
-| `rpki`     | `valid`, `invalid` or `unknown`; `roas` counts agreeing ROAs            |
+| `country`  | country the registry lists for the block, not where it is used (`place.country`) |
+| `since`    | year the registry lists for the block                                   |
+| `rpki`     | `valid`, `invalid` or `unknown` (announced, no ROA); `roas` counts agreeing ROAs, or conflicting ones where `invalid` |
 | `brand`    | company without legal form: `GOOGLE`, `Google LLC` → `Google`           |
 | `domain`   | host of `website`, else of `abuse_email`                                |
 | `tier`     | 1 transit-free, 2 has customers, 3 edge                                 |
@@ -136,12 +143,13 @@ Network(
 
 Unannounced space (about a seventh of routable IPv4) still answers: `asn`, `rpki` and
 `roas` are `None`, `cidr` is the registry block, `handle` and `operator` its holder.
-ARIN and LACNIC publish no holders, so their unannounced space has no name.
+ARIN and LACNIC publish no holders, so their unannounced space has no name. Reserved
+space has no `network` at all.
 
 ```python
 >>> found = plevin.lookup("36.50.238.1")
->>> found.network.asn, found.network.cidr, found.network.handle
-(None, '36.50.238.0/23', 'GMTECH-BD')
+>>> found.network.asn, found.network.cidr, found.network.handle, found.network.country
+(None, '36.50.238.0/23', 'GMTECH-BD', 'BD')
 ```
 
 ### Abuse
@@ -150,7 +158,7 @@ ARIN and LACNIC publish no holders, so their unannounced space has no name.
 Abuse(
     name='Tor', provider='Tor', service='tor_exit_node', evidence='measured',
     threat='spam', level='high', risk=0.99, network_risk=0.86, last_seen_days=1,
-    is_malicious=True, is_anycast=False, is_satellite=False,
+    is_malicious=True, is_anycast=False, is_satellite=False, is_crawler=False,
     is_hosting_provider=True, is_proxy=False, is_public_proxy=False,
     is_residential_proxy=False, is_anonymous_vpn=False, is_tor_exit_node=True,
     is_private_relay=False, is_anonymous=True,
@@ -167,6 +175,7 @@ Abuse(
 | `evidence`     | `published`, `measured`, `reported`, `inferred` (strongest first)        |
 | `threat`       | what the address was reported for: `botnet`, `malware`, `phishing`, `bruteforce`, `web_attack`, `spam`, `scanner` |
 | `provider`     | who runs the service: the feed's name, else the network's brand          |
+| `is_crawler`   | a published search engine or AI crawler range                            |
 | booleans       | derived from `service` and the carrier type                              |
 
 `risk` combines what the service is worth on its own with every feed that reported
@@ -277,7 +286,7 @@ gives the raw rows without models.
 
 ```bash
 cd python
-uv run pytest          # 217 tests, 100% branch coverage
+uv run pytest          # 224 tests, 100% branch coverage
 uv run mypy && uv run basedpyright
 uvx ruff check . ../plevin_mini.py --config pyproject.toml
 uv build --wheel

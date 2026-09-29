@@ -19,12 +19,15 @@ Row = dict[str, Any]
 MAGIC, FORMAT, WINDOW, CACHED, DEGREES = b"PLEVIN\0", 2, 1 << 20, 1 << 14, 10_000
 FORMATS = {1: "B", 2: "H", 4: "I", 8: "Q"}
 SIGNED = {1: "b", 2: "h", 4: "i", 8: "q"}
-CARRIED = ("place", "network", "abuse", "prefix", "rpki", "roas")
+CARRIED = ("place", "network", "abuse", "prefix", "rpki", "roas", "rir", "country",
+           "since")
 LINKED = ("place", "network", "abuse")
-BOOKS = {"rpki": "rpki", "place.granularity": "granularity",
+BOOKS = {"rpki": "rpki", "rir": "rirs", "country": "countries",
+         "place.granularity": "granularity",
          "city.timezone": "timezones", "city.type": "place_types",
          "operator.category": "categories", "abuse.user_type": "categories",
-         "abuse.service": "services", "abuse.evidence": "evidence"}
+         "abuse.service": "services", "abuse.evidence": "evidence",
+         "abuse.threat": "threats", "abuse.level": "levels"}
 READS: dict[str, Callable[[int], Any]] = {
     "abuse.risk": lambda value: None if value == 255 else value / 100,
     "abuse.is_anycast": bool, "abuse.is_satellite": bool}

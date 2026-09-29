@@ -102,8 +102,8 @@ ANSWERED = 1 << 10
 
 Rows = dict[str, Any]
 Ground = tuple[Any, Any, Any, Any, str | None, City | None, Country | None]
-Wires = tuple[int | None, str | None, str | None, str | None, Any,
-              Operator | None, Carrier | None]
+Wires = tuple[int | None, str | None, str | None, str | None, int | None, str | None,
+              int | None, Operator | None, Carrier | None]
 Stored = tuple[tuple[Ground, str] | None, tuple[Wires, int | None] | None,
                Abuse | None]
 
@@ -178,15 +178,25 @@ def _built_city(rows: Rows) -> City:
 _city = Shaped(_built_city)
 
 
+def _built_coarse(rows: Rows, granularity: str) -> City:
+    town = _city(rows)
+    region = town.region if granularity == "region" else None
+    return City(country=town.country, timezone=town.timezone, region=region)
+
+
+_coarse = Shaped(_built_coarse)
+
+
 def _place(rows: Rows | None) -> tuple[Ground, str] | None:
     if rows is None:
         return None
-    city = _city(rows.get("city"))
+    granularity = str(rows.get("granularity", ""))
+    held = rows.get("city")
+    city = _city(held) if granularity in ("city", "") else _coarse(held, granularity)
     code = "" if city is None or city.country is None else city.country
     zone = "" if city is None or city.timezone is None else city.timezone
     ground = (rows.get("lat"), rows.get("lon"), rows.get("accuracy"),
-              rows.get("confidence"), _text(rows.get("granularity")), city,
-              country(code))
+              rows.get("confidence"), _text(granularity), city, country(code))
     return ground, zone
 
 
@@ -252,6 +262,7 @@ def _abuse(record: Rows | None, system: Rows | None, user_type: str,
         is_malicious=bool(level),
         is_anycast=bool(held.get("is_anycast")),
         is_satellite=bool(held.get("is_satellite")),
+        is_crawler=user_type == derive.CRAWLER,
         is_hosting_provider=user_type in derive.SERVERS,
         is_proxy=named in derive.PROXIES,
         is_public_proxy=named == "public_proxy",
@@ -274,7 +285,8 @@ def _holder(rows: Rows, handle: str, brand: str) -> Operator | None:
 def _network(rows: Rows, user_type: str) -> tuple[Wires, int | None]:
     handle = str(rows.get("handle", ""))
     wires = (_count(rows.get("asn")), _text(handle), _text(rows.get("rir")),
-             _text(rows.get("rpki")), rows.get("roas"),
+             _text(rows.get("country")), _count(rows.get("since")),
+             _text(rows.get("rpki")), _count(rows.get("roas")),
              _holder(rows, handle, str(rows.get("brand", ""))),
              _carrier(rows.get("carrier"), user_type))
     return wires, _count(rows.get("prefix"))
@@ -287,10 +299,12 @@ def _user_type(record: Rows | None, system: Rows | None) -> str:
 
 def _stored(rows: Rows) -> Stored:
     network = rows.get("network")
+    if network is not None and not any(network.values()):
+        network = None
     system = None if network is None else network.get("abuse")
     user_type = _user_type(rows.get("abuse"), system)
     wires = None if network is None else _network(network, user_type)
-    holder = None if wires is None else wires[0][5]
+    holder = None if wires is None else wires[0][-2]
     brand = "" if holder is None or holder.brand is None else holder.brand
     return (_place(rows.get("place")), wires,
             _abuse(rows.get("abuse"), system, user_type, brand))
@@ -342,7 +356,7 @@ def _result(value: int, wide: bool, stored: Stored | None,
 def _system(rows: Rows) -> System:
     record = rows.get("abuse")
     user_type = _user_type(None, record)
-    asn, handle, _, _, _, operator, carrier = _network(rows, user_type)[0]
+    asn, handle, *_, operator, carrier = _network(rows, user_type)[0]
     brand = "" if operator is None or operator.brand is None else operator.brand
     return System(
         asn=asn,
@@ -380,11 +394,11 @@ def _asn(value: int | str) -> int:
 
 
 def _spanned(wires: Wires, prefix: int | None, value: int, wide: bool) -> Network:
-    asn, handle, rir, rpki, roas, operator, carrier = wires
+    asn, handle, rir, registered, since, rpki, roas, operator, carrier = wires
     cidr, start, end = (None, None, None) if prefix is None else span(
         value, wide, prefix)
-    return Network(asn, handle, prefix, cidr, start, end, rir, rpki, roas, operator,
-                   carrier)
+    return Network(asn, handle, prefix, cidr, start, end, rir, registered, since, rpki,
+                   roas, operator, carrier)
 
 
 def _found() -> Path:

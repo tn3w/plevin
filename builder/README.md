@@ -2,16 +2,16 @@
 
 # plevin builder
 
-**26 source files, operator geofeeds and 210 feeds in one offline `.plv` database.**
+**26 source files, operator geofeeds and 209 feeds in one offline `.plv` database.**
 
 ![Rust 2024](https://img.shields.io/badge/rust-2024-CE422B?logo=rust&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
-![Full build](https://img.shields.io/badge/full%20build-18.2%20MB-2ea043)
-![Sources](https://img.shields.io/badge/sources-26%20files%20%2B%20210%20feeds%20%2B%20geofeeds-6f42c1)
+![Full build](https://img.shields.io/badge/full%20build-18.7%20MB-2ea043)
+![Sources](https://img.shields.io/badge/sources-26%20files%20%2B%20209%20feeds%20%2B%20geofeeds-6f42c1)
 
-[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 18.2 MB ·
+[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 18.7 MB ·
 [location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 6.3 MB ·
-[network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.0 MB ·
+[network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.4 MB ·
 [abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 4.1 MB ·
 [country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 378 KB ·
 [blocklist](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset) 8.2 MB
@@ -20,7 +20,7 @@
 
 ```mermaid
 flowchart LR
-    S["26 files + geofeeds + 210 feeds"] --> B[builder] --> D[("plevin.plv")] --> Q["lookup(8.8.8.8)"]
+    S["26 files + geofeeds + 209 feeds"] --> B[builder] --> D[("plevin.plv")] --> Q["lookup(8.8.8.8)"]
 ```
 
 ## Build
@@ -131,7 +131,7 @@ Fetched flat into `inputs/`; gzip inflated, zip reduced to its largest member.
 | crawlers                      |    17 | Google, Bing, Apple, OpenAI, Perplexity, CCBot, Kagi   |
 | CDN, content, SaaS            |    19 | Cloudflare, Fastly, Gcore, Imperva, Atlassian, Stripe  |
 | exchanges                     |     1 | PeeringDB IXP peering LANs                             |
-| ASN tags, DROP                |    19 | bgp.tools, Spamhaus DROP and ASN-DROP, risk-db         |
+| ASN tags, DROP                |    18 | bgp.tools, Spamhaus DROP and ASN-DROP, risk-db         |
 | satellite, SASE               |     2 | Starlink geofeed, Zscaler                              |
 | dedicated parsers, flags      |     9 | IP2Proxy PX11, IPsum, APNIC users, MCC-MNC, anycast    |
 
@@ -168,11 +168,11 @@ flowchart LR
 
 | stage     | does                                                                          |
 | --------- | ----------------------------------------------------------------------------- |
-| gazetteer | cities, regions, districts, postal codes from GeoNames; country of a coordinate from Natural Earth; region ISO codes from `iso_3166-2.json`, then `data/regions.json`, never one ISO does not list |
+| gazetteer | cities, regions, districts, postal codes from GeoNames; country of a coordinate from Natural Earth; region ISO codes from `data/regions.json`, then `iso_3166-2.json`, never one ISO does not list; an empty name matches no place |
 | place     | operator geofeeds first, then MaxMind, IP2Location where MaxMind has only a country; IP2Location instead when it and DB-IP agree on another city within 25 km; DB-IP agreeing lifts confidence to 90; points interned at 1e-4°; nearest city in the same country within 500 km, else within 3000 km; accuracy is the largest of source radius, snap distance and a per-granularity floor |
-| network   | origin ASN by majority of RIS peers; ROAs → `rpki`, `roas`; NRO → registry and year; CAIDA → company, tier; PeeringDB → website, category, peering, address; LACNIC `aut-num` → city where PeeringDB has none; IP2Proxy's most common range domain → website where PeeringDB has none; carriers need a name match, APNIC users and an eyeball network |
+| network   | origin ASN by majority of RIS peers, routes wider than /8 or /16 dropped as leaks; ROAs → `rpki`, `roas`; NRO → registry, country and year of the ASN and of every block; CAIDA → company, tier, handle and registry where `asn.txt` and NRO have none; street addresses never become a company; PeeringDB → website, category, peering, address; LACNIC `aut-num` → city where PeeringDB has none; IP2Proxy's most common range domain → website where PeeringDB has none; bgp.tools' mobile tag never turns a transit or content network cellular; carriers need a name match, APNIC users and an eyeball network |
 | abuse     | one record per span plus an ASN baseline, from feeds declared in `data/feeds.json` |
-| spine     | one boundary set carrying place, network and abuse; ids ranked by use       |
+| spine     | one boundary set carrying place, network and abuse; reserved space carries none; ids ranked by use |
 
 ### Geofeeds
 
@@ -233,7 +233,7 @@ two sources settle cheaply. Geofeed rows are never outvoted.
 - **ASN baseline:** its own feeds, noisy-OR the square root of the risk-weighted share
   of its announced space that was reported. v4 is counted in addresses, v6 in /64s,
   and the worse family stands. Under 0.01 the ASN reads as unseen.
-- **`last_seen_days`:** the tightest feed window that hit.
+- **`last_seen_days`:** the tightest feed window that hit, only where a risk is set.
 
 ## Fields
 
@@ -251,7 +251,7 @@ flowchart LR
 | --------- | ----------------------------------------------------------------------------- |
 | `place`   | point: lat, lon, accuracy, granularity, confidence; city: name, ascii, id, population, type, postal, postal_partial, timezone, elevation, country; region: name, code, iso, type, id; district: name, code, id |
 | `metro`   | code, label                                                                   |
-| `network` | asn, handle, prefix, rir, rpki, roas; operator: company, website, category, tier, peering, scope, rir, since, street, city, state, postal, abuse_email, country; carrier: user_type, user_count, mcc, mnc |
+| `network` | asn, handle, prefix, rir, country, since, rpki, roas; operator: company, website, category, tier, peering, scope, rir, since, street, city, state, postal, abuse_email, country; carrier: user_type, user_count, mcc, mnc |
 | `abuse`   | name, service, evidence, threat, is_anycast, is_satellite, risk, level, network_risk, last_seen_days |
 
 Derived by the readers: every `is_*` flag except `is_anycast` and `is_satellite`,
@@ -269,6 +269,7 @@ the website is missing).
 | `mcc`, `mnc`            | ITU codes, 0 unknown          |
 | `prefix`                | prefix length, 0 unannounced  |
 | `postal_partial`        | prefix length of `postal`     |
+| `since`                 | year, 0 unknown               |
 
 Link 0 means absent; a value is empty as `""`, the empty vocabulary member or the
 sentinel above.
@@ -280,7 +281,8 @@ sentinel above.
 | service     | tor_exit_node, private_relay, anonymous_vpn, residential_proxy, public_proxy  |
 | category    | residential, business, hosting, education, government, military, cdn, content, infrastructure, cellular, search_engine_spider, traveler, transit, exchange, non-profit |
 | granularity | city, region, country                                                         |
-| rpki        | unknown, valid, invalid                                                       |
+| rpki        | unknown (announced, no ROA), valid, invalid; empty unannounced               |
+| countries   | every code GeoNames or NRO names, for `network.country`                       |
 
 ## File format
 

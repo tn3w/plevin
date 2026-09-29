@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plevin"
-version = "0.2.1"
+version = "0.2.2"
 description = "Location, network and abuse information for any IP address in one offline file."
 readme = "README.md"
 license = "Apache-2.0"
@@ -51,7 +51,12 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-full = ["pycountry>=26.2", "tzdata; sys_platform == 'win32'"]
+full = [
+    "pycountry>=26.2",
+    "babel>=2.17",
+    "phonenumbers>=9",
+    "tzdata; sys_platform == 'win32'",
+]
 db = ["plevin-db"]
 place = ["plevin-db-place"]
 network = ["plevin-db-network"]
@@ -70,6 +75,8 @@ tests = [
     "pytest>=9",
     "pytest-cov>=7",
     "pycountry>=26.2",
+    "babel>=2.17",
+    "phonenumbers>=9",
     "tzdata; sys_platform == 'win32'",
 ]
 typing = ["mypy>=2", "basedpyright>=1.39"]

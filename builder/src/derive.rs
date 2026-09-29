@@ -4,7 +4,7 @@ const FORMS: &str = "inc incorporated llc ltd ltda limited gmbh mbh ag kgaa ohg 
 sa sab saa sau sal saog sac sas sarl srl spa nv bv cv asa aps oyj kft zrt nyrt doo sro \
 ooo zao pao pjsc jsc ojsc llp plc pte pteltd pty corp corporation company holding \
 holdings group uab sia tov oao pt sdn bhd coltd coltda eireli ead ood eood sti ltdsti \
-spzoo";
+spzoo anonim sirketi tbk";
 const TAILS: &str = "de me epp co as ab ad dd bt lc lp se sl slu sp z oo zoo oy ao esp \
 kg network networks net telecom telecoms telecommunication telecommunications \
 telecomunicaciones comunicaciones communication communications hosting solutions \
@@ -24,6 +24,9 @@ const NETWORK_TAIL: [&str; 5] = ["NET", "COM", "TEL", "WEB", "LINE"];
 pub fn brand(handle: &str, company: &str) -> String {
     let legal = from_company(company);
     let short = from_handle(handle);
+    if company.to_lowercase() == handle.to_lowercase() {
+        return if short.is_empty() { legal } else { short };
+    }
     if legal.is_empty() || short.is_empty() {
         return if legal.is_empty() { short } else { legal };
     }
@@ -44,7 +47,7 @@ fn from_company(company: &str) -> String {
         .map(|word| word.trim_matches(['"', '\'']))
         .filter(|word| !word.is_empty())
         .collect();
-    while tokens.len() > 1 && tailing(tokens[tokens.len() - 1]) {
+    while trailing(&tokens) {
         tokens.pop();
     }
     while !tokens.is_empty() && listed(LEAD, &bare(tokens[0])) {
@@ -56,7 +59,8 @@ fn from_company(company: &str) -> String {
 }
 
 fn from_handle(handle: &str) -> String {
-    let Some(word) = handle.split_whitespace().next() else {
+    let words: Vec<&str> = handle.split_whitespace().collect();
+    let [word] = words[..] else {
         return String::new();
     };
     let head =
@@ -169,9 +173,11 @@ fn ending(name: &str, tld: &str) -> bool {
     at.is_some_and(|at| name.is_char_boundary(at) && name[at..].eq_ignore_ascii_case(tld))
 }
 
-fn tailing(token: &str) -> bool {
-    let held = bare(token);
-    held.is_empty() || listed(FORMS, &held) || listed(TAILS, &held)
+fn trailing(tokens: &[&str]) -> bool {
+    let Some(last) = tokens.last() else { return false };
+    let held = bare(last);
+    let legal = held.is_empty() || listed(FORMS, &held);
+    (tokens.len() > 1 && legal) || (tokens.len() > 2 && listed(TAILS, &held))
 }
 
 fn bare(token: &str) -> String {

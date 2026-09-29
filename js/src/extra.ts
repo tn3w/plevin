@@ -14,7 +14,7 @@ const LEFT_DRIVING = new Set(
   (
     "AG AI AU BB BD BM BN BS BT BW CC CK CX CY DM FJ FK GB GD GG GY HK ID IE IM" +
     " IN JE JM JP KE KI KN KY LC LK LS MO MS MT MU MV MW MY MZ NA NF NP NR NU" +
-    " NZ PG PK PN SB SC SG SH SR SZ TC TH TL TO TT TV TZ UG VC VG WS ZA ZM ZW"
+    " NZ PG PK PN SB SC SG SH SR SZ TC TH TL TO TT TV TZ UG VC VG VI WS ZA ZM ZW"
   ).split(" "),
 );
 
@@ -23,15 +23,9 @@ const WEEK = 7 * DAY;
 const WINDOW = 400 * DAY;
 const MINUTE = 60000;
 
-const NAMED = new Map(
-  COUNTRIES.map((row) => {
-    const [name, official = "", common = ""] = row.slice(8).split("|");
-    const held = [name, official, common, row.slice(2, 5), row.slice(5, 8)];
-    return [row.slice(0, 2), held] as const;
-  }),
-);
+const KNOWN = new Map(COUNTRIES.map((row) => [row.slice(0, 2), row.split("|")]));
 
-const text = (value: string): string | null => value || null;
+const text = (value?: string): string | null => value || null;
 
 /** Regional indicator symbols, which spell any ISO country code as a flag. */
 export const flag = (code: string): string => {
@@ -48,15 +42,30 @@ export const country = (code: string): Country | null => {
   if (!code) return null;
   const found = countries.get(code);
   if (found !== undefined) return found;
-  const named = NAMED.get(code);
+  const [
+    ,
+    iso3,
+    numeric,
+    name,
+    official,
+    common,
+    currency,
+    currencyName,
+    calling,
+    spoken,
+  ] = KNOWN.get(code) ?? [];
   const built: Country = {
     code,
-    name: named ? named[0] : null,
-    official: named ? text(named[1]) : null,
-    common: named ? text(named[2]) : null,
-    iso3: named ? named[3] : null,
-    numeric: named ? named[4] : null,
+    name: text(name),
+    official: text(official),
+    common: text(common),
+    iso3: text(iso3),
+    numeric: text(numeric),
     flag: flag(code) || null,
+    currency: text(currency),
+    currency_name: text(currencyName),
+    calling_code: text(calling),
+    languages: spoken ? spoken.split(",") : [],
     european_union: EU_MEMBERS.has(code),
     driving_side: LEFT_DRIVING.has(code) ? "left" : "right",
   };

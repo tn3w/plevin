@@ -588,6 +588,7 @@ impl Folded {
     }
 
     fn record(&self) -> Record {
+        let unseen = self.risks.is_empty() && self.service == 0;
         Record {
             name: self.provider.clone(),
             user_type: self.user,
@@ -596,11 +597,11 @@ impl Folded {
             threat: self.threat,
             anycast: self.anycast as u8,
             satellite: self.satellite as u8,
-            risk: match self.risks.is_empty() && self.service == 0 {
+            risk: match unseen {
                 true => UNSEEN,
                 false => ((self.share() * 100.0).round() as u8).min(CERTAIN),
             },
-            last_seen: self.window,
+            last_seen: if unseen { 0 } else { self.window },
         }
     }
 }

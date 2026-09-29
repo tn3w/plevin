@@ -12,7 +12,7 @@ No API, no rate limit, no lookup leaving the machine or the browser tab.
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2)](https://www.npmjs.com/package/plevinjs)
 [![Types](https://img.shields.io/badge/types-included-1868f2)](https://www.npmjs.com/package/plevinjs?activeTab=code)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](https://github.com/tn3w/plevin/blob/master/LICENSE)
-[![Fields](https://img.shields.io/badge/fields-101-6f42c1)](#fields)
+[![Fields](https://img.shields.io/badge/fields-108-6f42c1)](#fields)
 [![Warm](https://img.shields.io/badge/warm%20lookups-5M%2Fs-2ea043)](#speed)
 
 </div>
@@ -52,9 +52,9 @@ Open once, reuse for every lookup. Nothing is downloaded or cached for you.
 
 | file                                                  | size    | carries                                  |
 | ----------------------------------------------------- | ------- | ---------------------------------------- |
-| `plevin.plv`                                          | 18.2 MB | every field                              |
+| `plevin.plv`                                          | 18.7 MB | every field                              |
 | `plevin.metro-place.plv`                              | 6.3 MB  | city, region, postal, coordinates, metro |
-| `plevin.network.plv`                                  | 7.0 MB  | ASN, operator, routing                   |
+| `plevin.network.plv`                                  | 7.4 MB  | ASN, operator, routing, registry         |
 | `plevin.abuse-level-abuse-provider-abuse-service.plv` | 4.1 MB  | abuse level, service and provider        |
 | `plevin.place-country-code.plv`                       | 378 KB  | country code                             |
 
@@ -82,8 +82,8 @@ No build step:
 | `https://esm.sh/plevinjs`                      | the modules, imports rewritten    |
 | `https://plevin.tn3w.dev/plevin/plevin.min.js` | the bundle beside the databases   |
 
-- **Pin a version for production:** `cdn.jsdelivr.net/npm/plevinjs@0.2.1`.
-- **Pick the smallest build:** the country build is 378 KB against 18.2 MB.
+- **Pin a version for production:** `cdn.jsdelivr.net/npm/plevinjs@0.2.2`.
+- **Pick the smallest build:** the country build is 378 KB against 18.7 MB.
 - **Cache the file** so it downloads once per visitor:
 
 ```js
@@ -119,7 +119,9 @@ found.place;
   },
   country: {
     code: 'AU', name: 'Australia', official: null, common: null, iso3: 'AUS',
-    numeric: '036', flag: '🇦🇺', european_union: false, driving_side: 'left',
+    numeric: '036', flag: '🇦🇺', currency: 'AUD', currency_name: 'Australian Dollar',
+    calling_code: '+61', languages: ['en'], european_union: false,
+    driving_side: 'left',
   },
   time: {
     timezone: 'Australia/Brisbane', abbreviation: 'AEST',
@@ -131,7 +133,8 @@ found.place;
 found.network;
 {
   asn: 13335, handle: 'CLOUDFLARENET', prefix: 24, cidr: '1.1.1.0/24',
-  start: '1.1.1.0', end: '1.1.1.255', rir: 'apnic', rpki: 'valid', roas: 1,
+  start: '1.1.1.0', end: '1.1.1.255', rir: 'apnic', country: 'AU', since: 2011,
+  rpki: 'valid', roas: 1,
   operator: {
     company: 'Cloudflare, Inc.', brand: 'Cloudflare', domain: 'cloudflare.com',
     website: 'https://www.cloudflare.com', category: 'content', tier: 2,
@@ -147,7 +150,7 @@ db.lookup("185.220.101.1").abuse;
 {
   name: 'Tor', provider: 'Tor', service: 'tor_exit_node', evidence: 'measured',
   threat: 'spam', level: 'high', risk: 0.99, network_risk: 0.86, last_seen_days: 1,
-  is_malicious: true, is_anycast: false, is_satellite: false,
+  is_malicious: true, is_anycast: false, is_satellite: false, is_crawler: false,
   is_hosting_provider: true, is_proxy: false, is_public_proxy: false,
   is_residential_proxy: false, is_anonymous_vpn: false, is_tor_exit_node: true,
   is_private_relay: false, is_anonymous: true,
@@ -156,9 +159,10 @@ db.lookup("185.220.101.1").abuse;
 
 JavaScript specifics:
 
-- `country` comes from an ISO 3166 table in the package and `time` from the runtime's
-  `Intl` data, so neither needs an install or a network call. A different zone
-  database can move a daylight-saving boundary.
+- `country` comes from a table in the package, generated from pycountry, Babel and
+  phonenumbers by [`test/countries.py`](test/countries.py), and `time` from the
+  runtime's `Intl` data, so neither needs an install or a network call. A different
+  zone database can move a daylight-saving boundary.
 - `number` is a `bigint` for v6, so `JSON.stringify` needs a replacer.
 
 Address fields (`compressed`, `expanded`, `arpa`, `is_*`, `tunnel`, `embedded_ipv4`,

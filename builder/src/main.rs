@@ -174,7 +174,7 @@ pub const TABLES: &[&str] = &[
 ];
 
 pub const CARRIED: &[&str] =
-    &["place", "network", "abuse", "prefix", "rpki", "roas", "rir"];
+    &["place", "network", "abuse", "prefix", "rpki", "roas", "rir", "country", "since"];
 
 const COUNTRY: &[&str] = &["place.city", "city.country"];
 
@@ -183,6 +183,7 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("abuse.is_anonymous", &["abuse.service"]),
     ("abuse.is_anonymous_vpn", &["abuse.service"]),
     ("abuse.is_anycast", &["abuse.is_anycast"]),
+    ("abuse.is_crawler", &["abuse.user_type"]),
     ("abuse.is_hosting_provider", &["abuse.user_type", "operator.category"]),
     ("abuse.is_malicious", &["abuse.level"]),
     ("abuse.is_private_relay", &["abuse.service"]),
@@ -207,6 +208,7 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("network.carrier.mnc", &["network.carrier", "carrier.mnc"]),
     ("network.carrier.user_count", &["network.carrier", "carrier.user_count"]),
     ("network.carrier.user_type", &["abuse.user_type", "operator.category"]),
+    ("network.country", &["spine.country"]),
     ("network.handle", &["network.handle"]),
     ("network.operator.abuse_email", &["network.operator", "operator.abuse_email"]),
     ("network.operator.brand", &["network.brand"]),
@@ -234,6 +236,7 @@ pub const FIELDS: &[(&str, &[&str])] = &[
     ("network.rir", &["spine.rir"]),
     ("network.roas", &["spine.roas"]),
     ("network.rpki", &["spine.rpki"]),
+    ("network.since", &["spine.since"]),
     ("place.city.ascii", &["place.city", "city.ascii"]),
     ("place.city.elevation", &["place.city", "city.elevation"]),
     ("place.city.id", &["place.city", "city.id"]),
@@ -274,6 +277,7 @@ pub const NARROW: &[(&str, &str, &[&str])] = &[
     ("abuse.is_public_proxy", "abuse.service", &["public_proxy"]),
     ("abuse.is_residential_proxy", "abuse.service", &["residential_proxy"]),
     ("abuse.is_proxy", "abuse.service", &["public_proxy", "residential_proxy"]),
+    ("abuse.is_crawler", "abuse.user_type", &["search_engine_spider"]),
     ("abuse.is_hosting_provider", "abuse.user_type", SERVERS),
     ("abuse.is_hosting_provider", "operator.category", SERVERS),
     ("network.carrier.is_mobile", "abuse.user_type", &["cellular"]),
@@ -312,7 +316,7 @@ pub const THREATS: &[&str] =
     &["", "botnet", "malware", "phishing", "bruteforce", "web_attack", "spam", "scanner"];
 pub const EVIDENCE: &[&str] = &["", "published", "measured", "reported", "inferred"];
 pub const GRANULARITY: &[&str] = &["city", "region", "country"];
-pub const RPKI: &[&str] = &["unknown", "valid", "invalid"];
+pub const RPKI: &[&str] = &["", "unknown", "valid", "invalid"];
 pub const RIRS: &[&str] = &["", "afrinic", "apnic", "arin", "lacnic", "ripencc"];
 pub const PLACE_TYPES: &[&str] = &[
     "city",
@@ -388,6 +392,7 @@ pub fn worded(text: &str, needle: &str) -> bool {
 pub fn vocabularies(
     selection: &Selection,
     zones: Option<&[String]>,
+    countries: Option<&[String]>,
 ) -> Vec<(&'static str, Vec<String>)> {
     let named = |book: &[&str]| book.iter().map(|held| held.to_string()).collect();
     let held: [(&'static str, &[&str], &[&str]); 9] = [
@@ -408,6 +413,9 @@ pub fn vocabularies(
         .collect();
     if let Some(zones) = zones {
         books.push(("timezones", zones.to_vec()));
+    }
+    if let Some(countries) = countries {
+        books.push(("countries", countries.to_vec()));
     }
     books
 }

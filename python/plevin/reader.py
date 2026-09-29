@@ -37,10 +37,12 @@ EMPTY: Plan = ((), (), (), (), ())
 FORMATS = {1: "B", 2: "H", 4: "I", 8: "Q"}
 SIGNED = {1: "b", 2: "h", 4: "i", 8: "q"}
 STEPPED = ("signed", "delta")
-CARRIED = ("place", "network", "abuse", "prefix", "rpki", "roas", "rir")
+CARRIED = ("place", "network", "abuse", "prefix", "rpki", "roas", "rir", "country",
+           "since")
 LINKED = frozenset(("place", "network", "abuse"))
 SPAN = "network"
-BOOKS = {"rpki": "rpki", "rir": "rirs", "place.granularity": "granularity",
+BOOKS = {"rpki": "rpki", "rir": "rirs", "country": "countries",
+         "place.granularity": "granularity",
          "city.timezone": "timezones",
          "city.type": "place_types",
          "operator.category": "categories", "abuse.user_type": "categories",

@@ -7,7 +7,7 @@ const FORMS = words(
     " sau sal saog sac sas sarl srl spa nv bv cv asa aps oyj kft zrt nyrt doo" +
     " sro ooo zao pao pjsc jsc ojsc llp plc pte pteltd pty corp corporation" +
     " company holding holdings group uab sia tov oao pt sdn bhd coltd coltda" +
-    " eireli ead ood eood sti ltdsti spzoo",
+    " eireli ead ood eood sti ltdsti spzoo anonim sirketi tbk",
 );
 const TAILS = words(
   "de me epp co as ab ad dd bt lc lp se sl slu sp z oo zoo oy ao esp kg network" +
@@ -21,7 +21,7 @@ const LEAD = words(
   "the llc ltd gmbh sarl ooo zao pao ao oao jsc ojsc pjsc uab sia tov pt pp ps" +
     " ip spolka",
 );
-const TAIL = new Set([...FORMS, ...TAILS, ""]);
+const LEGAL = new Set([...FORMS, ""]);
 const TLDS = [".com", ".net", ".org", ".io"];
 
 const TRADING = /^.*\b(?:trading as|d\/b\/a|dba)\b\s*/i;
@@ -36,6 +36,7 @@ const QUOTES = /^["']+|["']+$/g;
 export const SERVERS = new Set(["hosting", "cdn", "content"]);
 export const ACCESS = new Set(["residential", "cellular"]);
 export const PROXIES = new Set(["public_proxy", "residential_proxy"]);
+export const CRAWLER = "search_engine_spider";
 
 const CAPITALS: Record<string, string> = {
   "national capital": "country",
@@ -79,18 +80,18 @@ const cased = (text: string): string =>
     .map((word) => (shouts(word) ? titled(word) : word))
     .join(" ");
 
+const trailing = (tokens: string[]): boolean => {
+  const word = (tokens[tokens.length - 1] ?? "").toLowerCase().replace(BARE, "");
+  return (tokens.length > 1 && LEGAL.has(word)) || (tokens.length > 2 && TAILS.has(word));
+};
+
 const fromCompany = (company: string): string => {
   const held = company.replace(TRADING, "").replace(ALIAS, "");
   const tokens = held
     .split(/\s+/)
     .map((word) => word.replace(QUOTES, ""))
     .filter(Boolean);
-  while (
-    tokens.length > 1 &&
-    TAIL.has(tokens[tokens.length - 1].toLowerCase().replace(BARE, ""))
-  ) {
-    tokens.pop();
-  }
+  while (trailing(tokens)) tokens.pop();
   while (tokens.length && LEAD.has(tokens[0].toLowerCase().replace(BARE, ""))) {
     tokens.shift();
   }
@@ -100,7 +101,8 @@ const fromCompany = (company: string): string => {
 };
 
 const fromHandle = (handle: string): string => {
-  const first = handle.split(/\s+/)[0] ?? "";
+  const words = handle.split(/\s+/).filter(Boolean);
+  const first = words.length === 1 ? words[0] : "";
   let head = first.replace(HANDLE_TAIL, "");
   if (NUMBERED.test(head)) return "";
   if (head.length > 4 && head === head.toUpperCase()) {
@@ -113,6 +115,7 @@ const branded = kept((key: string): string => {
   const [handle, company] = split(key);
   const legal = fromCompany(company);
   const short = fromHandle(handle);
+  if (company.toLowerCase() === handle.toLowerCase()) return short || legal;
   if (!legal || !short) return legal || short;
   if (legal.toLowerCase() === short.toLowerCase()) {
     return short === short.toUpperCase() ? legal : short;

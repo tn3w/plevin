@@ -43,7 +43,8 @@ VOCABULARIES = {
                 "scanner"],
     "granularity": ["city", "region", "country"],
     "place_types": ["city", "national capital", "regional capital"],
-    "rpki": ["unknown", "valid", "invalid"],
+    "rpki": ["", "unknown", "valid", "invalid"],
+    "countries": ["", "DE", "US"],
     "rirs": ["", "afrinic", "apnic", "arin", "lacnic", "ripencc"],
     "timezones": ["America/Los_Angeles", "UTC", "Nowhere/Nothing"],
 }
@@ -126,25 +127,27 @@ def _tables(writer: Writer) -> None:
     writer.column("link.network.carrier", [1, 0, 0])
     writer.column("link.network.abuse", [1, 0, 0])
 
-    writer.column("col.place.lat", [373861, 0], read="degrees", signed=True)
-    writer.column("col.place.lon", [-1220838, 0], read="degrees", signed=True,
-                  tuning=[0, 2, 2])
-    writer.column("col.place.accuracy", [200, 0])
-    writer.column("col.place.confidence", [35, 0])
-    writer.column("col.place.granularity", [0, 2])
-    writer.column("link.place.city", [1, 2])
+    writer.column("col.place.lat", [373861, 0, 370000], read="degrees", signed=True)
+    writer.column("col.place.lon", [-1220838, 0, -1200000], read="degrees",
+                  signed=True, tuning=[0, 2, 2])
+    writer.column("col.place.accuracy", [200, 0, 1000])
+    writer.column("col.place.confidence", [35, 0, 60])
+    writer.column("col.place.granularity", [0, 2, 1])
+    writer.column("link.place.city", [1, 2, 1])
 
 
 def _spines(writer: Writer) -> None:
     rows = len(V4)
     writer.index("spine.v4", V4, wide=False)
-    writer.column("spine.v4.place", [0, 1, 1, 2] + [0] * (rows - 4))
+    writer.column("spine.v4.place", [0, 1, 1, 2] + [0] * (rows - 5) + [3])
     writer.column("spine.v4.network", [0, 1, 1, 0] + [0] * (rows - 4))
     writer.column("spine.v4.abuse", [0, 2, 1, 0] + [0] * (rows - 4))
     writer.column("spine.v4.prefix", [0, 8, 24, 8] + [0] * (rows - 4))
-    writer.column("spine.v4.rpki", [0, 1, 1, 0] + [0] * (rows - 4))
+    writer.column("spine.v4.rpki", [0, 2, 2, 1] + [0] * (rows - 4))
     writer.column("spine.v4.roas", [0, 0, 1, 0] + [0] * (rows - 4))
     writer.column("spine.v4.rir", [0, 3, 3, 0] + [0] * (rows - 4))
+    writer.column("spine.v4.country", [0, 2, 2, 1] + [0] * (rows - 4))
+    writer.column("spine.v4.since", [0, 1992, 1992, 0] + [0] * (rows - 4))
     writer.index("hosts.v4", [HOST_V4], wide=False)
     writer.column("hosts.v4.abuse", [2])
 
@@ -153,7 +156,7 @@ def _spines(writer: Writer) -> None:
     writer.column("spine.v6.network", [0, 1])
     writer.column("spine.v6.abuse", [0, 1])
     writer.column("spine.v6.prefix", [0, 32])
-    writer.column("spine.v6.rpki", [0, 2])
+    writer.column("spine.v6.rpki", [0, 3])
     writer.column("spine.v6.roas", [0, 3])
     writer.column("spine.v6.rir", [0, 3])
     writer.index("hosts.v6", [HOST_V6], wide=True)
@@ -182,7 +185,7 @@ def slim(tmp_path_factory: pytest.TempPathFactory) -> Path:
     writer.index("spine.v4", [0x0A000000], wide=False)
     writer.column("spine.v4.place", [1])
     writer.column("spine.v4.prefix", [8])
-    writer.column("spine.v4.rpki", [0])
+    writer.column("spine.v4.rpki", [1])
     return written(tmp_path_factory.mktemp("slim") / "slim.plv",
                    writer.build(selection="place"))
 
