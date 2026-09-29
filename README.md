@@ -142,6 +142,9 @@ library only. Plain dictionaries, no derived fields.
 python plevin_mini.py plevin.plv 8.8.8.8
 ```
 
+[`golf/`](golf): the same reader ported, one file each, standard library only. C, C++, Rust,
+Go, Java, Kotlin, C#, PHP, Ruby and Perl so far, with Lua and Elixir still to come.
+
 ## Data
 
 | rows              | count                                   |

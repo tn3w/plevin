@@ -1,0 +1,8 @@
+*.plv binary
+
+site/** linguist-documentation
+golf/** linguist-vendored
+js/test/** linguist-documentation
+python/tests/** linguist-documentation
+worker/** linguist-vendored
+**/dist/** linguist-generated
