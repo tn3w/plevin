@@ -1,13 +1,12 @@
 import { country as homeland } from "./plevin/extra.js";
 import { ask, Plevin, records } from "./plevin/index.js";
+import { download } from "./database.js";
 import { SAMPLE } from "./sample.js";
 
 const API = "https://plevin.tn3w.dev/api";
 const SAMPLED = "1.1.1.1";
 
-const DATABASE = "db/plevin.plv";
 const OWN_ADDRESS = "https://api.ipify.org?format=json";
-const STORE = "plevin";
 
 const node = (id) => document.getElementById(id);
 
@@ -40,48 +39,18 @@ const failed = (message) => {
   note.textContent = message;
 };
 
-const download = async () => {
-  const cache = "caches" in window ? await caches.open(STORE) : null;
-  const cached = cache && (await cache.match(DATABASE));
-  if (cached) {
-    say("reading the database out of the browser cache");
-    bar(1);
-    return new Uint8Array(await cached.arrayBuffer());
-  }
-
-  const response = await fetch(DATABASE);
-  if (!response.ok) throw new Error(`${response.status} reading the database`);
-  if (cache) await cache.put(DATABASE, response.clone());
-
-  const total = Number(response.headers.get("content-length") ?? 0);
-  const parts = [];
-  let done = 0;
-  const reader = response.body.getReader();
-  for (;;) {
-    const { done: over, value } = await reader.read();
-    if (over) break;
-    parts.push(value);
-    done += value.length;
-    if (total) bar(done / total);
-    say(`downloading the database, ${(done / 1e6).toFixed(1)} MB`);
-  }
-
-  const bytes = new Uint8Array(done);
-  let at = 0;
-  for (const part of parts) {
-    bytes.set(part, at);
-    at += part.length;
-  }
-  return bytes;
-};
-
 let opening = null;
 
 const database = () => {
   if (!opening) {
     opening = (async () => {
       say("downloading the database");
-      const db = new Plevin(await download());
+      const db = new Plevin(
+        await download((text, fraction) => {
+          say(text);
+          if (fraction) bar(fraction);
+        }),
+      );
       say("reading the address");
       node("built").textContent = `database built ${db.built}`;
       return db;

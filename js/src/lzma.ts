@@ -2,27 +2,27 @@
 
 export type Tuning = [context: number, position: number, matches: number];
 
-const HALF = 1024;
-const END = 0xffffffff;
+export const HALF = 1024;
+export const END = 0xffffffff;
 const SIGN = 0x80000000;
 
-const IS_MATCH = 0;
-const IS_REPEAT = IS_MATCH + 192;
-const IS_FIRST = IS_REPEAT + 12;
-const IS_SECOND = IS_FIRST + 12;
-const IS_THIRD = IS_SECOND + 12;
-const IS_LONG = IS_THIRD + 12;
-const SLOTS = IS_LONG + 192;
-const SPECIAL = SLOTS + 256;
-const ALIGN = SPECIAL + 114;
-const LENGTHS = ALIGN + 16;
-const REPEATS = LENGTHS + 514;
-const LITERALS = REPEATS + 514;
+export const IS_MATCH = 0;
+export const IS_REPEAT = IS_MATCH + 192;
+export const IS_FIRST = IS_REPEAT + 12;
+export const IS_SECOND = IS_FIRST + 12;
+export const IS_THIRD = IS_SECOND + 12;
+export const IS_LONG = IS_THIRD + 12;
+export const SLOTS = IS_LONG + 192;
+export const SPECIAL = SLOTS + 256;
+export const ALIGN = SPECIAL + 114;
+export const LENGTHS = ALIGN + 16;
+export const REPEATS = LENGTHS + 514;
+export const LITERALS = REPEATS + 514;
 
-const CHOICE = 0;
-const LOW = 2;
-const MIDDLE = LOW + 128;
-const HIGH = MIDDLE + 128;
+export const CHOICE = 0;
+export const LOW = 2;
+export const MIDDLE = LOW + 128;
+export const HIGH = MIDDLE + 128;
 
 const fail = (reason: string): never => {
   throw new Error(`lzma: ${reason}`);

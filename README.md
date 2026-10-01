@@ -59,7 +59,10 @@ One file per build, rebuilt daily. Pick the smallest one that answers your quest
 | country | `plevin[country]` | 378 KB  | country code                             |
 
 Download from the [latest release](https://github.com/tn3w/plevin/releases/latest), or
-from [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/) with open CORS.
+from [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/) with open CORS. Need another
+cut? [`plevinjs/slim`](js/README.md#slim-databases) rebuilds any selection in
+JavaScript from [`plevin.raw`](builder/README.md#raw-file), 30 MB, with the sections
+the builder would write.
 
 ## Fields
 

@@ -256,13 +256,60 @@ of heap with the whole world touched.
 ## LZMA
 
 Blocks are raw LZMA1, which neither `DecompressionStream` nor `zlib` reads, so the
-package ships its own decoder, checked against liblzma on every block.
+package ships its own decoder, checked against liblzma on every block, and, for
+[`slim`](#slim-databases), an encoder that writes the bytes liblzma writes.
 
 ```js
 import { decompress } from "plevinjs/lzma";
 
 decompress(block, [3, 0, 0]);   // tuning: literal context, literal position, match position bits
 ```
+
+## Slim databases
+
+Cut the builder's raw file down to the fields you use, in the browser or on a server.
+It is the builder's selection pipeline in JavaScript, run on `plevin.raw`: the same
+terms, columns, rows and boundaries merged, blocks re-encoded and compressed, so the
+result opens like any other file.
+
+```js
+import { slim } from "plevinjs/slim";
+
+const raw = new Uint8Array(await (await fetch(url)).arrayBuffer());   // plevin.raw
+const small = slim(raw, "place.country.code+network.asn");   // 400 KB, not 18.7 MB
+const db = new Plevin(small);
+```
+
+```bash
+npx plevinjs place+metro   # reads plevin.raw, writes plevin.metro-place.plv
+```
+
+| terms                  | keeps                                                     |
+| ---------------------- | --------------------------------------------------------- |
+| `full`                 | every field the source holds                              |
+| `place+metro`          | every field under `place`, plus `metro`; join with `+`    |
+| `abuse.is_tor_exit_node` | one flag; rows narrowed to Tor exits only               |
+
+- **Raw in:** [`plevin.raw`](https://github.com/tn3w/plevin/releases/latest/download/plevin.raw)
+  (30 MB) is the world the builder cuts from. Slimmed files are not raw: they cannot be
+  cut again and `slim` throws on them.
+- **Same as the builder:** byte for byte. The encoder is a port of liblzma's preset 9
+  (binary-tree matcher, optimal parse, range coder), checked on every block of the
+  release files; the same terms give the same file, `full` included. The build date
+  stays the raw file's.
+- **Only what the source holds:** a term that matches nothing throws.
+- **Size before building:** `estimate(stats, terms)` from `plevinjs/estimate` reads a
+  few hundred KB of counted facts (`new Slimmer(raw).stats()`, or the `stats.json`
+  beside the databases) and answers instantly, without decoding anything. Rates are fitted
+  to 172 builds; on 64 others it landed within 10% for four in five and within
+  about 2× at worst, tiny selections being the loosest. A build is exact.
+- **Without code:** [plevin.tn3w.dev/#slim](https://plevin.tn3w.dev/#slim) picks the
+  fields, shows the size first and saves the file; it runs `slim` in a worker.
+- **Out of the CDN bundle:** `plevinjs` and `plevin.min.js` never import it. Reach it at
+  `plevinjs/slim`, `https://esm.sh/plevinjs/slim` or
+  `https://cdn.jsdelivr.net/npm/plevinjs/dist/slim.min.js`.
+- **Cost:** the full cut needs about 2 GB of heap and under two minutes; a country file
+  under 10 s. No native module is needed.
 
 ## Development
 
@@ -271,6 +318,15 @@ decompress(block, [3, 0, 0]);   // tuning: literal context, literal position, ma
 | `index.ts`   | `Plevin`, `open`, result shaping                    |
 | `reader.ts`  | file format: sections, blocks, groups, bisection    |
 | `lzma.ts`    | resumable LZMA1 decoder                             |
+| `slim.ts`    | `slim`: the raw file's rows, links and boundaries cut to a selection |
+| `selection.ts` | terms, fields, columns, the builder's tables      |
+| `writer.ts`  | blocks, tuning, header: the builder's `file.rs`     |
+| `compress.ts` | LZMA1 encoder, liblzma preset 9 step for step      |
+| `matcher.ts` | its binary-tree match finder                        |
+| `estimate.ts` | `estimate`: a size from counted facts, no decoding |
+| `leaves.ts`  | what decides a boundary, which a selection keeps    |
+| `stats.ts`   | `collect`: the counted facts `estimate` reads       |
+| `cli.ts`     | `npx plevinjs`                                      |
 | `address.ts` | parsing, spelling, special ranges                   |
 | `naming.ts`  | DNS and own address                                 |
 | `extra.ts`   | country and clock, from `countries.ts`/`zones.ts`   |
@@ -285,7 +341,12 @@ npm run build                                   # dist/ and the CDN bundle
 
 node test/compare.ts ../plevin.plv sample.json  # field for field against Python
 node test/blocks.ts ../plevin.plv 100000        # every block against liblzma
+node test/stats.ts ../plevin.raw stats.json     # the facts `estimate` reads
 ```
+
+`npm test` also splits `../plevin.raw` and compares each `plevin.*.plv` beside it, which
+must come from the same builder run (`plevin-builder raw place+metro network ...`), and
+`PLEVIN_RAW` / `PLEVIN_DB` point elsewhere. Files over 8 MB are skipped.
 
 ## License
 

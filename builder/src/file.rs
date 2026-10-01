@@ -10,7 +10,8 @@ use xz2::stream::{LzmaOptions, Stream};
 use xz2::write::XzEncoder;
 
 const MAGIC: &[u8] = b"PLEVIN\0";
-const FORMAT: u8 = 2;
+pub const FORMAT: u8 = 2;
+pub const RAW: u8 = 3;
 const PRESET: u32 = 9;
 const WINDOW: u32 = 1 << 20;
 const ALONE: usize = 13;
@@ -55,7 +56,7 @@ struct Packed {
     body: Vec<u8>,
 }
 
-pub fn write(path: &Path, selection: &Selection, written: Written) -> Report {
+pub fn write(path: &Path, format: u8, selection: &Selection, written: Written) -> Report {
     let mut packed: Vec<Packed> = Vec::new();
     let mut spine = [0usize; 2];
     let mut hosts = [0usize; 2];
@@ -80,9 +81,9 @@ pub fn write(path: &Path, selection: &Selection, written: Written) -> Report {
                 let count = keys.len();
                 let width = if wide { 16 } else { 4 };
                 let (blocks, heads) = addresses(&keys, wide);
-                match name.starts_with("spine") {
-                    true => spine[wide as usize] = count,
-                    false => hosts[wide as usize] = count,
+                match name.starts_with("hosts") {
+                    true => hosts[wide as usize] = count,
+                    false => spine[wide as usize] += count,
                 }
                 pack(name, blocks, heads, width, count, KEYS, GROUP, "index", "")
             }
@@ -118,6 +119,7 @@ pub fn write(path: &Path, selection: &Selection, written: Written) -> Report {
     for _ in 0..8 {
         let total = MAGIC.len() + 5 + head.len() + body;
         let again = header(
+            format,
             selection,
             &written.fields,
             written.carries,
@@ -133,7 +135,7 @@ pub fn write(path: &Path, selection: &Selection, written: Written) -> Report {
     }
     let mut out: Vec<u8> = Vec::with_capacity(MAGIC.len() + 5 + head.len() + body);
     out.extend_from_slice(MAGIC);
-    out.push(FORMAT);
+    out.push(format);
     out.extend_from_slice(&(head.len() as u32).to_le_bytes());
     out.extend_from_slice(head.as_bytes());
     for held in &packed {
@@ -155,6 +157,7 @@ pub fn write(path: &Path, selection: &Selection, written: Written) -> Report {
 }
 
 fn header(
+    format: u8,
     selection: &Selection,
     fields: &[String],
     carries: [bool; 3],
@@ -163,7 +166,7 @@ fn header(
     length: usize,
 ) -> String {
     json!({
-        "format": FORMAT,
+        "format": format,
         "built": today(),
         "selection": selection.name,
         "fields": fields,

@@ -139,6 +139,7 @@
       <a href="#use" class="only-home">Use</a>
       <a href="#api" class="only-home">API</a>
       <a href="#files" class="only-home">Files</a>
+      <a href="#slim" class="only-home">Slim</a>
       <a href="https://github.com/tn3w/plevin">GitHub</a>
     </nav>
   </div>
@@ -254,6 +255,60 @@ curl <span class="s">"https://plevin.tn3w.dev/api/1.1.1.1?dns=1"</span></pre>
       </div>
     </section>
 
+    <section class="band wrap" id="slim">
+      <h2>Cut your own file</h2>
+      <p class="lead">Keep only the fields you use and get a database that is only
+        that, rebuilt in this tab. The size shown comes from a few counted facts, so it
+        appears at once and needs no download. The 30 MB raw file is fetched only when
+        you press Build, and kept in the browser cache.</p>
+
+      <h3 class="step">Start from an example</h3>
+      <div class="presets" id="presets"></div>
+
+      <h3 class="step">Or choose fields</h3>
+      <p class="hint">Fields that are computed from others, or share the same data,
+        switch on by themselves. Every field shows a real answer.</p>
+      <div class="picker" id="picker"></div>
+
+      <div class="slimbar" id="slimbar">
+        <div class="summary">
+          <div><span>Fields</span><b id="slim-count">Nothing chosen yet</b></div>
+          <div><span>File size</span><b id="slim-size">-</b></div>
+          <div><span>Terms</span><code id="slim-terms">-</code></div>
+        </div>
+        <div class="track"><i id="slim-bar"></i></div>
+        <p class="status" id="slim-status" aria-live="polite"></p>
+        <div class="actions">
+          <button type="button" class="primary" id="slim-build" disabled>Build the file</button>
+          <span id="slim-built"></span>
+        </div>
+      </div>
+
+      <div class="slimresult" id="slim-result" hidden>
+        <button type="button" class="primary" id="slim-download">Download</button>
+        <form class="tryout" id="slim-try">
+          <span class="verb">TRY</span>
+          <label>
+            <span>lookup in the new file</span>
+            <input id="slim-ip" value="1.1.1.1" spellcheck="false" autocomplete="off"
+                   aria-label="address to look up in the new file">
+          </label>
+          <button type="submit">Look up</button>
+        </form>
+        <div class="ips" id="slim-ips"></div>
+        <pre class="json" id="slim-json"></pre>
+      </div>
+
+      <details class="how">
+        <summary>The same from a terminal or your own code</summary>
+        <pre id="slim-cli-pre"><span class="c"># reads plevin.raw, writes the file named like the terms</span>
+<span id="slim-cli"></span></pre>
+        <pre><span class="k">import</span> { slim } <span class="k">from</span> <span class="s">"plevinjs/slim"</span>;
+<span class="c">// raw is the bytes of plevin.raw; the result can be saved or opened as is</span>
+<span class="k">const</span> small = <span id="slim-js"></span>;</pre>
+      </details>
+    </section>
+
     <section class="band wrap" id="faq">
       <h2>What a lookup is, and is not</h2>
 
@@ -348,5 +403,6 @@ curl <span class="s">"https://plevin.tn3w.dev/api/1.1.1.1?dns=1"</span></pre>
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
   crossorigin=""></script>
 <script type="module" src="app.js"></script>
+<script type="module" src="picker.js"></script>
 </body>
 </html>

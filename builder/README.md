@@ -32,6 +32,7 @@ cargo build --release
 ./target/release/plevin-builder place+metro        # dist/plevin.metro-place.plv
 ./target/release/plevin-builder network            # dist/plevin.network.plv
 ./target/release/plevin-builder blocklist.netset   # dist/blocklist.netset
+./target/release/plevin-builder raw                # dist/plevin.raw, only the raw file
 ```
 
 About a minute from fetched inputs. [`build.yml`](../.github/workflows/build.yml)
@@ -66,10 +67,29 @@ flowchart LR
 - **Derived booleans** keep only the values they ask about; `abuse.is_tor_exit_node`
   alone builds to tens of kilobytes.
 - **`abuse.level`** builds small: one boundary per step, nothing below 0.40.
+- **`abuse.risk`** brings `abuse.level` with it: the level is cut from the risk, so
+  the file answers both for about a kilobyte.
 - **`network.operator.brand`** alone stores the brand itself, not the handle and
   company it is derived from.
 - **`abuse.provider`** links a network only where a service record reaches it.
 - **Naming:** the selection is written into the file and the filename.
+
+## Raw file
+
+`raw` writes `plevin.raw` (30 MB): the world before any selection cuts it. It exists so
+a selection can be cut later, anywhere, exactly as the builder would cut it. The
+[JS splitter](../js/README.md#slim-databases) reads only this file.
+
+- **Tables:** every `col.*` and `link.*` section for every row, uncollapsed and
+  unranked; text columns hold ids into one sorted `strings` pool.
+- **Spines:** `spine.v4` and `spine.v6` (with place points) and `blocks.v4` and
+  `blocks.v6` (place snapped to blocks), each with every carried column and `whole`.
+  Both are stored because snapping is not recoverable from the other.
+- **Hosts:** `hosts.v4` and `hosts.v6` keep every reported address with its abuse row.
+- **Header:** format byte `3`, selection `raw`, the `full` field list and vocabularies.
+- **Reproducible:** cutting `plevin.raw` to any selection gives the file the builder
+  writes for it, byte for byte: the splitter's encoder reproduces liblzma's output
+  and its delta-or-plain and tuning choices.
 
 ## Blocklist
 

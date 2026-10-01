@@ -183,19 +183,8 @@ impl World {
             let Some(at) = held.columns.iter().position(|one| one.id == column.id) else {
                 continue;
             };
-            parts.push(Part::Values(Sheet {
-                name: column.section(),
-                encoding: match column.kind {
-                    Kind::Signed | Kind::Degrees => "signed",
-                    _ => "fixed",
-                },
-                read: match column.kind {
-                    Kind::Text => "text",
-                    Kind::Degrees => "degrees",
-                    _ => "",
-                },
-                values: held.rows.iter().map(|row| row[at]).collect(),
-            }));
+            let values = held.rows.iter().map(|row| row[at]).collect();
+            parts.push(Part::Values(sheet(column, values)));
         }
         parts.extend(self.lay(selection, &spines, &slabs, &ranks));
         parts.push(Part::Strings(pool));
@@ -215,6 +204,69 @@ impl World {
             fields: selection.fields.clone(),
             books: vocabularies(selection, zones.as_deref(), countries.as_deref()),
         }
+    }
+
+    pub fn raw(&self) -> Written {
+        let full = Selection::parse("full");
+        let mut words = Words::default();
+        let sizes = self.sizes();
+        let mut parts: Vec<Part> = COLUMNS
+            .iter()
+            .map(|column| {
+                let values = (0..sizes[column.table()])
+                    .map(|row| self.cell(column.id, row, &mut words))
+                    .collect();
+                Part::Values(sheet(column, values))
+            })
+            .collect();
+        let pool = sorted(&mut parts, &words.pool);
+        for (name, spines) in [("spine", &self.spine), ("blocks", &self.blocks)] {
+            for family in [0, 1] {
+                parts.extend(unfolded(name, family, &spines[family]));
+            }
+        }
+        for family in [0, 1] {
+            parts.extend(self.unnamed(family));
+        }
+        parts.push(Part::Strings(pool));
+        let zones = Some(self.gazetteer.zones.clone());
+        let mut countries = vec![String::new()];
+        countries.extend(self.gazetteer.countries.iter().cloned());
+        Written {
+            parts,
+            carries: [true; 3],
+            fields: full.fields.clone(),
+            books: vocabularies(&full, zones.as_deref(), Some(&countries)),
+        }
+    }
+
+    fn unnamed(&self, family: usize) -> Vec<Part> {
+        let hosts = &self.records.hosts[family];
+        if hosts.is_empty() {
+            return Vec::new();
+        }
+        let name = format!("hosts.v{}", family * 2 + 4);
+        let keys = hosts.iter().map(|(address, _)| *address).collect();
+        let values = hosts.iter().map(|(_, row)| *row as i64).collect();
+        vec![
+            Part::Index { name: name.clone(), keys, wide: family == 1 },
+            fixed(format!("{name}.abuse"), values),
+        ]
+    }
+
+    fn sizes(&self) -> HashMap<&'static str, usize> {
+        let systems = self.systems.rows.len();
+        HashMap::from([
+            ("region", self.gazetteer.regions.len()),
+            ("district", self.gazetteer.districts.len()),
+            ("metro", self.gazetteer.metros.len()),
+            ("city", self.gazetteer.cities.len()),
+            ("place", self.places.points.len()),
+            ("operator", systems),
+            ("carrier", systems),
+            ("abuse", self.records.rows.len()),
+            ("network", systems),
+        ])
     }
 
     fn named(&self, family: usize, selection: &Selection) -> Vec<bool> {
@@ -249,17 +301,7 @@ impl World {
 
     fn reach(&self, selection: &Selection, named: &[Vec<bool>; 2]) -> Vec<Slab> {
         let systems = self.systems.rows.len();
-        let sizes: HashMap<&str, usize> = HashMap::from([
-            ("region", self.gazetteer.regions.len()),
-            ("district", self.gazetteer.districts.len()),
-            ("metro", self.gazetteer.metros.len()),
-            ("city", self.gazetteer.cities.len()),
-            ("place", self.places.points.len()),
-            ("operator", systems),
-            ("carrier", systems),
-            ("abuse", self.records.rows.len()),
-            ("network", systems),
-        ]);
+        let sizes = self.sizes();
         let mut slabs: Vec<Slab> = TABLES
             .iter()
             .map(|name| Slab {
@@ -627,6 +669,55 @@ fn standing(spine: &[(u128, Stop)], address: u128, falls: bool) -> Option<i64> {
         Some(0) | None => Some(0),
         Some(link) => Some(link as i64 - 1),
     }
+}
+
+fn sheet(column: &Column, values: Vec<i64>) -> Sheet {
+    Sheet {
+        name: column.section(),
+        encoding: match column.kind {
+            Kind::Signed | Kind::Degrees => "signed",
+            _ => "fixed",
+        },
+        read: match column.kind {
+            Kind::Text => "text",
+            Kind::Degrees => "degrees",
+            _ => "",
+        },
+        values,
+    }
+}
+
+fn unfolded(name: &str, family: usize, spine: &[(u128, Stop)]) -> Vec<Part> {
+    if spine.is_empty() {
+        return Vec::new();
+    }
+    let label = format!("{name}.v{}", family * 2 + 4);
+    let keys = spine.iter().map(|held| held.0).collect();
+    let mut parts = vec![Part::Index { name: label.clone(), keys, wide: family == 1 }];
+    for column in CARRIED {
+        let values = spine.iter().map(|(_, stop)| stop.carried(column)).collect();
+        parts.push(fixed(format!("{label}.{column}"), values));
+    }
+    let whole = spine.iter().map(|(_, stop)| stop.whole as i64).collect();
+    parts.push(fixed(format!("{label}.whole"), whole));
+    parts
+}
+
+fn sorted(parts: &mut [Part], pool: &[String]) -> Vec<String> {
+    let mut order: Vec<usize> = (0..pool.len()).collect();
+    order.sort_by(|one, other| pool[*one].cmp(&pool[*other]));
+    let mut again = vec![0i64; pool.len() + 1];
+    for (place, old) in order.iter().enumerate() {
+        again[*old + 1] = place as i64 + 1;
+    }
+    for part in parts.iter_mut() {
+        if let Part::Values(sheet) = part
+            && sheet.read == "text"
+        {
+            sheet.values.iter_mut().for_each(|value| *value = again[*value as usize]);
+        }
+    }
+    order.into_iter().map(|at| pool[at].clone()).collect()
 }
 
 fn fixed(name: String, values: Vec<i64>) -> Part {

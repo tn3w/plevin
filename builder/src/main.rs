@@ -18,9 +18,12 @@ use std::time::Instant;
 fn main() {
     let asked: Vec<String> = std::env::args().skip(1).collect();
     let listed = asked.iter().any(|term| term == "blocklist.netset");
-    let held: Vec<String> =
-        asked.into_iter().filter(|term| term != "blocklist.netset").collect();
-    let terms = match held.is_empty() && !listed {
+    let unfolded = asked.iter().any(|term| term == "raw");
+    let held: Vec<String> = asked
+        .into_iter()
+        .filter(|term| term != "blocklist.netset" && term != "raw")
+        .collect();
+    let terms = match held.is_empty() && !listed && !unfolded {
         true => vec!["full".to_string()],
         false => held,
     };
@@ -57,9 +60,17 @@ fn main() {
     }
 
     let world = spine::World::new(gazetteer, places, systems, records);
+    if unfolded {
+        let mut selection = Selection::parse("full");
+        selection.name = "raw".into();
+        let written = world.raw();
+        file::write(&dist.join("plevin.raw"), file::RAW, &selection, written)
+            .print("plevin.raw");
+        say(started, "wrote plevin.raw");
+    }
     for selection in &selections {
         let written = world.write(selection);
-        file::write(&dist.join(selection.file()), selection, written)
+        file::write(&dist.join(selection.file()), file::FORMAT, selection, written)
             .print(&selection.file());
         say(started, &format!("wrote {}", selection.file()));
     }
@@ -487,6 +498,9 @@ impl Selection {
         {
             columns.insert("region.country".into());
         }
+        if columns.contains("abuse.risk") {
+            columns.insert("abuse.level".into());
+        }
         if ["network.handle", "network.operator", "operator.company"]
             .iter()
             .all(|id| columns.contains(*id))
@@ -503,6 +517,9 @@ impl Selection {
                     _ => *held = None,
                 }
             }
+        }
+        for id in &columns {
+            narrow.entry(id.clone()).or_insert(None);
         }
         let answers = |field: &str, needs: &[&str]| {
             needs.iter().all(|need| match narrow.get(*need) {

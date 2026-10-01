@@ -42,9 +42,14 @@
     ".": "./dist/index.js",
     "./node": "./dist/node.js",
     "./lzma": "./dist/lzma.js",
+    "./slim": "./dist/slim.js",
+    "./estimate": "./dist/estimate.js",
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.ts",
+  "bin": {
+    "plevinjs": "./dist/cli.js"
+  },
   "jsdelivr": "./dist/plevin.min.js",
   "unpkg": "./dist/plevin.min.js",
   "files": [
@@ -57,7 +62,7 @@
   },
   "scripts": {
     "build": "tsc && npm run bundle",
-    "bundle": "esbuild src/index.ts --bundle --format=esm --minify --target=es2022 --outfile=dist/plevin.min.js",
+    "bundle": "esbuild src/index.ts --bundle --format=esm --minify --target=es2022 --outfile=dist/plevin.min.js && esbuild src/slim.ts --bundle --format=esm --minify --target=es2022 --outfile=dist/slim.min.js",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
