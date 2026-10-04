@@ -12,7 +12,7 @@ No API, no rate limit, no lookup leaving the machine or the browser tab.
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2)](https://www.npmjs.com/package/plevinjs)
 [![Types](https://img.shields.io/badge/types-included-1868f2)](https://www.npmjs.com/package/plevinjs?activeTab=code)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](https://github.com/tn3w/plevin/blob/master/LICENSE)
-[![Fields](https://img.shields.io/badge/fields-108-6f42c1)](#fields)
+[![Fields](https://img.shields.io/badge/fields-91-6f42c1)](#fields)
 [![Warm](https://img.shields.io/badge/warm%20lookups-5M%2Fs-2ea043)](#speed)
 
 </div>
@@ -110,7 +110,7 @@ found.place;
 {
   lat: -27.4675, lon: 153.0281, accuracy: 200, confidence: 36, granularity: 'city',
   city: {
-    id: 2174003, name: 'Brisbane', ascii: 'Brisbane', country: 'AU',
+    id: 2174003, name: 'Brisbane', ascii: null,
     population: 2780063, elevation: 27, postal: '4000', postal_partial: null,
     timezone: 'Australia/Brisbane', type: 'regional capital', capital: 'region',
     region: { id: 2152274, code: '04', iso: 'AU-QLD', name: 'Queensland', type: 'State' },
@@ -119,14 +119,13 @@ found.place;
   },
   country: {
     code: 'AU', name: 'Australia', official: null, common: null, iso3: 'AUS',
-    numeric: '036', flag: '🇦🇺', currency: 'AUD', currency_name: 'Australian Dollar',
-    calling_code: '+61', languages: ['en'], european_union: false,
+    numeric: '036', flag: '🇦🇺', continent: 'OC', currency: 'AUD',
+    currency_name: 'Australian Dollar', calling_code: '+61', languages: ['en'], european_union: false,
     driving_side: 'left',
   },
   time: {
-    timezone: 'Australia/Brisbane', abbreviation: 'AEST',
-    local: '2026-08-13T19:20:00+10:00', utc_offset: '+10:00', is_dst: false,
-    dst_start: null, dst_end: null,
+    abbreviation: 'AEST', local: '2026-08-13T19:20:00+10:00', utc_offset: '+10:00',
+    is_dst: false, dst_start: null, dst_end: null,
   },
 }
 
@@ -137,19 +136,19 @@ found.network;
   rpki: 'valid', roas: 1,
   operator: {
     company: 'Cloudflare, Inc.', brand: 'Cloudflare', domain: 'cloudflare.com',
-    website: 'https://www.cloudflare.com', category: 'content', tier: 2,
-    peering: 356, scope: 'Global', rir: 'arin', since: 2010,
+    website: 'https://cloudflare.com', category: 'cdn', tier: 2, peering: 354,
+    cone: 1022, scope: 'Global', rir: 'arin', since: 2010,
     street: '101 Townsend St', state: 'CA', postal: '94107-1934', country: 'US',
-    abuse_email: 'abuse@cloudflare.com', city: { name: 'San Francisco', ... },
+    abuse_email: 'abuse@cloudflare.com', city: { id: 5391959, name: 'San Francisco' },
   },
-  carrier: { user_type: 'hosting', user_count: 19, mcc: null, mnc: null,
+  carrier: { user_type: 'cdn', user_count: 18, mcc: null, mnc: null,
              is_mobile: false },
 }
 
 db.lookup("185.220.101.1").abuse;
 {
-  name: 'Tor', provider: 'Tor', service: 'tor_exit_node', evidence: 'measured',
-  threat: 'spam', level: 'high', risk: 0.99, network_risk: 0.86, last_seen_days: 1,
+  provider: 'Tor', service: 'tor_exit_node', evidence: 'measured',
+  threat: 'spam', level: 'high', risk: 0.99, network_risk: 0.88, last_seen_days: 1,
   is_malicious: true, is_anycast: false, is_satellite: false, is_crawler: false,
   is_hosting_provider: true, is_proxy: false, is_public_proxy: false,
   is_residential_proxy: false, is_anonymous_vpn: false, is_tor_exit_node: true,
@@ -165,8 +164,11 @@ JavaScript specifics:
   zone database can move a daylight-saving boundary.
 - `number` is a `bigint` for v6, so `JSON.stringify` needs a replacer.
 
-Address fields (`compressed`, `expanded`, `arpa`, `is_*`, `tunnel`, `embedded_ipv4`,
-`decimal_ipv4`, `as_*`) work without any database.
+Address fields (`ip`, `expanded` for v6, `arpa`, `is_*`, `tunnel`, `embedded_ipv4`,
+`decimal_ipv4`, `as_*`) work without any database. `found` is false where the file
+knows nothing of the address. Fields mean what the [Python reference](../python/README.md#fields)
+says: a missing value is `null`, `ascii` appears only where it differs from `name`, and
+`operator.city` carries a GeoNames `id` and `name`, nothing else.
 
 ## DNS
 
@@ -175,8 +177,7 @@ Address fields (`compressed`, `expanded`, `arpa`, `is_*`, `tunnel`, `embedded_ip
 ```js
 (await db.resolve("8.8.8.8", { dns: true })).dns;
 {
-  asked: '8.8.8.8', hostname: 'dns.google', hostnames: ['dns.google'],
-  ipv4: '8.8.4.4', ipv6: '2001:4860:4860::8888',
+  asked: '8.8.8.8', hostnames: ['dns.google'],
   ipv4_addresses: ['8.8.4.4', '8.8.8.8'],
   ipv6_addresses: ['2001:4860:4860::8888', '2001:4860:4860::8844'],
   alias: null, zone: '8.8.8.in-addr.arpa', zone_primary: 'ns1.google.com',

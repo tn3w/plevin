@@ -31,7 +31,7 @@ def test_the_file_says_what_it_was_built_from(built: plevin.Plevin) -> None:
 def test_a_well_known_address_reads_as_itself(built: plevin.Plevin) -> None:
     found = built.lookup("8.8.8.8")
     assert found
-    assert found.is_global and not found.is_bogon
+    assert found.is_global
     assert found.network is not None
     assert found.network.asn == 15169
     assert found.network.operator is not None
@@ -40,7 +40,8 @@ def test_a_well_known_address_reads_as_itself(built: plevin.Plevin) -> None:
     assert found.network.cidr.startswith("8.8.8.")
     assert found.place is not None
     assert found.place.city is not None
-    assert found.place.city.country == "US"
+    assert found.place.country is not None
+    assert found.place.country.code == "US"
 
 
 def test_the_same_network_answers_through_two_families(built: plevin.Plevin) -> None:
@@ -55,9 +56,9 @@ def test_a_country_and_a_clock_come_off_the_stored_codes(built: plevin.Plevin) -
     place = built.lookup("1.1.1.1").place
     assert place is not None and place.city is not None
     assert place.country is not None
-    assert place.country.code == place.city.country
+    assert place.country.code == "AU"
     assert place.time is not None
-    assert place.time.timezone == place.city.timezone
+    assert place.time.utc_offset
 
 
 def test_an_address_of_no_country_is_still_read(built: plevin.Plevin) -> None:

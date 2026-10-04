@@ -77,21 +77,40 @@ def test_an_upper_case_handle_wins_where_the_company_only_spells_it_out() -> Non
 
 
 @pytest.mark.parametrize(
-    ("website", "mailbox", "host"),
+    ("website", "mailbox", "names", "host"),
     [
-        ("https://about.google/intl/en/", "network-abuse@google.com", "google.com"),
-        ("https://www.cloudflare.com", "abuse@cloudflare.com", "cloudflare.com"),
-        ("", "abuse@example.org", "example.org"),
-        ("https://user:pass@example.net:8080/path", "", "example.net"),
-        ("https://example.io?query=1", "", "example.io"),
-        ("", "", ""),
-        ("https://home.cern", "abuse@cern.ch", "cern.ch"),
+        ("https://about.google/intl/en/", "network-abuse@google.com", "", "google.com"),
+        ("https://www.cloudflare.com", "abuse@cloudflare.com", "", "cloudflare.com"),
+        ("", "abuse@example.org", "Example Org", "example.org"),
+        ("https://user:pass@example.net:8080/path", "", "", "example.net"),
+        ("https://example.io?query=1", "", "", "example.io"),
+        ("", "", "", ""),
+        ("https://home.cern", "abuse@cern.ch", "", "cern.ch"),
+        ("corporate.comcast.com", "abuse@comcast.net", "", "comcast.com"),
+        ("www.ox.ac.uk/it", "", "", "ox.ac.uk"),
+        ("", "noc@mail.example.com.br", "Example Telecom", "example.com.br"),
+        ("", "someone@gmail.com", "Gmail", ""),
+        ("", "abuse@mail.sub.gouv.fr", "Nobody", "sub.gouv.fr"),
+        ("facebook.com/page", "abuse@isp.example", "Isp Example", "isp.example"),
+        ("site.example", "abuse@yahoo.com", "", "site.example"),
+        ("", "abuse@cogentco.com", "Think On", ""),
+        ("", "abuse@cogentco.com", "Cogent Communications", "cogentco.com"),
+        ("", "abuse@hp.com", "HPINC HP Inc.", "hp.com"),
+        ("", "irt@nic.or.kr", "SK Broadband", ""),
+        ("", "noc@llnl.gov", "Lawrence Livermore", "llnl.gov"),
     ],
 )
 def test_the_domain_is_the_site_unless_the_mailbox_knows_better(
-    website: str, mailbox: str, host: str
+    website: str, mailbox: str, names: str, host: str
 ) -> None:
-    assert derive.domain(website, mailbox) == host
+    assert derive.domain(website, mailbox, names) == host
+
+
+@pytest.mark.parametrize(
+    ("host", "url"), [("example.com", "https://example.com"), ("", "")]
+)
+def test_a_stored_host_answers_over_https(host: str, url: str) -> None:
+    assert derive.website(host) == url
 
 
 @pytest.mark.parametrize(

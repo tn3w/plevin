@@ -75,6 +75,12 @@ jobs:
               -H "Authorization: Api-Key $PEERINGDB_API_KEY" \
               "https://www.peeringdb.com/api/$endpoint"
           done
+          export -f get
+          seq 0 10000 130000 | xargs -P 4 -I {} bash -c 'get -o asrank_{}.json \
+            "https://api.asrank.caida.org/v2/restful/asns/?first=10000&offset={}"'
+          jq -r '.data.asns.edges[].node |
+            [.asn, .cone.numberAsns, (if .ixp then 1 else 0 end)] | @tsv' asrank_*.json > asrank
+          rm asrank_*.json
           for archive in *.zip; do unzip -oq "$archive"; done
           gunzip -f *.gz && bunzip2 -f *.bz2 && rm *.zip
           mv latest-bview bview
@@ -155,7 +161,7 @@ jobs:
           {
             echo "Location, network and abuse information for any IP address in one"
             echo "offline file, built $(date -u '+%Y-%m-%d %H:%M UTC') from"
-            echo "$(jq length data/feeds.json) feeds, 26 source files and $(wc -l < inputs/geofeeds)"
+            echo "$(jq length data/feeds.json) feeds, 27 source files and $(wc -l < inputs/geofeeds)"
             echo "operator geofeed rows."
             echo
             echo "| file | size | bytes |"

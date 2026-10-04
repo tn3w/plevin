@@ -21,7 +21,7 @@ def test_an_address_answers_what_it_says_on_its_own(opened: Path) -> None:
     found = plevin.lookup("127.0.0.1")
     assert (found.ip, found.version) == ("127.0.0.1", 4)
     assert found.arpa == "1.0.0.127.in-addr.arpa"
-    assert found.is_bogon and found.is_private and found.is_loopback
+    assert not found.is_global and found.is_private and found.is_loopback
     assert not found.is_multicast and not found.is_reserved
 
 
@@ -38,7 +38,9 @@ def test_a_covered_address_answers_place_network_and_abuse(opened: Path) -> None
     assert found.place is not None
     assert found.place.city is not None
     assert found.place.city.name == "Mountain View"
-    assert found.place.city.ascii == "Mountain View"
+    assert found.place.city.ascii is None
+    assert found.place.country is not None
+    assert found.place.country.continent == "NA"
     assert found.place.city.population == 80435
     assert found.place.city.elevation == 32
     assert found.place.city.postal_partial == "940"
@@ -65,7 +67,7 @@ def test_a_timezone_becomes_a_clock(opened: Path) -> None:
     place = plevin.lookup("8.8.8.8", MOMENT).place
     assert place is not None
     assert place.time is not None
-    assert place.time.timezone == "America/Los_Angeles"
+    assert place.city is not None and place.city.timezone == "America/Los_Angeles"
     assert place.time.local == "2026-08-13T05:00:00-07:00"
     assert place.time.is_dst
 
@@ -88,8 +90,24 @@ def test_an_operator_is_named_by_the_shorter_of_its_names(opened: Path) -> None:
     assert network.operator.domain == "google.com"
     assert network.operator.company == "Google LLC"
     assert (network.operator.tier, network.operator.since) == (2, 2000)
-    assert network.operator.city is not None
-    assert network.operator.city.name == "Mountain View"
+    assert network.operator.website == "https://about.google/intl/en/"
+    assert network.operator.cone == 21
+
+
+def test_an_ascii_name_is_given_only_where_it_differs() -> None:
+    assert plevin._built_city({"name": "Brisbane", "ascii": ""}).ascii is None
+    assert plevin._built_city({"name": "São Paulo", "ascii": "Sao Paulo"}).ascii == (
+        "Sao Paulo")
+
+
+def test_an_operator_city_is_its_name_and_id_and_nothing_else(opened: Path) -> None:
+    network = plevin.lookup("8.8.8.8").network
+    assert network is not None
+    assert network.operator is not None
+    city = network.operator.city
+    assert city is not None
+    assert (city.id, city.name) == (5375480, "Mountain View")
+    assert (city.population, city.region, city.postal) == (None, None, None)
 
 
 def test_a_carrier_reads_its_type_off_the_abuse_rows(opened: Path) -> None:
@@ -117,10 +135,18 @@ def test_a_public_proxy_on_a_home_line_is_read_as_a_resold_one(opened: Path) -> 
     assert abuse.is_anycast
 
 
+def test_a_network_without_a_range_type_is_of_its_operators_kind(opened: Path) -> None:
+    found = plevin.system(15169)
+    assert found.network is not None and found.network.carrier is not None
+    assert found.network.carrier.user_type == "content"
+    assert not found.network.carrier.is_mobile
+    assert found.abuse is not None and found.abuse.is_hosting_provider
+
+
 def test_an_exit_node_is_read_as_one(opened: Path) -> None:
     abuse = plevin.lookup("1.2.3.4").abuse
     assert abuse is not None
-    assert (abuse.name, abuse.service) == ("Tor", "tor_exit_node")
+    assert (abuse.provider, abuse.service) == ("Tor", "tor_exit_node")
     assert abuse.evidence == "measured"
     assert abuse.threat is None
     assert abuse.is_tor_exit_node and abuse.is_anonymous and abuse.is_satellite
@@ -140,13 +166,12 @@ def test_a_boundary_without_an_abuse_record_still_reads_the_asn(opened: Path) ->
     assert found.place.city is not None
     assert found.place.city.name is None
     assert found.place.city.capital is None
-    assert found.place.city.country is None
     assert found.place.city.region is None
     assert (found.network.rpki, found.network.roas) == ("unknown", None)
     assert (found.network.country, found.network.since) == ("DE", None)
     assert found.place.country is None
     assert found.place.time is not None
-    assert found.place.time.timezone == "UTC"
+    assert found.place.city.timezone == "UTC"
 
 
 def test_a_region_wide_point_names_the_region_but_no_town(opened: Path) -> None:
@@ -157,7 +182,7 @@ def test_a_region_wide_point_names_the_region_but_no_town(opened: Path) -> None:
     assert (place.city.name, place.city.id, place.city.population) == (None, None, None)
     assert place.city.region is not None
     assert place.city.region.iso == "US-CA"
-    assert (place.city.country, place.city.timezone) == ("US", "America/Los_Angeles")
+    assert place.city.timezone == "America/Los_Angeles"
     assert place.country is not None
     assert place.country.code == "US"
 
@@ -174,7 +199,7 @@ def test_a_v6_address_reads_the_same_way(opened: Path) -> None:
     assert found.network is not None
     assert found.network.cidr == "2606:4700::/32"
     assert found.abuse is not None
-    assert found.abuse.name == "Tor"
+    assert found.abuse.provider == "Tor"
 
 
 @pytest.mark.parametrize("value", ["8.8.8.8", HOST_V4, b"\x08\x08\x08\x08"])
@@ -255,16 +280,15 @@ def test_a_spine_without_one_network_column_answers_no_network(bare: Path) -> No
 def test_a_result_carries_the_forms_an_address_is_written_in(opened: Path) -> None:
     found = plevin.lookup("2606:4700::1111")
     assert found.number == HOST_V6
-    assert found.compressed == "2606:4700::1111"
+    assert found.ip == "2606:4700::1111"
     assert found.expanded == "2606:4700:0000:0000:0000:0000:0000:1111"
     assert found.is_global
-    assert not found.is_bogon
+    assert found.is_global
 
 
-def test_a_narrow_result_is_written_the_same_way_twice(opened: Path) -> None:
+def test_a_narrow_address_has_no_longer_spelling(opened: Path) -> None:
     found = plevin.lookup("8.8.8.8")
-    assert (found.number, found.compressed, found.expanded) == (
-        HOST_V4, "8.8.8.8", "8.8.8.8")
+    assert (found.number, found.ip, found.expanded) == (HOST_V4, "8.8.8.8", None)
 
 
 @pytest.mark.parametrize(
@@ -284,27 +308,25 @@ def test_an_address_says_which_special_range_it_sits_in(
 ) -> None:
     found = plevin.lookup(text)
     assert getattr(found, name)
-    assert found.is_bogon and not found.is_global
+    assert not found.is_global
 
 
 def test_a_tunnel_names_the_address_it_carries(opened: Path) -> None:
     mapped = plevin.lookup("::ffff:8.8.8.8")
-    assert mapped.is_ipv4_mapped and mapped.embedded_ipv4 == "8.8.8.8"
+    assert mapped.tunnel == "ipv4-mapped" and mapped.embedded_ipv4 == "8.8.8.8"
     assert mapped.tunnel == "ipv4-mapped"
     sixtofour = plevin.lookup("2002:808:808::1")
-    assert sixtofour.is_6to4 and sixtofour.embedded_ipv4 == "8.8.8.8"
+    assert sixtofour.tunnel == "6to4" and sixtofour.embedded_ipv4 == "8.8.8.8"
     teredo = plevin.lookup("2001:0:4136:e378:8000:63bf:3fff:fdd2")
-    assert teredo.is_teredo and teredo.embedded_ipv4 == "192.0.2.45"
+    assert teredo.tunnel == "teredo" and teredo.embedded_ipv4 == "192.0.2.45"
     plain = plevin.lookup("8.8.8.8")
     assert (plain.tunnel, plain.embedded_ipv4) == (None, None)
-    assert not plain.is_ipv4_mapped and not plain.is_6to4 and not plain.is_teredo
 
 
 def test_one_model_serves_every_read_of_the_same_row(opened: Path) -> None:
     found = plevin.lookup("8.8.8.8")
     assert found.place is not None and found.network is not None
     assert found.network.operator is not None
-    assert found.network.operator.city is found.place.city
     beside = plevin.lookup("8.8.8.9").place
     assert beside is not None
     assert beside.city is found.place.city
@@ -361,13 +383,13 @@ def test_dns_is_asked_about_an_address_only_where_the_flag_says_so(
 
     def named(value: int, wide: bool) -> Dns:
         asked.append((value, wide))
-        return Dns(asked="8.8.8.8", hostname="dns.google")
+        return Dns(asked="8.8.8.8", hostnames=("dns.google",))
 
     monkeypatch.setattr(plevin.naming, "named", named)
     assert plevin.lookup("8.8.8.8").dns is None
     assert asked == []
     found = plevin.lookup("8.8.8.8", dns=True)
-    assert found.dns is not None and found.dns.hostname == "dns.google"
+    assert found.dns is not None and found.dns.hostnames == ("dns.google",)
     assert asked == [(0x08080808, False)]
     assert found.ip == "8.8.8.8" and found.found
 
@@ -470,10 +492,10 @@ def test_a_provider_is_the_record_name_and_falls_back_to_the_brand(
     file = plevin.Plevin(_stored_brand(tmp_path))
     named = file.lookup("10.0.0.1")
     assert named.abuse is not None
-    assert (named.abuse.name, named.abuse.provider) == ("Tor", "Tor")
+    assert named.abuse.provider == "Tor"
     bare = file.lookup("11.0.0.1")
     assert bare.abuse is not None
-    assert (bare.abuse.name, bare.abuse.service) == (None, "public_proxy")
+    assert bare.abuse.service == "public_proxy"
     assert bare.abuse.provider == "Hetzner"
 
 

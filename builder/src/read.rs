@@ -29,8 +29,21 @@ pub fn raw(path: &Path) -> Vec<u8> {
     })
 }
 
+pub fn decoded(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => text.to_string(),
+        Err(_) => bytes.iter().map(|byte| *byte as char).collect(),
+    }
+}
+
 pub fn slurp(path: &Path) -> String {
-    String::from_utf8_lossy(&raw(path)).into_owned()
+    let bytes = raw(path);
+    match std::str::from_utf8(&bytes) {
+        Ok(text) => text.to_string(),
+        Err(_) => {
+            bytes.split(|byte| *byte == b'\n').map(decoded).collect::<Vec<_>>().join("\n")
+        }
+    }
 }
 
 pub fn lines(path: &Path) -> impl Iterator<Item = String> + use<> {
@@ -44,7 +57,7 @@ pub fn lines(path: &Path) -> impl Iterator<Item = String> + use<> {
         raw.clear();
         match reader.as_mut()?.read_until(b'\n', &mut raw) {
             Ok(0) | Err(_) => None,
-            Ok(_) => Some(String::from_utf8_lossy(raw.trim_ascii_end()).into_owned()),
+            Ok(_) => Some(decoded(raw.trim_ascii_end())),
         }
     })
 }

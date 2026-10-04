@@ -12,7 +12,7 @@ No API, no rate limit, no lookup leaving the machine.
 [![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)](https://pypi.org/project/plevin)
 [![Python](https://img.shields.io/badge/python-3.10%2B-1868f2)](https://pypi.org/project/plevin)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](https://github.com/tn3w/plevin/blob/master/LICENSE)
-[![Fields](https://img.shields.io/badge/fields-108-6f42c1)](#fields)
+[![Fields](https://img.shields.io/badge/fields-91-6f42c1)](#fields)
 [![Warm](https://img.shields.io/badge/warm%20lookups-2M%2Fs-2ea043)](#speed)
 
 </div>
@@ -38,7 +38,8 @@ pip install "plevin[db,full]"
 ('tor_exit_node', 0.99, True)
 ```
 
-- `lookup` always answers a `Result` and raises `ValueError` for non-addresses.
+- `lookup` always answers a `Result` and raises `ValueError` for non-addresses;
+  `found` is false where the file knows nothing of the address.
 - Integers up to `0xFFFFFFFF` are v4, so `lookup(1)` is `0.0.0.1`.
 - No dependencies. `full` adds `pycountry`, `babel` and `phonenumbers` (and `tzdata` on
   Windows) for country names, currency, calling code, languages and local time.
@@ -76,7 +77,7 @@ missing leaf is `None`, never `""` or `0`.
 Place(
     lat=-27.4675, lon=153.0281, accuracy=200, confidence=36, granularity='city',
     city=City(
-        id=2174003, name='Brisbane', ascii='Brisbane', country='AU',
+        id=2174003, name='Brisbane', ascii=None,
         population=2780063, elevation=27, postal='4000', postal_partial=None,
         timezone='Australia/Brisbane', type='regional capital', capital='region',
         region=Region(id=2152274, code='04', iso='AU-QLD', name='Queensland',
@@ -86,14 +87,14 @@ Place(
     ),
     country=Country(
         code='AU', name='Australia', official=None, common=None, iso3='AUS',
-        numeric='036', flag='🇦🇺', currency='AUD', currency_name='Australian Dollar',
+        numeric='036', flag='🇦🇺', continent='OC', currency='AUD',
+        currency_name='Australian Dollar',
         calling_code='+61', languages=('en',), european_union=False,
         driving_side='left',
     ),
     time=Time(
-        timezone='Australia/Brisbane', abbreviation='AEST',
-        local='2026-08-13T19:20:00+10:00', utc_offset='+10:00', is_dst=False,
-        dst_start=None, dst_end=None,
+        abbreviation='AEST', local='2026-08-13T19:20:00+10:00', utc_offset='+10:00',
+        is_dst=False, dst_start=None, dst_end=None,
     ),
 )
 ```
@@ -103,11 +104,15 @@ Place(
 | `accuracy`       | radius in km                                                    |
 | `confidence`     | 0 to 100                                                        |
 | `capital`        | which capital the city is, if any                               |
+| `ascii`          | plain-ASCII spelling, only where it differs from `name`         |
 | `region.iso`     | ISO 3166-2; `region.code` is the GeoNames admin1 code           |
 | `postal_partial` | leading part of `postal`, where a source knows only that much   |
 | `granularity`    | `city`; `region` or `country` leaves `city` only its `region`, `country` and `timezone` |
 | `country`, `time`| derived; names, currency, calling code, languages and clock need the `full` extra |
-| `languages`      | official and de facto languages, most spoken first             |
+| `continent`      | `AF`, `AN`, `AS`, `EU`, `NA`, `OC` or `SA`                      |
+| `european_union` | member states and their outermost regions (Réunion, Guadeloupe, Åland, …) |
+| `languages`      | official and de facto languages, one entry per language, most spoken first |
+| `time`           | from `city.timezone`; `None` where the zone is unknown          |
 
 ### Network
 
@@ -118,12 +123,12 @@ Network(
     rpki='valid', roas=1,
     operator=Operator(
         company='Cloudflare, Inc.', brand='Cloudflare', domain='cloudflare.com',
-        website='https://www.cloudflare.com', category='content', tier=2,
-        peering=356, scope='Global', rir='arin', since=2010,
+        website='https://cloudflare.com', category='cdn', tier=2, peering=354,
+        cone=1022, scope='Global', rir='arin', since=2010,
         street='101 Townsend St', state='CA', postal='94107-1934', country='US',
-        abuse_email='abuse@cloudflare.com', city=City(name='San Francisco', ...),
+        abuse_email='abuse@cloudflare.com', city=City(id=5391959, name='San Francisco'),
     ),
-    carrier=Carrier(user_type='hosting', user_count=19, mcc=None, mnc=None,
+    carrier=Carrier(user_type='cdn', user_count=18, mcc=None, mnc=None,
                     is_mobile=False),
 )
 ```
@@ -136,9 +141,15 @@ Network(
 | `since`    | year the registry lists for the block                                   |
 | `rpki`     | `valid`, `invalid` or `unknown` (announced, no ROA); `roas` counts agreeing ROAs, or conflicting ones where `invalid` |
 | `brand`    | company without legal form: `GOOGLE`, `Google LLC` → `Google`           |
-| `domain`   | host of `website`, else of `abuse_email`                                |
+| `domain`   | registered domain of `website`, else of `abuse_email` where the mailbox is the operator's own: its name matches, or a `gov`, `mil`, `edu` body; free mail and social sites never count |
+| `website`  | stored as host and path, read as `https://`                             |
 | `tier`     | 1 transit-free, 2 has customers, 3 edge                                 |
 | `peering`  | internet exchange count                                                 |
+| `cone`     | ASNs in its customer cone, itself included: 1 is a network with no customers (CAIDA AS Rank) |
+| `city`     | the registered address's city: its GeoNames `id` and `name`, nothing else |
+| `carrier.user_type` | what the range is used for: the feed that names the range, else the operator's `category` |
+| `carrier.user_count` | estimated internet users behind the ASN (APNIC)                |
+| `carrier.mcc`, `mnc` | mobile country and network code where a carrier's name matches; `mnc` only where one network code fits |
 | `category` | `residential`, `business`, `hosting`, `education`, `government`, `military`, `cdn`, `content`, `infrastructure`, `cellular`, `search_engine_spider`, `traveler`, `transit`, `exchange`, `non-profit` |
 
 Unannounced space (about a seventh of routable IPv4) still answers: `asn`, `rpki` and
@@ -156,8 +167,8 @@ space has no `network` at all.
 
 ```python
 Abuse(
-    name='Tor', provider='Tor', service='tor_exit_node', evidence='measured',
-    threat='spam', level='high', risk=0.99, network_risk=0.86, last_seen_days=1,
+    provider='Tor', service='tor_exit_node', evidence='measured',
+    threat='spam', level='high', risk=0.99, network_risk=0.88, last_seen_days=1,
     is_malicious=True, is_anycast=False, is_satellite=False, is_crawler=False,
     is_hosting_provider=True, is_proxy=False, is_public_proxy=False,
     is_residential_proxy=False, is_anonymous_vpn=False, is_tor_exit_node=True,
@@ -177,6 +188,7 @@ Abuse(
 | `provider`     | who runs the service: the feed's name, else the network's brand          |
 | `is_crawler`   | a published search engine or AI crawler range                            |
 | booleans       | derived from `service` and the carrier type                              |
+| baseline       | a service, `is_anycast` or `is_satellite` known for the whole ASN reaches every address in it; risk, level and threat stay per address |
 
 `risk` combines what the service is worth on its own with every feed that reported
 the address: each agreeing source raises it, feeds sharing an upstream count once. An
@@ -189,7 +201,7 @@ No database needed:
 
 ```python
 >>> found = plevin.lookup("2606:4700::1111")
->>> found.number, found.compressed, found.expanded
+>>> found.number, found.ip, found.expanded
 (50543257672059871404715951523469725969, '2606:4700::1111',
  '2606:4700:0000:0000:0000:0000:0000:1111')
 
@@ -203,8 +215,9 @@ No database needed:
 
 | field                   | meaning                                                      |
 | ----------------------- | ------------------------------------------------------------ |
+| `ip`, `expanded`        | the shortest spelling; `expanded` only for v6 (`None` for v4) |
 | `arpa`                  | reverse DNS name                                             |
-| `is_global`, `is_bogon` | plus `is_private`, `is_loopback`, `is_multicast`, `is_reserved`, `is_link_local`, `is_unique_local`, `is_documentation`, `is_shared`, `is_benchmark` (IANA registries) |
+| `is_global`             | plus `is_private`, `is_loopback`, `is_multicast`, `is_reserved`, `is_link_local`, `is_unique_local`, `is_documentation`, `is_shared`, `is_benchmark` (IANA registries); none set means global |
 | `tunnel`                | `ipv4-mapped`, `6to4`, `teredo`, `nat64` or `None`; `embedded_ipv4` is the v4 inside |
 | `decimal_ipv4`          | a guess: v4 written as decimal into the last four hextets    |
 | `as_*`                  | v6 forms of a v4 address; `None` for v6                      |
@@ -216,8 +229,7 @@ Off by default: the only part of a lookup that leaves the machine.
 ```python
 >>> plevin.lookup("8.8.8.8", dns=True).dns
 Dns(
-    asked='8.8.8.8', hostname='dns.google', hostnames=('dns.google',),
-    ipv4='8.8.4.4', ipv6='2001:4860:4860::8888',
+    asked='8.8.8.8', hostnames=('dns.google',),
     ipv4_addresses=('8.8.4.4', '8.8.8.8'),
     ipv6_addresses=('2001:4860:4860::8888', '2001:4860:4860::8844'),
     alias=None, zone='8.8.8.in-addr.arpa', zone_primary='ns1.google.com',
@@ -225,8 +237,8 @@ Dns(
 )
 ```
 
-- **Names:** `hostname` is the first PTR, `hostnames` all of them; `ipv4`/`ipv6`
-  resolve it forward.
+- **Names:** `hostnames` are the PTRs, `ipv4_addresses`/`ipv6_addresses` what the
+  first one resolves to forward.
 - **Checks:** `is_confirmed` means forward-confirmed reverse DNS; `is_signed` means
   DNSSEC.
 - **Zone:** `zone`, `zone_primary` and `zone_contact` come from the reverse zone's SOA.
@@ -286,7 +298,7 @@ gives the raw rows without models.
 
 ```bash
 cd python
-uv run pytest          # 224 tests, 100% branch coverage
+uv run pytest          # 255 tests, 100% branch coverage
 uv run mypy && uv run basedpyright
 uvx ruff check . ../plevin_mini.py --config pyproject.toml
 uv build --wheel

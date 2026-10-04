@@ -23,7 +23,6 @@ export type City = {
   id: number | null;
   name: string | null;
   ascii: string | null;
-  country: string | null;
   population: number | null;
   elevation: number | null;
   postal: string | null;
@@ -44,6 +43,7 @@ export type Country = {
   iso3: string | null;
   numeric: string | null;
   flag: string | null;
+  continent: string | null;
   currency: string | null;
   currency_name: string | null;
   calling_code: string | null;
@@ -53,7 +53,6 @@ export type Country = {
 };
 
 export type Time = {
-  timezone: string | null;
   abbreviation: string | null;
   local: string | null;
   utc_offset: string | null;
@@ -81,6 +80,7 @@ export type Operator = {
   category: string | null;
   tier: number | null;
   peering: number | null;
+  cone: number | null;
   scope: string | null;
   rir: string | null;
   since: number | null;
@@ -101,7 +101,6 @@ export type Carrier = {
 };
 
 export type Abuse = {
-  name: string | null;
   provider: string | null;
   service: string | null;
   evidence: string | null;
@@ -172,10 +171,7 @@ export type Routes = {
 /** What the resolvers say about the address, asked for only where a flag says so. */
 export type Dns = {
   asked: string | null;
-  hostname: string | null;
   hostnames: string[];
-  ipv4: string | null;
-  ipv6: string | null;
   ipv4_addresses: string[];
   ipv6_addresses: string[];
   alias: string | null;
@@ -191,11 +187,9 @@ export type Result = {
   ip: string;
   version: number;
   number: number | bigint;
-  compressed: string;
-  expanded: string;
+  expanded: string | null;
   arpa: string;
   is_global: boolean;
-  is_bogon: boolean;
   is_private: boolean;
   is_loopback: boolean;
   is_multicast: boolean;
@@ -205,9 +199,6 @@ export type Result = {
   is_documentation: boolean;
   is_shared: boolean;
   is_benchmark: boolean;
-  is_ipv4_mapped: boolean;
-  is_6to4: boolean;
-  is_teredo: boolean;
   tunnel: string | null;
   embedded_ipv4: string | null;
   decimal_ipv4: string | null;

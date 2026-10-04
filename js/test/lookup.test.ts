@@ -27,7 +27,8 @@ test("answers where an address is", held, () => {
   assert.equal(found?.place?.country?.iso3, "AUS");
   assert.equal(found?.place?.country?.flag, "🇦🇺");
   assert.equal(found?.place?.country?.driving_side, "left");
-  assert.equal(found?.place?.time?.timezone, "Australia/Brisbane");
+  assert.equal(found?.place?.city?.timezone, "Australia/Brisbane");
+  assert.equal(found?.place?.time?.abbreviation, "AEST");
 });
 
 test("answers who announces an address", held, () => {
@@ -76,6 +77,31 @@ test("reads a country's currency, calling code and languages", held, () => {
   assert.deepEqual(found?.languages, ["en"]);
 });
 
+test("names a continent, and each language once", held, () => {
+  const found = db?.lookup("8.8.8.8").place?.country;
+  assert.equal(found?.continent, "NA");
+  assert.deepEqual(db?.lookup("1.1.1.1").place?.country?.languages, ["en"]);
+});
+
+test("reads the size of a network and its customer cone", held, () => {
+  const operator = db?.lookup("1.1.1.1").network?.operator;
+  assert.ok((operator?.cone ?? 0) > 1);
+  assert.equal(operator?.website, "https://cloudflare.com");
+  assert.equal(operator?.city?.population, null);
+});
+
+test("types a network by its operator unless the range says otherwise", held, () => {
+  const found = db?.system("AS3");
+  assert.equal(found?.network?.carrier?.user_type, "education");
+  assert.equal(db?.lookup("18.9.1.1").network?.carrier?.user_type, "education");
+});
+
+test("finds nothing where nothing is known", held, () => {
+  const found = db?.lookup("0.197.62.223");
+  assert.equal(found?.found, false);
+  assert.equal(found?.expanded, null);
+});
+
 test("flags crawlers and names no town for a point coarser than one", held, () => {
   const found = db?.lookup("66.249.66.1");
   assert.equal(found?.abuse?.is_crawler, true);
@@ -95,7 +121,7 @@ test("answers what has been seen from an address", held, () => {
 
 test("names who runs an address, the feed's name before the network's", held, () => {
   const found = db?.lookup("185.220.101.1");
-  assert.equal(found?.abuse?.provider, found?.abuse?.name);
+  assert.equal(found?.abuse?.provider, "Tor");
   const bare = db?.lookup("1.1.1.1");
   assert.equal(bare?.abuse?.provider, null);
 });
@@ -104,7 +130,7 @@ test("answers the same for v6 as for v4", held, () => {
   const found = db?.lookup("2606:4700::1111");
   assert.equal(found?.version, 6);
   assert.equal(found?.network?.asn, 13335);
-  assert.equal(found?.compressed, "2606:4700::1111");
+  assert.equal(found?.ip, "2606:4700::1111");
 });
 
 test("answers for an address the file covers nothing of", held, () => {

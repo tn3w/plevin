@@ -33,6 +33,21 @@ const NETWORK_TAIL = /(NET|COM|TEL|WEB|LINE)$/;
 const AUTHORITY = /[/?#]/;
 const QUOTES = /^["']+|["']+$/g;
 
+const SHARED = words(
+  "gmail.com googlemail.com yahoo.com yahoo.co.jp yahoo.com.br yahoo.es hotmail.com" +
+    " hotmail.es outlook.com live.com msn.com aol.com icloud.com proton.me" +
+    " protonmail.com qq.com 163.com 126.com sina.com sohu.com foxmail.com yandex.ru" +
+    " ya.ru mail.ru list.ru bk.ru inbox.ru rambler.ru gmx.de gmx.net web.de" +
+    " t-online.de orange.fr free.fr libero.it wp.pl o2.pl interia.pl seznam.cz" +
+    " abv.bg ukr.net i.ua naver.com hanmail.net daum.net rediffmail.com bol.com.br" +
+    " uol.com.br terra.com.br ig.com.br facebook.com twitter.com x.com linkedin.com" +
+    " instagram.com youtube.com",
+);
+const PUBLIC = words("gov mil edu gob gouv govt ac go sch");
+const SECONDS = words(
+  "ac co com ed edu go gob gov gouv govt gv ltd me mil ne net nom or org plc sch",
+);
+
 export const SERVERS = new Set(["hosting", "cdn", "content"]);
 export const ACCESS = new Set(["residential", "cellular"]);
 export const PROXIES = new Set(["public_proxy", "residential_proxy"]);
@@ -127,20 +142,63 @@ const branded = kept((key: string): string => {
 export const brand = (handle: string, company: string): string =>
   branded(`${handle}\n${company}`);
 
+const squeezed = (text: string): string => text.toLowerCase().replace(BARE, "");
+
+const GENERIC = new Set([
+  ...FORMS,
+  ...TAILS,
+  ...words("telekom broadband wireless mobile"),
+]);
+
+const related = (site: string, names: string): boolean => {
+  const labels = site.split(".");
+  const key = squeezed(labels[0]);
+  const joined = squeezed(names);
+  if (
+    (key.length > 2 && joined.includes(key)) ||
+    (key.length === 2 && joined.startsWith(key))
+  ) {
+    return true;
+  }
+  const named = names
+    .toLowerCase()
+    .split(/[\s_,.&/()-]+/)
+    .map(squeezed);
+  if (named.some((word) => word.length > 3 && !GENERIC.has(word) && key.includes(word))) {
+    return true;
+  }
+  return labels.slice(1).some((label) => PUBLIC.has(label));
+};
+
+const registrable = (host: string): string => {
+  const labels = host.split(".");
+  if (labels.length < 3) return host;
+  const last = labels[labels.length - 1];
+  const deep = last.length === 2 && SECONDS.has(labels[labels.length - 2]);
+  return labels.slice(deep ? -3 : -2).join(".");
+};
+
 const domained = kept((key: string): string => {
-  const [website, mailbox] = split(key);
+  const [website, rest] = split(key);
+  const [mailbox, names] = split(rest);
   const authority = (website.split("//").pop() ?? "").split(AUTHORITY)[0];
-  const host = (authority.split("@").pop() ?? "").split(":")[0];
-  const box = (mailbox.split("@")[1] ?? "").toLowerCase();
-  const site = (host || box).toLowerCase().replace(/^www\./, "");
+  const host = (authority.split("@").pop() ?? "").split(":")[0].toLowerCase();
+  const mail = registrable((mailbox.split("@")[1] ?? "").toLowerCase());
+  const box = SHARED.has(mail) ? "" : mail;
+  const named = registrable(host.replace(/^www\./, ""));
+  const site = SHARED.has(named) ? "" : named;
+  if (!site) return box && related(box, names) ? box : "";
   const top = site.split(".").pop() ?? "";
   if (top.length > 2 && box.split(".")[0] === top && site !== box) return box;
   return site;
 });
 
-/** The bare host the website names, else the one the abuse mailbox does. */
-export const domain = (website: string, mailbox: string): string =>
-  domained(`${website}\n${mailbox}`);
+/** The registered domain the website names, else the one the abuse mailbox does. */
+export const domain = (website: string, mailbox: string, names = ""): string =>
+  domained(`${website}\n${mailbox}\n${names}`);
+
+/** The site is stored as its host and path; every one of them answers over https. */
+export const website = (host: string): string => (host ? `https://${host}` : "");
 
 /** A public proxy on an access network is someone's home line, resold. */
 export const service = (named: string, userType: string): [string, string] =>

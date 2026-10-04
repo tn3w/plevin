@@ -446,7 +446,10 @@ impl World {
             "metro.code" => places.metros[row].code as i64,
             "metro.label" => words.id(&places.metros[row].label),
             "city.name" => words.id(&city(row).name),
-            "city.ascii" => words.id(&city(row).ascii),
+            "city.ascii" => match city(row).ascii == city(row).name {
+                true => 0,
+                false => words.id(&city(row).ascii),
+            },
             "city.id" => city(row).id as i64,
             "city.population" => city(row).population as i64,
             "city.type" => city(row).kind as i64,
@@ -486,6 +489,7 @@ impl World {
             "operator.category" => system.category as i64,
             "operator.tier" => system.tier as i64,
             "operator.peering" => system.peering as i64,
+            "operator.cone" => system.cone as i64,
             "operator.scope" => words.id(&system.scope),
             "operator.rir" => words.id(&system.rir),
             "operator.since" => system.since as i64,
@@ -626,11 +630,12 @@ impl World {
             let mut values: Vec<i64> = Vec::new();
             for (address, row) in &self.records.hosts[family] {
                 let held = abuse.link(row + 1);
-                if held == 0 {
+                let stood = standing(&spines[family], *address, falls);
+                if held == 0 && stood.is_none() {
                     continue;
                 }
-                let mine = order[held as usize - 1] as i64;
-                if standing(&spines[family], *address, falls) == Some(mine) {
+                let mine = order[held.max(1) as usize - 1] as i64;
+                if stood == Some(mine) {
                     continue;
                 }
                 keys.push(*address);

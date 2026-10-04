@@ -32,7 +32,6 @@ class City:
     id: int | None = None
     name: str | None = None
     ascii: str | None = None
-    country: str | None = None
     population: int | None = None
     elevation: int | None = None
     postal: str | None = None
@@ -54,6 +53,7 @@ class Country:
     iso3: str | None = None
     numeric: str | None = None
     flag: str | None = None
+    continent: str | None = None
     currency: str | None = None
     currency_name: str | None = None
     calling_code: str | None = None
@@ -64,7 +64,6 @@ class Country:
 
 @dataclass(slots=True)
 class Time:
-    timezone: str | None = None
     abbreviation: str | None = None
     local: str | None = None
     utc_offset: str | None = None
@@ -94,6 +93,7 @@ class Operator:
     category: str | None = None
     tier: int | None = None
     peering: int | None = None
+    cone: int | None = None
     scope: str | None = None
     rir: str | None = None
     since: int | None = None
@@ -116,7 +116,6 @@ class Carrier:
 
 @dataclass(slots=True)
 class Abuse:
-    name: str | None = None
     provider: str | None = None
     service: str | None = None
     evidence: str | None = None
@@ -202,10 +201,7 @@ class Dns:
     """What the resolvers say about the address, asked for only where a flag says so."""
 
     asked: str | None = None
-    hostname: str | None = None
     hostnames: tuple[str, ...] = ()
-    ipv4: str | None = None
-    ipv6: str | None = None
     ipv4_addresses: tuple[str, ...] = ()
     ipv6_addresses: tuple[str, ...] = ()
     alias: str | None = None
@@ -223,11 +219,9 @@ class Result:
     ip: str
     version: int
     number: int
-    compressed: str
-    expanded: str
+    expanded: str | None
     arpa: str
     is_global: bool = False
-    is_bogon: bool = False
     is_private: bool = False
     is_loopback: bool = False
     is_multicast: bool = False
@@ -237,9 +231,6 @@ class Result:
     is_documentation: bool = False
     is_shared: bool = False
     is_benchmark: bool = False
-    is_ipv4_mapped: bool = False
-    is_6to4: bool = False
-    is_teredo: bool = False
     tunnel: str | None = None
     embedded_ipv4: str | None = None
     decimal_ipv4: str | None = None

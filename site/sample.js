@@ -2,11 +2,9 @@ export const SAMPLE = {
   "ip": "1.1.1.1",
   "version": 4,
   "number": 16843009,
-  "compressed": "1.1.1.1",
-  "expanded": "1.1.1.1",
+  "expanded": null,
   "arpa": "1.1.1.1.in-addr.arpa",
   "is_global": true,
-  "is_bogon": false,
   "is_private": false,
   "is_loopback": false,
   "is_multicast": false,
@@ -16,23 +14,23 @@ export const SAMPLE = {
   "is_documentation": false,
   "is_shared": false,
   "is_benchmark": false,
-  "is_ipv4_mapped": false,
-  "is_6to4": false,
-  "is_teredo": false,
   "tunnel": null,
   "embedded_ipv4": null,
+  "decimal_ipv4": null,
+  "as_ipv4_mapped": "::ffff:1.1.1.1",
+  "as_6to4": "2002:101:101::",
+  "as_nat64": "64:ff9b::101:101",
   "found": true,
   "place": {
     "lat": -27.4675,
     "lon": 153.0281,
     "accuracy": 200,
-    "confidence": 36,
+    "confidence": 42,
     "granularity": "city",
     "city": {
       "id": 2174003,
       "name": "Brisbane",
-      "ascii": "Brisbane",
-      "country": "AU",
+      "ascii": null,
       "population": 2780063,
       "elevation": 27,
       "postal": "4000",
@@ -62,13 +60,19 @@ export const SAMPLE = {
       "iso3": "AUS",
       "numeric": "036",
       "flag": "🇦🇺",
+      "continent": "OC",
+      "currency": "AUD",
+      "currency_name": "Australian Dollar",
+      "calling_code": "+61",
+      "languages": [
+        "en"
+      ],
       "european_union": false,
       "driving_side": "left"
     },
     "time": {
-      "timezone": "Australia/Brisbane",
       "abbreviation": "AEST",
-      "local": "2026-08-15T03:59:50+10:00",
+      "local": "2026-10-05T02:06:28+10:00",
       "utc_offset": "+10:00",
       "is_dst": false,
       "dst_start": null,
@@ -78,16 +82,20 @@ export const SAMPLE = {
   "network": {
     "asn": 13335,
     "handle": "CLOUDFLARENET",
+    "rir": "apnic",
+    "country": "AU",
+    "since": 2011,
     "rpki": "valid",
     "roas": 1,
     "operator": {
       "company": "Cloudflare, Inc.",
       "brand": "Cloudflare",
       "domain": "cloudflare.com",
-      "website": "https://www.cloudflare.com",
-      "category": "content",
+      "website": "https://cloudflare.com",
+      "category": "cdn",
       "tier": 2,
-      "peering": 356,
+      "peering": 354,
+      "cone": 1022,
       "scope": "Global",
       "rir": "arin",
       "since": 2010,
@@ -99,36 +107,22 @@ export const SAMPLE = {
       "city": {
         "id": 5391959,
         "name": "San Francisco",
-        "ascii": "San Francisco",
-        "country": "US",
-        "population": 827526,
-        "elevation": 16,
-        "postal": "94119",
-        "postal_partial": "941",
-        "timezone": "America/Los_Angeles",
-        "type": "district capital",
-        "capital": "district",
-        "region": {
-          "id": 5332921,
-          "code": "CA",
-          "iso": "US-CA",
-          "name": "California",
-          "type": "State"
-        },
-        "district": {
-          "id": 5391997,
-          "code": "075",
-          "name": "City and County of San Francisco"
-        },
-        "metro": {
-          "code": 807,
-          "label": "San Jose, CA"
-        }
+        "ascii": null,
+        "population": null,
+        "elevation": null,
+        "postal": null,
+        "postal_partial": null,
+        "timezone": null,
+        "type": null,
+        "capital": null,
+        "region": null,
+        "district": null,
+        "metro": null
       }
     },
     "carrier": {
       "user_type": "hosting",
-      "user_count": 19,
+      "user_count": 18,
       "mcc": null,
       "mnc": null,
       "is_mobile": false
@@ -139,14 +133,18 @@ export const SAMPLE = {
     "end": "1.1.1.255"
   },
   "abuse": {
-    "name": null,
+    "provider": null,
     "service": null,
     "evidence": null,
+    "threat": null,
+    "level": null,
     "risk": null,
-    "network_risk": 0.14,
+    "network_risk": 0.18,
     "last_seen_days": null,
+    "is_malicious": false,
     "is_anycast": true,
     "is_satellite": false,
+    "is_crawler": false,
     "is_hosting_provider": true,
     "is_proxy": false,
     "is_public_proxy": false,
@@ -155,5 +153,6 @@ export const SAMPLE = {
     "is_tor_exit_node": false,
     "is_private_relay": false,
     "is_anonymous": false
-  }
+  },
+  "dns": null
 };

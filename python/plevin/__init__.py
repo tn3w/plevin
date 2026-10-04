@@ -18,13 +18,10 @@ from .address import (
     DOCUMENTATION,
     LINK_LOCAL,
     LOOPBACK,
-    MAPPED,
     MULTICAST,
     PRIVATE,
     RESERVED,
     SHARED,
-    SIXTOFOUR,
-    TEREDO,
     UNIQUE_LOCAL,
     Value,
     carried,
@@ -161,7 +158,6 @@ def _built_city(rows: Rows) -> City:
         id=_count(rows.get("id")),
         name=_text(rows.get("name")),
         ascii=_text(rows.get("ascii")),
-        country=_text(rows.get("country")),
         population=_count(rows.get("population")),
         elevation=_count(rows.get("elevation")),
         postal=_text(rows.get("postal")),
@@ -178,10 +174,18 @@ def _built_city(rows: Rows) -> City:
 _city = Shaped(_built_city)
 
 
+def _built_headquarters(rows: Rows) -> City:
+    """An operator's city, which carries only its id and name."""
+    return City(id=_count(rows.get("id")), name=_text(rows.get("name")))
+
+
+_headquarters = Shaped(_built_headquarters)
+
+
 def _built_coarse(rows: Rows, granularity: str) -> City:
     town = _city(rows)
     region = town.region if granularity == "region" else None
-    return City(country=town.country, timezone=town.timezone, region=region)
+    return City(timezone=town.timezone, region=region)
 
 
 _coarse = Shaped(_built_coarse)
@@ -193,7 +197,7 @@ def _place(rows: Rows | None) -> tuple[Ground, str] | None:
     granularity = str(rows.get("granularity", ""))
     held = rows.get("city")
     city = _city(held) if granularity in ("city", "") else _coarse(held, granularity)
-    code = "" if city is None or city.country is None else city.country
+    code = str((held or {}).get("country") or "")
     zone = "" if city is None or city.timezone is None else city.timezone
     ground = (rows.get("lat"), rows.get("lon"), rows.get("accuracy"),
               rows.get("confidence"), _text(granularity), city, country(code))
@@ -204,14 +208,16 @@ def _built_operator(rows: Rows, handle: str, brand: str) -> Operator:
     company = str(rows.get("company", ""))
     website = str(rows.get("website", ""))
     mailbox = str(rows.get("abuse_email", ""))
+    named = brand or derive.brand(handle, company)
     return Operator(
         company=_text(company),
-        brand=_text(brand or derive.brand(handle, company)),
-        domain=_text(derive.domain(website, mailbox)),
-        website=_text(website),
+        brand=_text(named),
+        domain=_text(derive.domain(website, mailbox, f"{named} {handle} {company}")),
+        website=_text(derive.website(website)),
         category=_text(rows.get("category")),
         tier=_count(rows.get("tier")),
         peering=_count(rows.get("peering")),
+        cone=_count(rows.get("cone")),
         scope=_text(rows.get("scope")),
         rir=_text(rows.get("rir")),
         since=_count(rows.get("since")),
@@ -220,7 +226,7 @@ def _built_operator(rows: Rows, handle: str, brand: str) -> Operator:
         postal=_text(rows.get("postal")),
         country=_text(rows.get("country")),
         abuse_email=_text(mailbox),
-        city=_city(rows.get("city")),
+        city=_headquarters(rows.get("city")),
     )
 
 
@@ -242,7 +248,7 @@ def _carrier(rows: Rows | None, user_type: str) -> Carrier | None:
 
 def _abuse(record: Rows | None, system: Rows | None, user_type: str,
            brand: str) -> Abuse | None:
-    if record is None and system is None:
+    if record is None and system is None and not user_type:
         return None
     held = record or {}
     named, inferred = derive.service(str(held.get("service", "")), user_type)
@@ -250,7 +256,6 @@ def _abuse(record: Rows | None, system: Rows | None, user_type: str,
     name = str(held.get("name", ""))
     level = str(held.get("level", ""))
     return Abuse(
-        name=_text(name),
         provider=_text(name or (brand if named else "")),
         service=_text(named),
         evidence=_text(evidence),
@@ -292,9 +297,10 @@ def _network(rows: Rows, user_type: str) -> tuple[Wires, int | None]:
     return wires, _count(rows.get("prefix"))
 
 
-def _user_type(record: Rows | None, system: Rows | None) -> str:
-    held, below = record or {}, system or {}
-    return str(held.get("user_type") or below.get("user_type") or "")
+def _user_type(record: Rows | None, network: Rows | None) -> str:
+    """The address's own type, else the type of its operator."""
+    held, whole = record or {}, (network or {}).get("operator") or {}
+    return str(held.get("user_type") or whole.get("category") or "")
 
 
 def _stored(rows: Rows) -> Stored:
@@ -302,7 +308,7 @@ def _stored(rows: Rows) -> Stored:
     if network is not None and not any(network.values()):
         network = None
     system = None if network is None else network.get("abuse")
-    user_type = _user_type(rows.get("abuse"), system)
+    user_type = _user_type(rows.get("abuse"), network)
     wires = None if network is None else _network(network, user_type)
     holder = None if wires is None else wires[0][-2]
     brand = "" if holder is None or holder.brand is None else holder.brand
@@ -322,11 +328,9 @@ def _result(value: int, wide: bool, stored: Stored | None,
         ip=text,
         version=6 if wide else 4,
         number=value,
-        compressed=text,
-        expanded=expanded,
+        expanded=expanded if wide else None,
         arpa=arpa,
         is_global=marks == 0,
-        is_bogon=marks != 0,
         is_private=marks & PRIVATE != 0,
         is_loopback=marks & LOOPBACK != 0,
         is_multicast=marks & MULTICAST != 0,
@@ -336,16 +340,13 @@ def _result(value: int, wide: bool, stored: Stored | None,
         is_documentation=marks & DOCUMENTATION != 0,
         is_shared=marks & SHARED != 0,
         is_benchmark=marks & BENCHMARK != 0,
-        is_ipv4_mapped=through == MAPPED,
-        is_6to4=through == SIXTOFOUR,
-        is_teredo=through == TEREDO,
         tunnel=through,
         embedded_ipv4=embedded,
         decimal_ipv4=decimal,
         as_ipv4_mapped=mapped,
         as_6to4=sixtofour,
         as_nat64=nat64,
-        found=stored is not None,
+        found=bool(ground or wires or abuse),
         place=None if ground is None else Place(*ground[0], clock(ground[1], moment)),
         network=None if wires is None else _spanned(*wires, value, wide),
         abuse=abuse,
@@ -355,7 +356,7 @@ def _result(value: int, wide: bool, stored: Stored | None,
 
 def _system(rows: Rows) -> System:
     record = rows.get("abuse")
-    user_type = _user_type(None, record)
+    user_type = _user_type(None, rows)
     asn, handle, *_, operator, carrier = _network(rows, user_type)[0]
     brand = "" if operator is None or operator.brand is None else operator.brand
     return System(

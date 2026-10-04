@@ -7,7 +7,7 @@ import { ZONES } from "./zones.ts";
 const EU_MEMBERS = new Set(
   (
     "AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI" +
-    " ES SE"
+    " ES SE AX GF GP MQ RE YT MF"
   ).split(" "),
 );
 const LEFT_DRIVING = new Set(
@@ -53,6 +53,7 @@ export const country = (code: string): Country | null => {
     currencyName,
     calling,
     spoken,
+    continent,
   ] = KNOWN.get(code) ?? [];
   const built: Country = {
     code,
@@ -62,6 +63,7 @@ export const country = (code: string): Country | null => {
     iso3: text(iso3),
     numeric: text(numeric),
     flag: flag(code) || null,
+    continent: text(continent),
     currency: text(currency),
     currency_name: text(currencyName),
     calling_code: text(calling),
@@ -215,24 +217,13 @@ const abbreviation = (name: string, offset: number, daylight: boolean): string =
   );
 };
 
-const read = (name: string, instant: number): Time => {
+const read = (name: string, instant: number): Time | null => {
   const held = format(name);
-  if (held === null) {
-    return {
-      timezone: name,
-      abbreviation: null,
-      local: null,
-      utc_offset: null,
-      is_dst: false,
-      dst_start: null,
-      dst_end: null,
-    };
-  }
+  if (held === null) return null;
   const wall = wallAt(held, instant);
   const offset = Math.round((wall - instant) / MINUTE);
   const [standard, start, end] = daylight(name, held, wall);
   return {
-    timezone: name,
     abbreviation: abbreviation(name, offset, offset !== standard),
     local: new Date(wall).toISOString().slice(0, 19) + utcOffset(offset),
     utc_offset: utcOffset(offset),
@@ -242,7 +233,7 @@ const read = (name: string, instant: number): Time => {
   };
 };
 
-const SECONDS = new Map<string, Time>();
+const SECONDS = new Map<string, Time | null>();
 
 /** One zone read at one moment, defaulting to now. */
 export const clock = (name: string, moment?: Date | null): Time | null => {

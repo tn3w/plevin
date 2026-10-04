@@ -644,9 +644,10 @@ const hostParts = (
   const values: number[] = [];
   hosts.links.forEach((link, at) => {
     const held = linked(slabs.abuse, link);
-    if (held === 0) return;
-    const position = order[held - 1];
-    if (abuseAt(spine, hosts.keys[at], networkAbuse) === position) return;
+    const stood = abuseAt(spine, hosts.keys[at], networkAbuse);
+    if (held === 0 && stood === null) return;
+    const position = order[Math.max(held, 1) - 1];
+    if (stood === position) return;
     keys.push(hosts.keys[at]);
     values.push(position);
   });

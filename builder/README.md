@@ -2,12 +2,12 @@
 
 # plevin builder
 
-**26 source files, operator geofeeds and 209 feeds in one offline `.plv` database.**
+**27 source files, operator geofeeds and 209 feeds in one offline `.plv` database.**
 
 ![Rust 2024](https://img.shields.io/badge/rust-2024-CE422B?logo=rust&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
 ![Full build](https://img.shields.io/badge/full%20build-18.7%20MB-2ea043)
-![Sources](https://img.shields.io/badge/sources-26%20files%20%2B%20209%20feeds%20%2B%20geofeeds-6f42c1)
+![Sources](https://img.shields.io/badge/sources-27%20files%20%2B%20209%20feeds%20%2B%20geofeeds-6f42c1)
 
 [everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 18.7 MB ·
 [location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 6.3 MB ·
@@ -20,7 +20,7 @@
 
 ```mermaid
 flowchart LR
-    S["26 files + geofeeds + 209 feeds"] --> B[builder] --> D[("plevin.plv")] --> Q["lookup(8.8.8.8)"]
+    S["27 files + geofeeds + 209 feeds"] --> B[builder] --> D[("plevin.plv")] --> Q["lookup(8.8.8.8)"]
 ```
 
 ## Build
@@ -45,7 +45,7 @@ nothing, a dead URL or a changed format. The fetch log lists every feed's size
 | --------------------- | ------------------------------ |
 | `src/`                | the builder, ten files         |
 | `data/feeds.json`     | feeds, one entry each          |
-| `data/operators.json` | brands and satellite ASNs      |
+| `data/operators.json` | brands, satellite ASNs, category and text rules |
 | `data/regions.json`   | region code fixes              |
 | `data/metros.json`    | US market labels               |
 | `inputs/`             | fetched sources (ignored)      |
@@ -72,6 +72,8 @@ flowchart LR
 - **`network.operator.brand`** alone stores the brand itself, not the handle and
   company it is derived from.
 - **`abuse.provider`** links a network only where a service record reaches it.
+- **`abuse.is_hosting_provider`, `network.carrier.is_mobile` and `user_type`** bring
+  `network.operator` with them, for the category a range falls back to.
 - **Naming:** the selection is written into the file and the filename.
 
 ## Raw file
@@ -121,6 +123,7 @@ Fetched flat into `inputs/`; gzip inflated, zip reduced to its largest member.
 | `vrps.csv`                                            | `console.rpki-client.org/vrps.csv`                          | public RPKI data |
 | `nro-delegated-stats`                                 | `ftp.ripe.net/pub/stats/ripencc/nro-stats/latest/`          | open RIR stats   |
 | `asn.txt`                                             | `ftp.ripe.net/ripe/asnames/`                                | RIPE NCC terms   |
+| `asrank`                                              | `api.asrank.caida.org/v2/restful/asns/`, paged, as `asn`, cone, exchange | CAIDA AUP        |
 | `as-org2info.txt`, `as-rel2.txt`                      | `publicdata.caida.org/datasets/`, newest                    | CAIDA AUP        |
 | `peeringdb_net.json`, `_org.json`, `_netixlan.json`   | `peeringdb.com/api/`, with API key                          | CC BY 4.0        |
 | `abuse-contacts.tsv`                                  | `github.com/tn3w/asn-abuse`, latest release                 | source repository |
@@ -190,9 +193,51 @@ flowchart LR
 | --------- | ----------------------------------------------------------------------------- |
 | gazetteer | cities, regions, districts, postal codes from GeoNames; country of a coordinate from Natural Earth; region ISO codes from `data/regions.json`, then `iso_3166-2.json`, never one ISO does not list; an empty name matches no place |
 | place     | operator geofeeds first, then MaxMind, IP2Location where MaxMind has only a country; IP2Location instead when it and DB-IP agree on another city within 25 km; DB-IP agreeing lifts confidence to 90; points interned at 1e-4°; nearest city in the same country within 500 km, else within 3000 km; accuracy is the largest of source radius, snap distance and a per-granularity floor |
-| network   | origin ASN by majority of RIS peers, routes wider than /8 or /16 dropped as leaks; ROAs → `rpki`, `roas`; NRO → registry, country and year of the ASN and of every block; CAIDA → company, tier, handle and registry where `asn.txt` and NRO have none; street addresses never become a company; PeeringDB → website, category, peering, address; LACNIC `aut-num` → city where PeeringDB has none; IP2Proxy's most common range domain → website where PeeringDB has none; bgp.tools' mobile tag never turns a transit or content network cellular; carriers need a name match, APNIC users and an eyeball network |
+| network   | origin ASN by majority of RIS peers, routes wider than /8 or /16 dropped as leaks; ROAs → `rpki`, `roas`; NRO → registry, country and year of the ASN and of every block; CAIDA → company, tier, handle, registry where `asn.txt` and NRO have none, and the customer cone from AS Rank; street addresses never become a company; PeeringDB → website, category, peering, address, and its other names for matching carriers; LACNIC `aut-num` → city where PeeringDB has none; IP2Proxy's most common range domain → website where PeeringDB has none; text tidied (below); category decided (below); carriers matched by name (below) |
 | abuse     | one record per span plus an ASN baseline, from feeds declared in `data/feeds.json` |
 | spine     | one boundary set carrying place, network and abuse; reserved space carries none; ids ranked by use |
+
+### Category
+
+The kind of network, one of the `categories` vocabulary, from the first of these that
+speaks:
+
+1. **A list.** PeeringDB's type, bgp.tools' class, then its tag lists. A tag naming
+   `government`, `education` or `military` beats a looser kind (residential, business,
+   content, transit, infrastructure, non-profit), `cellular` beats the same except
+   transit and content, `hosting` and `cdn` beat `content` only. Rules live in
+   `data/operators.json`.
+2. **The domain.** `.mil`, `.gov`, `.edu` and their second-level forms (`go.jp`,
+   `ac.uk`) from the website, else the abuse mailbox.
+3. **The name.** Whole words such as *university*, *ministerio*, *police*.
+4. **The users.** Over 1,000 APNIC users on an edge network read `residential`.
+
+Rules 2 to 4 only fill a network no list classified. Held against the networks a list
+did classify, they agree at 96% (education by domain), 86% (government by domain), 97%
+and 94% (education and government by name) and 83% (users); business, cellular and
+hosting by name agreed at 56%, 38% and 54% and are not used. The address-level
+type (`carrier.user_type`) is the range's own feed where one names it, else the
+operator's category: nothing stores the category twice.
+
+### Carriers
+
+A network is matched to mobile network codes by whole-word name against the MCC-MNC
+lists in the same country, over its handle, company and PeeringDB names. It needs
+APNIC users and a residential or cellular category; a cellular one needs neither. The
+most common `mcc` of the matches wins, `mnc` stays empty where the matches disagree.
+A cellular network no name matches takes the country's `mcc` where the lists give the
+country just one.
+
+### Text
+
+Every operator text is tidied before it is counted: UTF-8 first, Latin-1 where a line is
+not valid UTF-8 (RIPE and APNIC dumps mix both), double-encoded accents mended, no-break
+and zero-width marks dropped, whitespace collapsed, trailing separators trimmed.
+Placeholders (`N/A`, `Private Customer`, `example.com`), pasted certificates, strings
+that are mostly `?` and postal codes of zeros are dropped. A website is kept as host and
+path, without scheme and `www.`, and never an address or an `example.com`. A mailbox
+needs a name and a dotted domain. Years before 1980 and elevations below −500 m are
+missing values.
 
 ### Geofeeds
 
@@ -252,7 +297,12 @@ two sources settle cheaply. Geofeed rows are never outvoted.
   column counts at the lowest weight.
 - **ASN baseline:** its own feeds, noisy-OR the square root of the risk-weighted share
   of its announced space that was reported. v4 is counted in addresses, v6 in /64s,
-  and the worse family stands. Under 0.01 the ASN reads as unseen.
+  and the worse family stands. Under 0.01 the ASN reads as unseen. This is
+  `network_risk`.
+- **Baseline reach:** what the whole ASN is (a service, `is_anycast`, `is_satellite`)
+  reaches every address in it, merged under the address's own claims. Its risk does not:
+  `risk`, `level`, `threat` and `last_seen_days` come from the address alone, in every
+  build.
 - **`last_seen_days`:** the tightest feed window that hit, only where a risk is set.
 
 ## Fields
@@ -269,14 +319,21 @@ flowchart LR
 
 | group     | stored                                                                        |
 | --------- | ----------------------------------------------------------------------------- |
-| `place`   | point: lat, lon, accuracy, granularity, confidence; city: name, ascii, id, population, type, postal, postal_partial, timezone, elevation, country; region: name, code, iso, type, id; district: name, code, id |
+| `place`   | point: lat, lon, accuracy, granularity, confidence; city: name, ascii (only where it differs), id, population, type, postal, postal_partial, timezone, elevation; region: name, code, iso, type, id; district: name, code, id |
 | `metro`   | code, label                                                                   |
-| `network` | asn, handle, prefix, rir, country, since, rpki, roas; operator: company, website, category, tier, peering, scope, rir, since, street, city, state, postal, abuse_email, country; carrier: user_type, user_count, mcc, mnc |
-| `abuse`   | name, service, evidence, threat, is_anycast, is_satellite, risk, level, network_risk, last_seen_days |
+| `network` | asn, handle, prefix, rir, country, since, rpki, roas; operator: company, website (host and path), category, tier, peering, cone, scope, rir, since, street, city, state, postal, abuse_email, country; carrier: user_count, mcc, mnc |
+| `abuse`   | name, user_type, service, evidence, threat, is_anycast, is_satellite, risk, level, last_seen_days; per ASN: risk (`network_risk`), service and flags (the baseline) |
 
 Derived by the readers: every `is_*` flag except `is_anycast` and `is_satellite`,
-`operator.brand` (from handle and company) and `operator.domain` (stored only where
-the website is missing).
+`operator.brand` (from handle and company), `operator.domain` (registered domain of the
+website, else of the mailbox where it is the operator's own), `carrier.user_type` (the
+range's `abuse.user_type`, else `operator.category`), `place.country.continent`,
+`european_union`, `driving_side`, `languages`, currency and calling code (from the
+country), `place.time` (from the timezone) and `network.cidr`, `start`, `end` (from the
+prefix).
+
+`operator.city` answers its GeoNames id and name only, in every build: the rest of the
+city is the place table's, not a company's.
 
 | scale                   | unit                          |
 | ----------------------- | ----------------------------- |

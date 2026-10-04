@@ -59,6 +59,7 @@ pub struct Gazetteer {
     named: HashMap<(u16, String), u32>,
     placed: HashMap<(u32, String), u32>,
     isos: HashMap<String, u32>,
+    states: HashMap<(String, String), String>,
 }
 
 const FEATURES: &[&str] = &[
@@ -229,6 +230,7 @@ impl Gazetteer {
                 country: self.country(two(country)),
             });
         }
+        self.states = by_name;
         index
     }
 
@@ -276,7 +278,7 @@ impl Gazetteer {
                 postal: String::new(),
                 partial: 0,
                 zone: zone.map(|at| at as u16).unwrap_or(self.zones.len() as u16),
-                elevation: if elevation < -12000 { 0 } else { elevation },
+                elevation: if elevation < -500 { 0 } else { elevation },
                 metro: 0,
                 region: regions.get(&region).copied().unwrap_or(0),
                 district: districts.get(&district).copied().unwrap_or(0),
@@ -446,6 +448,18 @@ impl Gazetteer {
             Some(at) if within > 0 => at + 1,
             _ => self.town(name, code),
         }
+    }
+
+    pub fn town_in(&self, name: &str, state: &str, code: [u8; 2]) -> u32 {
+        let country = String::from_utf8_lossy(&code).into_owned();
+        let coded = format!("{country}-{}", state.trim().to_uppercase());
+        let region = match self.isos.contains_key(&coded) {
+            true => coded,
+            false => {
+                self.states.get(&(country, fold(state))).cloned().unwrap_or_default()
+            }
+        };
+        self.locate(name, &region, code)
     }
 
     pub fn town(&self, name: &str, code: [u8; 2]) -> u32 {

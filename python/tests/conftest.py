@@ -28,7 +28,7 @@ POOL = [
     "US-CA",
     "arin",
     "network-abuse@google.com",
-    "https://about.google/intl/en/",
+    "about.google/intl/en/",
     "Global",
     "A" * 200,
 ]
@@ -62,7 +62,7 @@ def _tables(writer: Writer) -> None:
 
     writer.column("col.city.name", [TEXT["Mountain View"], TEXT["Mountain Viewer"]],
                   read="text")
-    writer.column("col.city.ascii", [TEXT["Mountain View"], 0], read="text")
+    writer.column("col.city.ascii", [0, 0], read="text")
     writer.column("col.city.country", [TEXT["US"], 0], read="text")
     writer.column("col.city.postal", [TEXT["94035"], 0], read="text")
     writer.column("col.city.id", [5375480, 0])
@@ -89,7 +89,7 @@ def _tables(writer: Writer) -> None:
     writer.column("col.metro.label", [TEXT["San Jose, CA"]], read="text")
 
     writer.column("col.operator.company", [TEXT["Google LLC"]], read="text")
-    writer.column("col.operator.website", [TEXT["https://about.google/intl/en/"]],
+    writer.column("col.operator.website", [TEXT["about.google/intl/en/"]],
                   read="text")
     writer.column("col.operator.abuse_email", [TEXT["network-abuse@google.com"]],
                   read="text")
@@ -103,6 +103,7 @@ def _tables(writer: Writer) -> None:
     writer.column("col.operator.category", [4])
     writer.column("col.operator.tier", [2])
     writer.column("col.operator.peering", [176])
+    writer.column("col.operator.cone", [21])
     writer.column("col.operator.since", [2000])
     writer.column("link.operator.city", [1])
 

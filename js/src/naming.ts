@@ -307,10 +307,7 @@ const zoneOf = (reply: Reply | null, found: Dns): void => {
 
 const empty = (asked: string): Dns => ({
   asked,
-  hostname: null,
   hostnames: [],
-  ipv4: null,
-  ipv6: null,
   ipv4_addresses: [],
   ipv6_addresses: [],
   alias: null,
@@ -336,7 +333,6 @@ export const facts = async (value: number | bigint, wide: boolean): Promise<Dns>
 
   const hostnames = answers(reverse, "PTR");
   if (!hostnames.length) return found;
-  found.hostname = hostnames[0];
   found.hostnames = hostnames;
 
   const [forwardV4, forwardV6] = await Promise.all([
@@ -345,8 +341,6 @@ export const facts = async (value: number | bigint, wide: boolean): Promise<Dns>
   ]);
   found.ipv4_addresses = answers(forwardV4, "A");
   found.ipv6_addresses = answers(forwardV6, "AAAA");
-  found.ipv4 = found.ipv4_addresses[0] ?? null;
-  found.ipv6 = found.ipv6_addresses[0] ?? null;
   const aliases = [...answers(forwardV4, "CNAME"), ...answers(forwardV6, "CNAME")];
   found.alias = aliases[0] ?? null;
 

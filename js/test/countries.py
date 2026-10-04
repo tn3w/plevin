@@ -7,9 +7,19 @@ import pycountry
 from babel.languages import get_official_languages
 from babel.numbers import get_currency_name, get_territory_currencies
 
+from plevin.extra import CONTINENT, USER_ASSIGNED
+
 TARGET = Path(__file__).parent.parent / "src" / "countries.ts"
-DOC = "Per country: code, iso3, numeric, three names, currency, calling code, languages."
-EXTRA = ("XK",)
+DOC = (
+    "Per country: code, iso3, numeric, three names, currency, calling code,"
+    " languages, continent."
+)
+EXTRA = tuple(USER_ASSIGNED)
+
+
+def spoken(code: str) -> list[str]:
+    held = get_official_languages(code, de_facto=True)
+    return list(dict.fromkeys(name.partition("_")[0] for name in held))
 
 
 def row(code: str) -> str:
@@ -21,13 +31,14 @@ def row(code: str) -> str:
         code,
         getattr(country, "alpha_3", ""),
         getattr(country, "numeric", ""),
-        getattr(country, "name", ""),
+        getattr(country, "name", "") or USER_ASSIGNED.get(code, ""),
         getattr(country, "official_name", ""),
         getattr(country, "common_name", ""),
         currency,
         get_currency_name(currency, locale="en") if currency else "",
         f"+{prefix}" if prefix else "",
-        ",".join(get_official_languages(code, de_facto=True)),
+        ",".join(spoken(code)),
+        CONTINENT.get(code, ""),
     ))
 
 

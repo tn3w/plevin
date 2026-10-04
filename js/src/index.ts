@@ -7,17 +7,14 @@ import {
   guessed,
   LINK_LOCAL,
   LOOPBACK,
-  MAPPED,
   MULTICAST,
   PRIVATE,
   parse,
   purpose,
   RESERVED,
   SHARED,
-  SIXTOFOUR,
   span,
   spelled,
-  TEREDO,
   tunnel,
   UNIQUE_LOCAL,
   type Value,
@@ -97,13 +94,28 @@ const shaped = <Built>(build: (row: Row, ...rest: string[]) => Built) => {
   };
 };
 
+const BLANK_CITY: City = {
+  id: null,
+  name: null,
+  ascii: null,
+  population: null,
+  elevation: null,
+  postal: null,
+  postal_partial: null,
+  timezone: null,
+  type: null,
+  capital: null,
+  region: null,
+  district: null,
+  metro: null,
+};
+
 const city = shaped((row: Row): City => {
   const kind = String(row.type ?? "");
   return {
     id: count(row.id),
     name: text(row.name),
     ascii: text(row.ascii),
-    country: text(row.country),
     population: count(row.population),
     elevation: count(row.elevation),
     postal: text(row.postal),
@@ -117,23 +129,16 @@ const city = shaped((row: Row): City => {
   };
 });
 
+const headquarters = shaped(
+  (row: Row): City => ({ ...BLANK_CITY, id: count(row.id), name: text(row.name) }),
+);
+
 const coarse = shaped((row: Row, granularity: string): City => {
   const town = city(row) as City;
   return {
-    id: null,
-    name: null,
-    ascii: null,
-    country: town.country,
-    population: null,
-    elevation: null,
-    postal: null,
-    postal_partial: null,
+    ...BLANK_CITY,
     timezone: town.timezone,
-    type: null,
-    capital: null,
     region: granularity === "region" ? town.region : null,
-    district: null,
-    metro: null,
   };
 });
 
@@ -141,14 +146,16 @@ const operator = shaped((row: Row, handle: string, brand: string): Operator => {
   const company = String(row.company ?? "");
   const website = String(row.website ?? "");
   const mailbox = String(row.abuse_email ?? "");
+  const named = brand || derive.brand(handle, company);
   return {
     company: text(company),
-    brand: text(brand || derive.brand(handle, company)),
-    domain: text(derive.domain(website, mailbox)),
-    website: text(website),
+    brand: text(named),
+    domain: text(derive.domain(website, mailbox, `${named} ${handle} ${company}`)),
+    website: text(derive.website(website)),
     category: text(row.category),
     tier: count(row.tier),
     peering: count(row.peering),
+    cone: count(row.cone),
     scope: text(row.scope),
     rir: text(row.rir),
     since: count(row.since),
@@ -157,7 +164,7 @@ const operator = shaped((row: Row, handle: string, brand: string): Operator => {
     postal: text(row.postal),
     country: text(row.country),
     abuse_email: text(mailbox),
-    city: city(held(row, "city")),
+    city: headquarters(held(row, "city")),
   };
 });
 
@@ -179,13 +186,12 @@ const abuseOf = (
   userType: string,
   brand: string,
 ): Abuse | null => {
-  if (!record && !system) return null;
+  if (!record && !system && !userType) return null;
   const found = record ?? {};
   const [named, inferred] = derive.service(String(found.service ?? ""), userType);
   const name = String(found.name ?? "");
   const level = String(found.level ?? "");
   return {
-    name: text(name),
     provider: text(name || (named ? brand : "")),
     service: text(named),
     evidence: text(String(found.evidence ?? "") || inferred),
@@ -220,6 +226,7 @@ const EMPTY_OPERATOR: Operator = {
   category: null,
   tier: null,
   peering: null,
+  cone: null,
   scope: null,
   rir: null,
   since: null,
@@ -238,7 +245,7 @@ const place = (row: Row | undefined): Ground | null => {
   const town = held(row, "city");
   const found =
     granularity === "city" || !granularity ? city(town) : coarse(town, granularity);
-  const code = found?.country ?? "";
+  const code = String(town?.country ?? "");
   const zone = found?.timezone ?? "";
   return [
     {
@@ -278,14 +285,14 @@ const network = (row: Row, userType: string): Wires => {
   ];
 };
 
-const userTypeOf = (record: Row | undefined, system: Row | undefined): string =>
-  String(record?.user_type || system?.user_type || "");
+const userTypeOf = (record: Row | undefined, network: Row | undefined): string =>
+  String(record?.user_type || held(network, "operator")?.category || "");
 
 const stored = (row: Row): Stored => {
   const spanned = held(row, "network");
   const wires = spanned && Object.values(spanned).some(Boolean) ? spanned : undefined;
   const system = held(wires, "abuse");
-  const userType = userTypeOf(held(row, "abuse"), system);
+  const userType = userTypeOf(held(row, "abuse"), wires);
   const found = wires ? network(wires, userType) : null;
   const brand = found?.[0].operator?.brand ?? "";
   return [
@@ -297,7 +304,7 @@ const stored = (row: Row): Stored => {
 
 const systemOf = (row: Row): System => {
   const record = held(row, "abuse");
-  const userType = userTypeOf(undefined, record);
+  const userType = userTypeOf(undefined, row);
   const { asn, handle, operator, carrier } = network(row, userType)[0];
   return {
     asn,
@@ -373,21 +380,19 @@ const result = (
   moment?: Date | null,
   dns: Dns | null = null,
 ): Result => {
-  const [compressed, expanded, arpa] = spelled(value, wide);
+  const [spelling, expanded, arpa] = spelled(value, wide);
   const marks = purpose(value, wide);
   const [through, embedded] = tunnel(value, wide);
   const [mapped, sixtofour, nat64] = carried(value, wide);
   const decimal = guessed(value, wide);
   const [ground, wires, abuse] = found ?? [null, null, null];
   return {
-    ip: compressed,
+    ip: spelling,
     version: wide ? 6 : 4,
     number: value,
-    compressed,
-    expanded,
+    expanded: wide ? expanded : null,
     arpa,
     is_global: marks === 0,
-    is_bogon: marks !== 0,
     is_private: (marks & PRIVATE) !== 0,
     is_loopback: (marks & LOOPBACK) !== 0,
     is_multicast: (marks & MULTICAST) !== 0,
@@ -397,16 +402,13 @@ const result = (
     is_documentation: (marks & DOCUMENTATION) !== 0,
     is_shared: (marks & SHARED) !== 0,
     is_benchmark: (marks & BENCHMARK) !== 0,
-    is_ipv4_mapped: through === MAPPED,
-    is_6to4: through === SIXTOFOUR,
-    is_teredo: through === TEREDO,
     tunnel: through,
     embedded_ipv4: embedded,
     decimal_ipv4: decimal,
     as_ipv4_mapped: mapped,
     as_6to4: sixtofour,
     as_nat64: nat64,
-    found: found !== null,
+    found: Boolean(ground || wires || abuse),
     place: ground === null ? null : { ...ground[0], time: clock(ground[1], moment) },
     network: wires === null ? null : spanned(wires, value, wide),
     abuse,

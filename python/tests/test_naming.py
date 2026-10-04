@@ -157,9 +157,9 @@ def test_a_machine_without_a_resolver_file_asks_the_public_servers(
 def test_an_address_is_answered_by_the_name_it_points_at(stub: Stub) -> None:
     found = naming.facts(*parse("8.8.8.8"))
     assert found.asked == "8.8.8.8"
-    assert (found.hostname, found.hostnames) == ("dns.8.8.8.8.in-addr.arpa",
-                                                 ("dns.8.8.8.8.in-addr.arpa",))
-    assert found.ipv4 == "8.8.8.8" and found.ipv6 == "::1"
+    assert found.hostnames == ("dns.8.8.8.8.in-addr.arpa",)
+    assert found.ipv4_addresses == ("8.8.8.8",)
+    assert found.ipv6_addresses == ("::1",)
     assert found.alias == "www.dns.8.8.8.8.in-addr.arpa"
     assert found.is_confirmed and found.is_signed
     assert found.zone == REVERSE
@@ -170,13 +170,14 @@ def test_an_address_is_answered_by_the_name_it_points_at(stub: Stub) -> None:
 @pytest.mark.parametrize("stub", [GOOGLE_DNS], indirect=True)
 def test_a_tunnel_is_asked_about_as_the_address_it_carries(stub: Stub) -> None:
     found = naming.facts(*parse("::ffff:8.8.8.8"))
-    assert found.asked == "8.8.8.8" and found.hostname == "dns.8.8.8.8.in-addr.arpa"
+    assert found.asked == "8.8.8.8"
+    assert found.hostnames == ("dns.8.8.8.8.in-addr.arpa",)
 
 
 @pytest.mark.parametrize("stub", [{}], indirect=True)
 def test_a_server_that_says_nothing_leaves_the_address_unnamed(stub: Stub) -> None:
     found = naming.facts(*parse("8.8.8.8"))
-    assert found.hostname is None and found.zone is None
+    assert not found.hostnames and found.zone is None
     assert not found.is_confirmed and not found.is_signed
 
 
@@ -188,8 +189,9 @@ def test_a_server_that_says_nothing_leaves_the_address_unnamed(stub: Stub) -> No
 }], indirect=True)
 def test_a_reply_that_says_too_little_is_taken_for_what_it_says(stub: Stub) -> None:
     found = naming.facts(*parse("8.8.8.8"))
-    assert found.hostname == "dns.8.8.8.8.in-addr.arpa"
-    assert found.zone is None and found.ipv4 is None and found.ipv6 is None
+    assert found.hostnames == ("dns.8.8.8.8.in-addr.arpa",)
+    assert found.zone is None and not found.ipv4_addresses
+    assert not found.ipv6_addresses
 
 
 @pytest.mark.parametrize("stub", [GOOGLE_DNS], indirect=True)
@@ -199,13 +201,14 @@ def test_an_answer_cut_short_is_asked_again_over_a_stream(stub: Stub) -> None:
     stub.table[(REVERSE, 12)] = lambda query: (
         whole(query) if stub.streamed else replied(query, flags=0x8380))
     found = naming.facts(*parse("8.8.8.8"))
-    assert found.hostname == "dns.8.8.8.8.in-addr.arpa" and found.ipv4 == "8.8.8.8"
+    assert found.hostnames == ("dns.8.8.8.8.in-addr.arpa",)
+    assert found.ipv4_addresses == ("8.8.8.8",)
 
 
 @pytest.mark.parametrize("stub", [GOOGLE_DNS], indirect=True)
 def test_a_server_that_cannot_be_reached_is_passed_over(stub: Stub) -> None:
     naming.SERVERS = ["255.255.255.256", "127.0.0.1"]
-    assert naming.facts(*parse("8.8.8.8")).ipv4 == "8.8.8.8"
+    assert naming.facts(*parse("8.8.8.8")).ipv4_addresses == ("8.8.8.8",)
 
 
 @pytest.mark.parametrize("stub", [GOOGLE_DNS], indirect=True)
@@ -280,7 +283,7 @@ def test_a_registry_that_will_not_open_leaves_the_public_servers(
 def test_a_second_server_saying_as_little_as_the_first_adds_nothing(stub: Stub) -> None:
     naming.SERVERS = ["127.0.0.1", "127.0.0.1"]
     found = naming.facts(*parse("8.8.8.8"))
-    assert found.hostname == "dns.8.8.8.8.in-addr.arpa" and found.zone is None
+    assert found.hostnames == ("dns.8.8.8.8.in-addr.arpa",) and found.zone is None
 
 
 @pytest.mark.parametrize("stub", [{
@@ -291,4 +294,4 @@ def test_a_server_that_hangs_up_mid_answer_says_nothing(stub: Stub) -> None:
     stub.table[(REVERSE, 12)] = lambda query: (
         None if stub.streamed else replied(query, flags=0x8380))
     found = naming.facts(*parse("8.8.8.8"))
-    assert found.hostname is None and found.zone == REVERSE
+    assert not found.hostnames and found.zone == REVERSE

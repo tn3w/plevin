@@ -12,7 +12,7 @@ No API, no rate limit, no lookup leaving the machine.
 [![PyPI](https://img.shields.io/pypi/v/plevin?color=1868f2)](https://pypi.org/project/plevin)
 [![npm](https://img.shields.io/npm/v/plevinjs?color=1868f2&label=npm)](https://www.npmjs.com/package/plevinjs)
 [![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)](LICENSE)
-[![Fields](https://img.shields.io/badge/fields-108-6f42c1)](#fields)
+[![Fields](https://img.shields.io/badge/fields-91-6f42c1)](#fields)
 [![Boundaries](https://img.shields.io/badge/boundaries-4.1M-6f42c1)](#data)
 [![Warm](https://img.shields.io/badge/warm%20lookups-2M%2Fs-2ea043)](python/README.md#speed)
 
@@ -73,13 +73,15 @@ the builder would write.
 
 | group     | answers                                                                     |
 | --------- | --------------------------------------------------------------------------- |
-| `place`   | coordinates, accuracy, city, region, district, metro, local time, country with currency, calling code, languages |
-| `network` | ASN, handle, CIDR, registry with its country and year, RPKI, operator with address, mobile carrier |
+| `place`   | coordinates, accuracy, city, region, district, metro, local time, country with continent, currency, calling code, languages |
+| `network` | ASN, handle, CIDR, registry with its country and year, RPKI, operator with address and customer cone, mobile carrier |
 | `abuse`   | risk, level, service (Tor, VPN, proxy, relay), threat, evidence, provider, crawler and other flags |
 | address   | spellings, special ranges, tunnels, embedded IPv4, no database needed      |
 | `dns`     | PTR, forward-confirmed name, SOA, DNSSEC, only when asked                  |
 
-A missing value is `None`/`null`, never `""` or `0`. Reserved space (private, loopback,
+A missing value is `None`/`null`, never `""` or `0`, and no value is given twice: an
+`ascii` name appears only where it differs from the name, `expanded` only for v6, a range's
+type only through the operator's category unless a feed names the range itself. Reserved space (private, loopback,
 documentation, …) answers from the address alone: no place, network or abuse. A point
 known only to a region or country names no town. Full reference with every field:
 [Python](python/README.md#fields) · [JavaScript](js/README.md#fields).
@@ -154,16 +156,16 @@ Go, Java, Kotlin, C#, PHP, Ruby and Perl so far, with Lua and Elixir still to co
 
 | rows              | count                                   |
 | ----------------- | --------------------------------------- |
-| v4 boundaries     | 3,154,886, plus 4,513,257 host overrides |
+| v4 boundaries     | 3,155,110, plus 4,512,444 host overrides |
 | v6 boundaries     | 896,909                                 |
-| cities            | 81,672 in 3,220 regions                 |
+| cities            | 81,669 in 3,220 regions                 |
 | districts, metros | 20,591 and 210                          |
-| ASNs, networks    | 86,164 and 148,809 (registry holders included) |
+| ASNs, networks    | 86,163 and 148,762 (registry holders included) |
 | timezones         | 394                                     |
-| abuse records     | 5,576 from 209 feeds                    |
+| abuse records     | 5,519 from 209 feeds                    |
 
 Sources: MaxMind GeoLite2, IP2Location LITE, DB-IP Lite, GeoNames, Natural Earth, RIPE RIS, RPKI,
-NRO, RIPE/APNIC/AFRINIC/LACNIC whois, operator geofeeds, CAIDA, PeeringDB, [asn-abuse](https://github.com/tn3w/asn-abuse)
+NRO, RIPE/APNIC/AFRINIC/LACNIC whois, operator geofeeds, CAIDA (relationships, organisations, AS Rank), PeeringDB, [asn-abuse](https://github.com/tn3w/asn-abuse)
 and [209 feeds](builder/README.md#sources). Readers derive country facts from pycountry,
 Babel and phonenumbers.
 

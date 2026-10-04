@@ -1,6 +1,7 @@
 //! Who announces each span, and everything known about that operator.
 
 use crate::abuse::{Feeds, together};
+use crate::derive::{Rules, host};
 use crate::gazetteer::{Gazetteer, fold};
 use crate::read::{self, Announce, two};
 use crate::{CATEGORIES, RIRS, UNSEEN, ceiling, push_changed, word, worded};
@@ -12,7 +13,9 @@ pub struct System {
     pub asn: u32,
     pub handle: String,
     pub company: String,
+    pub alias: String,
     pub website: String,
+    pub cone: u32,
     pub tier: u8,
     pub peering: u16,
     pub scope: String,
@@ -71,6 +74,8 @@ const KINDS: &[(&str, &str)] = &[
     ("Network Services", "infrastructure"),
 ];
 
+const FIRST_REGISTRY_YEAR: u16 = 1980;
+
 const CLASSES: &[(&str, &str)] =
     &[("Eyeball", "residential"), ("Content", "content"), ("Carrier", "transit")];
 
@@ -93,11 +98,31 @@ impl Systems {
             rows.iter().enumerate().map(|(at, held)| (held.asn, at as u32 + 1)).collect();
         let mut systems = Systems { rows, index, runs: [Vec::new(), Vec::new()] };
         systems.registries(inputs, gazetteer);
-        systems.peers(inputs, gazetteer);
+        systems.ranks(inputs);
+        systems.peers(inputs, gazetteer, &feeds.rules);
         systems.lacnic(inputs, gazetteer);
+        systems.tidy(&feeds.rules);
         systems.habits(feeds, gazetteer);
         systems.routes(inputs, gazetteer, announced);
+        systems.tidy(&feeds.rules);
         systems
+    }
+
+    fn tidy(&mut self, rules: &Rules) {
+        for system in &mut self.rows {
+            system.company = rules.tidy(&system.company);
+            system.handle = rules.tidy(&system.handle);
+            system.street = rules.tidy(&system.street);
+            system.state = rules.tidy(&system.state);
+            system.postal = rules.tidy(&system.postal);
+            system.abuse_email = rules.mailbox(&system.abuse_email);
+            if system.postal.chars().all(|point| point == '0' || point == '-') {
+                system.postal.clear();
+            }
+            if system.since < FIRST_REGISTRY_YEAR {
+                system.since = 0;
+            }
+        }
     }
 
     fn at(&mut self, asn: u32) -> Option<&mut System> {
@@ -213,7 +238,20 @@ impl Systems {
         }
     }
 
-    fn peers(&mut self, inputs: &Path, gazetteer: &Gazetteer) {
+    fn ranks(&mut self, inputs: &Path) {
+        for line in read::slurp(&inputs.join("asrank")).lines() {
+            let row: Vec<&str> = line.split('\t').collect();
+            let [asn, cone, exchange] = row[..] else { continue };
+            let Ok(asn) = asn.parse::<u32>() else { continue };
+            let Some(system) = self.at(asn) else { continue };
+            system.cone = cone.parse().unwrap_or(0);
+            if exchange == "1" {
+                system.category = word(CATEGORIES, "exchange");
+            }
+        }
+    }
+
+    fn peers(&mut self, inputs: &Path, gazetteer: &Gazetteer, rules: &Rules) {
         let nets = read::slurp(&inputs.join("peeringdb_net.json"));
         let orgs = read::slurp(&inputs.join("peeringdb_org.json"));
         let links = read::slurp(&inputs.join("peeringdb_netixlan.json"));
@@ -246,17 +284,20 @@ impl Systems {
                     .to_string()
             };
             let code = two(&text("country"));
-            let city = gazetteer.town(&text("city"), code);
+            let state = text("state");
+            let city = gazetteer.town_in(&text("city"), &state, code);
             let country = gazetteer.country(code);
             let street = text("address1");
-            let state = text("state");
             let postal = text("zipcode");
             let website = match row["website"].as_str().unwrap_or("").trim() {
-                "" => schemed(&text("website")),
-                held => schemed(held),
+                "" => rules.site(&text("website")),
+                held => rules.site(held),
             };
             let company = text("name");
+            let net = |name: &str| row[name].as_str().unwrap_or("").to_string();
+            let alias = format!("{} {} {}", net("name"), net("aka"), net("name_long"));
             let Some(system) = self.at(asn) else { continue };
+            system.alias = fold(&alias);
             system.peering = peering;
             system.scope = scope.to_string();
             system.website = website;
@@ -310,7 +351,7 @@ impl Systems {
             };
             let common = domains.iter().max_by_key(|(domain, count)| (*count, *domain));
             if let Some((domain, _)) = common {
-                system.website = format!("https://{domain}");
+                system.website = domain.clone();
             }
         }
         for (asn, class) in &feeds.classes {
@@ -321,15 +362,14 @@ impl Systems {
                 system.category = word(CATEGORIES, name);
             }
         }
-        let cellular = word(CATEGORIES, "cellular");
-        let backbone = [word(CATEGORIES, "transit"), word(CATEGORIES, "content")];
         for (asn, source) in &feeds.asn {
             let claim = &feeds.sources[*source as usize];
             let Some(system) = self.at(*asn) else { continue };
-            let mobile = claim.user == cellular && !claim.weak;
-            let names =
-                system.category == 0 || (mobile && !backbone.contains(&system.category));
-            if claim.user > 0 && names {
+            let held = system.category;
+            let looser = feeds
+                .rules
+                .beats(CATEGORIES[claim.user as usize], CATEGORIES[held as usize]);
+            if claim.user > 0 && (held == 0 || (looser && !claim.weak)) {
                 system.category = claim.user;
             }
             system.satellite |= claim.satellite as u8;
@@ -355,18 +395,38 @@ impl Systems {
                 system.satellite = 1;
             }
         }
+        for system in &mut self.rows {
+            let host = host(&system.website, &system.abuse_email);
+            let guess = feeds.rules.guess(
+                &system.handle,
+                &system.company,
+                &host,
+                system.users,
+                system.tier,
+            );
+            if system.category == 0 {
+                system.category = guess;
+            }
+        }
         self.carriers(feeds, gazetteer);
     }
 
     fn carriers(&mut self, feeds: &Feeds, gazetteer: &Gazetteer) {
         let cellular = word(CATEGORIES, "cellular");
         let residential = word(CATEGORIES, "residential");
+        let mut codes: HashMap<u32, HashSet<u16>> = HashMap::new();
+        for carrier in &feeds.carriers {
+            let country = gazetteer.country(carrier.country);
+            codes.entry(country).or_default().insert(carrier.mcc);
+        }
         for system in &mut self.rows {
-            let eyeball = system.category == cellular || system.category == residential;
-            if system.users == 0 || !eyeball || system.country == 0 {
+            let mobile = system.category == cellular;
+            let eyeball = mobile || system.category == residential;
+            if !eyeball || system.country == 0 || (!mobile && system.users == 0) {
                 continue;
             }
-            let name = fold(&format!("{} {}", system.handle, system.company));
+            let name =
+                fold(&format!("{} {} {}", system.handle, system.company, system.alias));
             let mut seen: HashSet<(u16, u16)> = HashSet::new();
             for carrier in &feeds.carriers {
                 if gazetteer.country(carrier.country) != system.country {
@@ -376,12 +436,22 @@ impl Systems {
                     seen.insert((carrier.mcc, carrier.mnc));
                 }
             }
-            let one = |held: Vec<u16>| match held.first() {
-                Some(first) if held.iter().all(|code| code == first) => *first,
-                _ => 0,
-            };
-            system.mcc = one(seen.iter().map(|(mcc, _)| *mcc).collect());
-            system.mnc = one(seen.iter().map(|(_, mnc)| *mnc).collect());
+            let mut by_code: HashMap<u16, Vec<u16>> = HashMap::new();
+            for (mcc, mnc) in seen {
+                by_code.entry(mcc).or_default().push(mnc);
+            }
+            let best = by_code
+                .iter()
+                .max_by_key(|(mcc, mncs)| (mncs.len(), std::cmp::Reverse(**mcc)));
+            if let Some((mcc, mncs)) = best {
+                system.mcc = *mcc;
+                system.mnc = if let [only] = mncs[..] { only } else { 0 };
+                continue;
+            }
+            let sole = codes.get(&system.country).filter(|held| held.len() == 1);
+            if let (true, Some(held)) = (mobile, sole) {
+                system.mcc = held.iter().copied().next().unwrap_or(0);
+            }
         }
     }
 
@@ -469,21 +539,30 @@ impl Systems {
     }
 }
 
-const STREETS: [&str; 5] = ["street", "road", "avenue", "floor", "building"];
+const STREETS: [&str; 16] = [
+    "street",
+    "road",
+    "avenue",
+    "floor",
+    "building",
+    "quay",
+    "lane",
+    "plaza",
+    "tower",
+    "boulevard",
+    "blvd",
+    "drive",
+    "square",
+    "highway",
+    "suite",
+    "block",
+];
 
 fn addressed(company: &str) -> bool {
     let lower = company.to_lowercase();
     let numbered =
         lower.starts_with("no.") || lower.starts_with(|one: char| one.is_ascii_digit());
     numbered && STREETS.iter().any(|street| lower.contains(street))
-}
-
-fn schemed(website: &str) -> String {
-    match website.trim().split_once("://") {
-        Some((scheme, rest)) => format!("{}://{rest}", scheme.to_lowercase()),
-        None if website.contains('.') => format!("http://{}", website.trim()),
-        None => String::new(),
-    }
 }
 
 fn registry(source: &str) -> &'static str {
@@ -570,7 +649,7 @@ impl Object {
         let company = named.get(&self.org).unwrap_or(&self.descr);
         Whois {
             netname: self.netname.clone(),
-            company: company.clone(),
+            company: if addressed(company) { String::new() } else { company.clone() },
             country: self.country.split_whitespace().next().unwrap_or("").to_string(),
             rir: rir.to_string(),
         }

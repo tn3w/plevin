@@ -75,7 +75,7 @@ export const FIELDS = [
     "part": "Flags",
     "about": "An iCloud Private Relay egress.",
     "example": {
-      "ip": "8.29.109.35",
+      "ip": "8.29.109.64",
       "value": true
     }
   },
@@ -115,7 +115,7 @@ export const FIELDS = [
     "part": "Flags",
     "about": "A satellite network such as Starlink.",
     "example": {
-      "ip": "9.246.91.110",
+      "ip": "14.1.78.165",
       "value": true
     }
   },
@@ -147,16 +147,6 @@ export const FIELDS = [
     "example": {
       "ip": "185.220.101.1",
       "value": "high"
-    }
-  },
-  {
-    "id": "abuse.name",
-    "group": "abuse",
-    "part": "Standing",
-    "about": "Name the address is listed under.",
-    "example": {
-      "ip": "185.220.101.1",
-      "value": "Tor"
     }
   },
   {
@@ -245,7 +235,7 @@ export const FIELDS = [
     "part": "Carrier",
     "about": "The network is a mobile carrier.",
     "example": {
-      "ip": "1.24.16.95",
+      "ip": "1.34.218.65",
       "value": true
     }
   },
@@ -283,7 +273,7 @@ export const FIELDS = [
     "id": "network.carrier.user_type",
     "group": "network",
     "part": "Carrier",
-    "about": "Who uses the network: residential, cellular, hosting.",
+    "about": "What the range is used for: its own feed, else the operator's category.",
     "example": {
       "ip": "1.1.1.1",
       "value": "hosting"
@@ -349,44 +339,30 @@ export const FIELDS = [
     "about": "Kind of network: hosting, residential, business, cdn, education.",
     "example": {
       "ip": "1.1.1.1",
-      "value": "content"
+      "value": "cdn"
     }
   },
   {
     "id": "network.operator.city",
     "group": "network",
     "part": "Operator",
-    "about": "City of the registered address, with region and district.",
+    "about": "City of the registered address, by GeoNames id and name.",
     "example": {
       "ip": "1.1.1.1",
       "value": {
         "id": 5391959,
         "name": "San Francisco",
-        "ascii": "San Francisco",
-        "country": "US",
-        "population": 827526,
-        "elevation": 16,
-        "postal": "94119",
-        "postal_partial": "941",
-        "timezone": "America/Los_Angeles",
-        "type": "district capital",
-        "capital": "district",
-        "region": {
-          "id": 5332921,
-          "code": "CA",
-          "iso": "US-CA",
-          "name": "California",
-          "type": "State"
-        },
-        "district": {
-          "id": 5391997,
-          "code": "075",
-          "name": "City and County of San Francisco"
-        },
-        "metro": {
-          "code": 807,
-          "label": "San Jose, CA"
-        }
+        "ascii": null,
+        "population": null,
+        "elevation": null,
+        "postal": null,
+        "postal_partial": null,
+        "timezone": null,
+        "type": null,
+        "capital": null,
+        "region": null,
+        "district": null,
+        "metro": null
       }
     }
   },
@@ -398,6 +374,16 @@ export const FIELDS = [
     "example": {
       "ip": "1.1.1.1",
       "value": "Cloudflare, Inc."
+    }
+  },
+  {
+    "id": "network.operator.cone",
+    "group": "network",
+    "part": "Operator",
+    "about": "Networks in its customer cone, itself included, from CAIDA AS Rank.",
+    "example": {
+      "ip": "1.1.1.1",
+      "value": 1022
     }
   },
   {
@@ -414,7 +400,7 @@ export const FIELDS = [
     "id": "network.operator.domain",
     "group": "network",
     "part": "Operator",
-    "about": "Its web domain.",
+    "about": "Its registered domain, from the website or the abuse mailbox.",
     "example": {
       "ip": "1.1.1.1",
       "value": "cloudflare.com"
@@ -504,10 +490,10 @@ export const FIELDS = [
     "id": "network.operator.website",
     "group": "network",
     "part": "Operator",
-    "about": "Its website.",
+    "about": "Its website; stored as host and path, read as https.",
     "example": {
       "ip": "1.1.1.1",
-      "value": "https://www.cloudflare.com"
+      "value": "https://cloudflare.com"
     }
   },
   {
@@ -564,10 +550,10 @@ export const FIELDS = [
     "id": "place.city.ascii",
     "group": "place",
     "part": "City",
-    "about": "City name in plain ASCII.",
+    "about": "City name in plain ASCII, where it differs from the name.",
     "example": {
-      "ip": "1.1.1.1",
-      "value": "Brisbane"
+      "ip": "1.52.40.231",
+      "value": "Nguyen Du"
     }
   },
   {
@@ -694,6 +680,32 @@ export const FIELDS = [
     "example": {
       "ip": "1.34.218.65",
       "value": "Taiwan"
+    }
+  },
+  {
+    "id": "place.country.continent",
+    "group": "place",
+    "part": "Country",
+    "about": "Continent code: AF, AN, AS, EU, NA, OC or SA.",
+    "needs": [
+      "place.country.code"
+    ],
+    "example": {
+      "ip": "1.1.1.1",
+      "value": "OC"
+    }
+  },
+  {
+    "id": "place.country.continent",
+    "group": "place",
+    "part": "Country",
+    "about": "Continent code: AF, AN, AS, EU, NA, OC or SA.",
+    "needs": [
+      "place.country.code"
+    ],
+    "example": {
+      "ip": "1.1.1.1",
+      "value": "OC"
     }
   },
   {
@@ -1024,7 +1036,7 @@ export const PRESETS = [
       "network.carrier.mcc",
       "network.carrier.mnc"
     ],
-    "ip": "1.24.16.95"
+    "ip": "1.34.218.65"
   },
   {
     "id": "fraud",

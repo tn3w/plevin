@@ -149,8 +149,184 @@
             "hide my ass"
         ]
     },
+    "categories": {
+        "eyeballs": 1000,
+        "overrides": {
+            "government": [
+                "residential",
+                "business",
+                "content",
+                "transit",
+                "infrastructure",
+                "non-profit"
+            ],
+            "education": [
+                "residential",
+                "business",
+                "content",
+                "transit",
+                "infrastructure",
+                "non-profit"
+            ],
+            "military": [
+                "residential",
+                "business",
+                "content",
+                "transit",
+                "infrastructure",
+                "non-profit"
+            ],
+            "cellular": [
+                "residential",
+                "business",
+                "infrastructure",
+                "non-profit"
+            ],
+            "hosting": [
+                "content"
+            ],
+            "cdn": [
+                "content"
+            ]
+        },
+        "suffixes": {
+            "military": [
+                "mil"
+            ],
+            "government": [
+                "gov",
+                "gob",
+                "gouv",
+                "govt",
+                "gv",
+                "gc"
+            ],
+            "education": [
+                "edu",
+                "sch"
+            ]
+        },
+        "seconds": {
+            "government": [
+                "go",
+                "gov",
+                "gob",
+                "gouv",
+                "govt"
+            ],
+            "education": [
+                "ac",
+                "edu"
+            ],
+            "military": [
+                "mil"
+            ]
+        },
+        "keywords": {
+            "government": [
+                "ministry",
+                "ministerio",
+                "ministere",
+                "ministerium",
+                "ministerie",
+                "government",
+                "gobierno",
+                "gouvernement",
+                "regierung",
+                "municipality",
+                "municipalidad",
+                "municipio",
+                "gemeinde",
+                "city of",
+                "county of",
+                "parliament",
+                "parlamento",
+                "senate",
+                "police",
+                "polizei",
+                "policia",
+                "prefeitura",
+                "governorate",
+                "federal agency"
+            ],
+            "education": [
+                "university",
+                "universities",
+                "universidad",
+                "universidade",
+                "universitaet",
+                "universitat",
+                "universite",
+                "universita",
+                "universiteit",
+                "universitet",
+                "college",
+                "colleges",
+                "school",
+                "schools",
+                "schule",
+                "escola",
+                "escuela",
+                "colegio",
+                "lycee",
+                "gymnasium",
+                "institute of technology",
+                "polytechnic",
+                "polytechnique",
+                "academy",
+                "akademie",
+                "hochschule",
+                "fachhochschule",
+                "faculty",
+                "seminary"
+            ]
+        },
+        "placeholders": [
+            "n/a",
+            "na",
+            "none",
+            "null",
+            "nil",
+            "unknown",
+            "unspecified",
+            "not available",
+            "not disclosed",
+            "not specified",
+            "not applicable",
+            "tbd",
+            "test",
+            "example",
+            "example.com",
+            "example.net",
+            "example.org",
+            "localhost",
+            "private customer",
+            "private person",
+            "private individual",
+            "individual",
+            "no name",
+            "noname"
+        ],
+        "junk": [
+            "-----begin"
+        ]
+    },
     "satellite_asns": [
-        14593, 397763, 6621, 63062, 7155, 12684, 10530, 11908, 22351, 11919, 132160, 132276, 11167,
-        800, 31515, 135409
+        14593,
+        397763,
+        6621,
+        63062,
+        7155,
+        12684,
+        10530,
+        11908,
+        22351,
+        11919,
+        132160,
+        132276,
+        11167,
+        800,
+        31515,
+        135409
     ]
 }

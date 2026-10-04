@@ -1,5 +1,6 @@
 //! The feeds as data, folded into one record per span, per host and per ASN.
 
+use crate::derive::Rules;
 use crate::gazetteer::fold;
 use crate::network::{Route, Systems};
 use crate::read::{self, two};
@@ -60,6 +61,7 @@ pub struct Feeds {
     pub satellites: Vec<u32>,
     pub silent: Vec<String>,
     pub domains: HashMap<u32, HashMap<String, u32>>,
+    pub rules: Rules,
 }
 
 #[derive(Default)]
@@ -171,6 +173,7 @@ impl Feeds {
             let brands = held.filter_map(|name| name.as_str()).map(fold).collect();
             feeds.brands.insert(kind.clone(), brands);
         }
+        feeds.rules = Rules::read(&operators["categories"]);
         for asn in operators["satellite_asns"].as_array().into_iter().flatten() {
             feeds.satellites.push(asn.as_u64().unwrap_or(0) as u32);
         }
@@ -489,6 +492,10 @@ impl Pool {
 }
 
 impl Folded {
+    fn baseline(&self) -> Folded {
+        Folded { risks: Vec::new(), menace: 0.0, threat: 0, window: 0, ..self.clone() }
+    }
+
     fn take(&mut self, claim: &Source) {
         if claim.user > 0 && (self.user == 0 || (self.weak && !claim.weak)) {
             self.user = claim.user;
@@ -614,6 +621,7 @@ impl Records {
             overlay(&feeds.spans[1], &feeds.sources, ceiling(1)),
         ];
         let reported = spread(feeds, &sweeps, systems);
+        let mut baselines: Vec<Folded> = Vec::new();
         let mut folded: HashMap<u32, Folded> = HashMap::new();
         for (asn, source) in &feeds.asn {
             folded.entry(*asn).or_default().take(&feeds.sources[*source as usize]);
@@ -637,6 +645,8 @@ impl Records {
                 }
             }
             held.satellite |= system.satellite != 0;
+            held.user = 0;
+            held.weak = false;
             if system.network_risk != UNSEEN {
                 held.risk(0, system.network_risk as f32 / 100.0);
             }
@@ -644,6 +654,7 @@ impl Records {
                 held.risk(0, *risk);
             }
             system.record = pool.link(&held);
+            baselines.push(held.baseline());
         }
         drop(folded);
         let mut spans = [Vec::new(), Vec::new()];
@@ -651,7 +662,8 @@ impl Records {
         let mut hosts = [Vec::new(), Vec::new()];
         let mut listed = [Vec::new(), Vec::new()];
         for family in 0..2 {
-            let (runs, whole) = carried(&sweeps[family], systems, &mut pool, family);
+            let (runs, whole) =
+                carried(&sweeps[family], systems, &baselines, &mut pool, family);
             listed[family] = covered(&sweeps[family], family);
             hosts[family] = single(
                 &feeds.hosts[family],
@@ -742,31 +754,23 @@ type Carried = (Vec<(u128, u32)>, Vec<(u128, Folded, u32)>);
 fn carried(
     sweep: &[(u128, Folded)],
     systems: &Systems,
+    baselines: &[Folded],
     pool: &mut Pool,
     family: usize,
 ) -> Carried {
     let mut runs: Vec<(u128, u32)> = Vec::new();
     let mut whole: Vec<(u128, Folded, u32)> = Vec::new();
     together(sweep, &systems.runs[family], |at, held, route| {
-        let system = systems.rows.get(route.system.wrapping_sub(1) as usize);
-        let row = pool.intern(held);
-        let falls = system.map(|held| held.record).unwrap_or(0);
-        let link = match row {
-            0 => 0,
-            at => at + 1,
-        };
-        let stored = match link == falls {
-            true => 0,
-            false => link,
-        };
-        let answer = match stored {
-            0 => falls.saturating_sub(1),
-            _ => row,
-        };
-        push_changed(&mut runs, at, stored);
+        let mut merged = held.clone();
+        if let Some(baseline) = baselines.get(route.system.wrapping_sub(1) as usize) {
+            merged.absorb(baseline);
+        }
+        let link = pool.link(&merged);
+        let row = link.saturating_sub(1);
+        push_changed(&mut runs, at, link);
         match whole.last() {
-            Some((_, kept, last)) if *last == answer && kept.trusted == held.trusted => {}
-            _ => whole.push((at, held.clone(), answer)),
+            Some((_, kept, last)) if *last == row && kept.trusted == merged.trusted => {}
+            _ => whole.push((at, merged, row)),
         }
     });
     (runs, whole)

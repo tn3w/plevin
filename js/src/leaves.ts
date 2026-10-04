@@ -73,7 +73,12 @@ const CITY_IDENTITY = [
   "city.postal",
   "city.elevation",
 ];
-const OPERATOR_COLUMNS = ["operator.company", "operator.peering", "operator.since"];
+const OPERATOR_COLUMNS = [
+  "operator.company",
+  "operator.peering",
+  "operator.since",
+  "operator.cone",
+];
 export const OPERATOR_LOW = [
   "tier",
   "scope",

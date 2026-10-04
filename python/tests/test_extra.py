@@ -35,6 +35,47 @@ def test_a_known_code_carries_everything_the_tables_name() -> None:
     assert (found.calling_code, found.languages) == ("+1", ("en",))
 
 
+def test_every_country_sits_on_exactly_one_continent() -> None:
+    pycountry = pytest.importorskip("pycountry")
+    codes = {country.alpha_2 for country in pycountry.countries}
+    held = [code for names in extra.CONTINENTS.values() for code in names.split()]
+    assert len(held) == len(set(held))
+    assert not codes - set(held)
+    assert set(held) - codes <= {"XK"}
+
+
+@pytest.mark.parametrize(
+    ("code", "continent"),
+    [("US", "NA"), ("BR", "SA"), ("DE", "EU"), ("RU", "EU"), ("JP", "AS"), ("TR", "AS"),
+     ("ZA", "AF"), ("AU", "OC"), ("AQ", "AN"), ("ZZ", None)],
+)
+def test_a_country_belongs_to_a_continent(code: str, continent: str | None) -> None:
+    found = extra.country(code)
+    assert found is not None
+    assert found.continent == continent
+
+
+def test_a_language_is_named_once_whatever_its_scripts() -> None:
+    found = extra.country("AZ")
+    assert found is not None
+    assert found.languages == ("az",)
+
+
+def test_an_outermost_region_sits_in_the_union_its_state_does() -> None:
+    reunion = extra.country("RE")
+    assert reunion is not None
+    assert reunion.european_union
+    greenland = extra.country("GL")
+    assert greenland is not None
+    assert not greenland.european_union
+
+
+def test_a_code_pycountry_lacks_takes_the_name_it_was_given() -> None:
+    found = extra.country("XK")
+    assert found is not None
+    assert (found.name, found.iso3) == ("Kosovo", None)
+
+
 def test_a_member_state_drives_on_the_side_its_neighbours_do() -> None:
     found = extra.country("IE")
     assert found is not None
@@ -65,11 +106,8 @@ def test_the_tables_are_optional(monkeypatch: pytest.MonkeyPatch) -> None:
     assert (found.currency, found.calling_code, found.languages) == (None, None, ())
 
 
-def test_a_zone_the_system_does_not_know_keeps_its_name() -> None:
-    read = extra.clock("Nowhere/Nothing")
-    assert read is not None
-    assert read.timezone == "Nowhere/Nothing"
-    assert read.local is None
+def test_a_zone_the_system_does_not_know_has_no_clock() -> None:
+    assert extra.clock("Nowhere/Nothing") is None
 
 
 def test_no_zone_is_no_clock() -> None:

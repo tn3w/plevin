@@ -299,13 +299,11 @@ def facts(value: int, wide: bool) -> Dns:
     if not hostnames:
         return found
 
-    found.hostname, found.hostnames = hostnames[0], tuple(hostnames)
+    found.hostnames = tuple(hostnames)
     forward_v4, forward_v6 = resolve([(hostnames[0], "A", ""),
                                       (hostnames[0], "AAAA", "")])
     ipv4, ipv6 = answers(forward_v4, "A"), answers(forward_v6, "AAAA")
     found.ipv4_addresses, found.ipv6_addresses = tuple(ipv4), tuple(ipv6)
-    found.ipv4 = ipv4[0] if ipv4 else None
-    found.ipv6 = ipv6[0] if ipv6 else None
 
     aliases = answers(forward_v4, "CNAME") + answers(forward_v6, "CNAME")
     found.alias = aliases[0] if aliases else None

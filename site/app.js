@@ -265,7 +265,7 @@ const flags = (names) => {
 const groups = (found) => {
   const held = make("div", "bits");
   const parts = found.version === 4
-    ? found.compressed.split(".").map((part) =>
+    ? found.ip.split(".").map((part) =>
         [part, Number(part).toString(2).padStart(8, "0")])
     : found.expanded.split(":").map((part) =>
         [part, String(parseInt(part, 16))]);
@@ -345,7 +345,7 @@ const placePanel = (place) => {
     ["District, metro", listed([city.district?.name, city.metro?.label])],
     ["Postal", city.postal ?? city.postal_partial, true],
     ["Local time", clock(place.time), true],
-    ["Timezone", place.time?.timezone ?? city.timezone],
+    ["Timezone", city.timezone],
     ["City", listed([city.type,
       city.population ? `${city.population.toLocaleString("en-US")} people` : null,
       city.elevation == null ? null : `${city.elevation} m`])],
@@ -449,7 +449,7 @@ const routingPanel = (db, asn) => {
 
 /** The flags alone already ride in the header, so a record of only flags says nothing. */
 const told = (abuse) =>
-  Boolean(abuse) && [abuse.name, abuse.service, abuse.evidence, abuse.threat,
+  Boolean(abuse) && [abuse.provider, abuse.service, abuse.evidence, abuse.threat,
     abuse.risk, abuse.network_risk, abuse.last_seen_days].some((value) => value != null);
 
 const ADDRESS_TIP = "How often this single address itself was reported by the abuse " +
@@ -478,7 +478,7 @@ const abusePanel = (abuse, address = true) => {
   body.append(held);
 
   held.append(fields([
-    ["Seen as", abuse.name ?? abuse.service],
+    ["Seen as", abuse.provider ?? abuse.service],
     ["Service", abuse.service],
     ["Evidence", abuse.evidence],
     ["Threat", abuse.threat?.replace(/_/g, " ")],
@@ -506,12 +506,12 @@ const some = (values) => {
 const dnsPanel = (dns) => {
   const [section, body] = panel("dns", "DNS", dns.is_confirmed ? "confirmed" : "");
   body.append(fields([
-    ["Hostname", dns.hostname, true],
+    ["Hostname", dns.hostnames[0], true],
     ["Also", some(dns.hostnames.slice(1)), true],
     ["Alias", dns.alias, true],
     ["IPv4", some(leading(dns.ipv4_addresses, dns.asked)), true],
     ["IPv6", some(leading(dns.ipv6_addresses, dns.asked)), true],
-    ["Forward confirmed", dns.hostname ? (dns.is_confirmed ? "yes" : "no") : null],
+    ["Forward confirmed", dns.hostnames.length ? (dns.is_confirmed ? "yes" : "no") : null],
     ["DNSSEC", dns.is_signed ? "validated" : "unsigned"],
     ["Zone", dns.zone, true],
     ["Zone server", dns.zone_primary, true],
@@ -524,7 +524,6 @@ const addressPanel = (found) => {
   const [section, body] = panel("address", "Address", `IPv${found.version}`);
   body.append(groups(found));
   body.append(fields([
-    ["Compressed", found.compressed, true],
     ["Expanded", found.expanded, true],
     ["Number", found.number.toString(), true],
     ["Scope", found.is_global ? "global unicast" : "not the public internet"],
@@ -690,7 +689,7 @@ const show = async (address) => {
   if (asked !== address) return;
 
   render(withNames);
-  const held = name || withNames.dns?.hostname || "";
+  const held = name || withNames.dns?.hostnames[0] || "";
   if (held) marks(withNames, held);
 };
 
