@@ -82,7 +82,7 @@ No build step:
 | `https://esm.sh/plevinjs`                      | the modules, imports rewritten    |
 | `https://plevin.tn3w.dev/plevin/plevin.min.js` | the bundle beside the databases   |
 
-- **Pin a version for production:** `cdn.jsdelivr.net/npm/plevinjs@0.2.2`.
+- **Pin a version for production:** `cdn.jsdelivr.net/npm/plevinjs@0.2.3`.
 - **Pick the smallest build:** the country build is 378 KB against 18.7 MB.
 - **Cache the file** so it downloads once per visitor:
 
