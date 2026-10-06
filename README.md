@@ -52,10 +52,10 @@ One file per build, rebuilt daily. Pick the smallest one that answers your quest
 
 | build   | pip extra         | size    | carries                                  |
 | ------- | ----------------- | ------- | ---------------------------------------- |
-| full    | `plevin[db]`      | 18.7 MB | every field                              |
+| full    | `plevin[db]`      | 19.2 MB | every field                              |
 | place   | `plevin[place]`   | 6.3 MB  | city, region, postal, coordinates, metro |
 | network | `plevin[network]` | 7.4 MB  | ASN, operator, routing, registry         |
-| abuse   | `plevin[abuse]`   | 4.1 MB  | abuse level, service and provider        |
+| abuse   | `plevin[abuse]`   | 4.2 MB  | abuse level, service and provider        |
 | country | `plevin[country]` | 378 KB  | country code                             |
 
 Download from the [latest release](https://github.com/tn3w/plevin/releases/latest), or
@@ -89,7 +89,7 @@ known only to a region or country names no town. Full reference with every field
 ## Blocklist
 
 [`blocklist.netset`](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset)
-holds 542k CIDRs, 8.2 MB: every address feeds reported at 40 or above, plus every address a
+holds 619k CIDRs, 9.4 MB: every address feeds reported at 40 or above, plus every address a
 current list names as an anonymising service. Per-address only: no ASN-wide scores, no
 reserved space.
 
@@ -156,17 +156,17 @@ Go, Java, Kotlin, C#, PHP, Ruby and Perl so far, with Lua and Elixir still to co
 
 | rows              | count                                   |
 | ----------------- | --------------------------------------- |
-| v4 boundaries     | 3,155,110, plus 4,512,444 host overrides |
-| v6 boundaries     | 896,909                                 |
+| v4 boundaries     | 3,172,791, plus 4,841,264 host overrides |
+| v6 boundaries     | 925,376                                 |
 | cities            | 81,669 in 3,220 regions                 |
 | districts, metros | 20,591 and 210                          |
 | ASNs, networks    | 86,163 and 148,762 (registry holders included) |
 | timezones         | 394                                     |
-| abuse records     | 5,519 from 209 feeds                    |
+| abuse records     | 7,226 from 271 feeds                    |
 
 Sources: MaxMind GeoLite2, IP2Location LITE, DB-IP Lite, GeoNames, Natural Earth, RIPE RIS, RPKI,
 NRO, RIPE/APNIC/AFRINIC/LACNIC whois, operator geofeeds, CAIDA (relationships, organisations, AS Rank), PeeringDB, [asn-abuse](https://github.com/tn3w/asn-abuse)
-and [209 feeds](builder/README.md#sources). Readers derive country facts from pycountry,
+and [271 feeds](builder/README.md#sources). Readers derive country facts from pycountry,
 Babel and phonenumbers.
 
 ## Development

@@ -2,25 +2,25 @@
 
 # plevin builder
 
-**27 source files, operator geofeeds and 209 feeds in one offline `.plv` database.**
+**27 source files, operator geofeeds and 271 feeds in one offline `.plv` database.**
 
 ![Rust 2024](https://img.shields.io/badge/rust-2024-CE422B?logo=rust&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-1868f2)
-![Full build](https://img.shields.io/badge/full%20build-18.7%20MB-2ea043)
-![Sources](https://img.shields.io/badge/sources-27%20files%20%2B%20209%20feeds%20%2B%20geofeeds-6f42c1)
+![Full build](https://img.shields.io/badge/full%20build-19.2%20MB-2ea043)
+![Sources](https://img.shields.io/badge/sources-27%20files%20%2B%20271%20feeds%20%2B%20geofeeds-6f42c1)
 
-[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 18.7 MB ·
+[everything](https://github.com/tn3w/plevin/releases/latest/download/plevin.plv) 19.2 MB ·
 [location](https://github.com/tn3w/plevin/releases/latest/download/plevin.metro-place.plv) 6.3 MB ·
 [network](https://github.com/tn3w/plevin/releases/latest/download/plevin.network.plv) 7.4 MB ·
-[abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 4.1 MB ·
+[abuse](https://github.com/tn3w/plevin/releases/latest/download/plevin.abuse-level-abuse-provider-abuse-service.plv) 4.2 MB ·
 [country](https://github.com/tn3w/plevin/releases/latest/download/plevin.place-country-code.plv) 378 KB ·
-[blocklist](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset) 8.2 MB
+[blocklist](https://github.com/tn3w/plevin/releases/latest/download/blocklist.netset) 9.4 MB
 
 </div>
 
 ```mermaid
 flowchart LR
-    S["27 files + geofeeds + 209 feeds"] --> B[builder] --> D[("plevin.plv")] --> Q["lookup(8.8.8.8)"]
+    S["27 files + geofeeds + 271 feeds"] --> B[builder] --> D[("plevin.plv")] --> Q["lookup(8.8.8.8)"]
 ```
 
 ## Build
@@ -146,17 +146,18 @@ Fetched flat into `inputs/`; gzip inflated, zip reduced to its largest member.
 
 | kind                          | feeds | examples                                               |
 | ----------------------------- | ----: | ------------------------------------------------------ |
-| abuse reports                 |    67 | AbuseIPDB, abuse.ch, blocklist.de, DShield, Project Honey Pot |
-| VPN servers                   |    37 | provider APIs, [gluetun-servers](https://github.com/qdm12/gluetun-servers), resolved hostnames |
-| public proxies                |    14 | scraped proxy lists, IP2Proxy                          |
-| Tor, relays                   |     4 | Onionoo exits, iCloud Private Relay, Cloudflare WARP   |
-| cloud, hosting                |    21 | AWS, GCP, Azure, Oracle, IBM, geofeeds of hosters      |
-| crawlers                      |    17 | Google, Bing, Apple, OpenAI, Perplexity, CCBot, Kagi   |
-| CDN, content, SaaS            |    19 | Cloudflare, Fastly, Gcore, Imperva, Atlassian, Stripe  |
+| abuse reports                 |    90 | AbuseIPDB, abuse.ch, blocklist.de, DShield, SANS ISC, ShadowWhisperer, CleanTalk, nixspam |
+| VPN servers                   |    40 | provider APIs, [gluetun-servers](https://github.com/qdm12/gluetun-servers), resolved hostnames |
+| public proxies                |    16 | scraped proxy lists, IP2Proxy                          |
+| Tor, relays                   |     5 | Onionoo exits, iCloud Private Relay, Cloudflare WARP, VPN by Google |
+| cloud, hosting                |    28 | AWS, GCP, Azure, Oracle, IBM, geofeeds of clouds and hosters |
+| crawlers                      |    19 | Google, Bing, Apple, OpenAI, Anthropic, Amazon, Perplexity, CCBot, Kagi |
+| CDN, content, SaaS            |    32 | Cloudflare, Fastly, Gcore, Netflix, Microsoft 365, Datadog, Stripe |
+| operator geofeeds             |     6 | Microsoft, Google corp, Verizon, T-Mobile US, NTT      |
 | exchanges                     |     1 | PeeringDB IXP peering LANs                             |
-| ASN tags, DROP                |    18 | bgp.tools, Spamhaus DROP and ASN-DROP, risk-db         |
-| satellite, SASE               |     2 | Starlink geofeed, Zscaler                              |
-| dedicated parsers, flags      |     9 | IP2Proxy PX11, IPsum, APNIC users, MCC-MNC, anycast    |
+| ASN tags, DROP                |    20 | bgp.tools, Spamhaus DROP and ASN-DROP, risk-db         |
+| satellite, SASE               |     3 | Starlink geofeed, Zscaler, Check Point                 |
+| dedicated parsers, flags      |    11 | IP2Proxy PX11, IPsum, APNIC users, MCC-MNC, anycast    |
 
 ### Feed keys
 
@@ -243,7 +244,9 @@ missing values.
 
 - **Found** through `geofeed:` and `remarks: Geofeed …` on RIPE, APNIC and AFRINIC
   objects, plus LACNIC's consolidated feed and feeds marked `geofeed` (Cloudflare
-  WARP, iCloud Private Relay, Starlink, hosters).
+  WARP and egress, iCloud Private Relay, VPN by Google, Starlink, hosters). ARIN
+  publishes no dump to find feeds in, so ARIN operators' own feeds are listed: AWS,
+  Google Cloud and corp, Microsoft, Verizon, T-Mobile US, NTT, Netflix.
 - **Vouched:** a row counts only inside the referencing object, or inside any object of
   the same `org`. Rows claiming someone else's space are dropped. Feeds marked
   `geofeed` are vouched by the operator publishing them.

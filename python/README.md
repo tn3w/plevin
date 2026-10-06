@@ -51,10 +51,10 @@ installed, the richest wins.
 
 | extra             | size    | carries                                  |
 | ----------------- | ------- | ---------------------------------------- |
-| `plevin[db]`      | 18.7 MB | every field                              |
+| `plevin[db]`      | 19.2 MB | every field                              |
 | `plevin[place]`   | 6.3 MB  | city, region, postal, coordinates, metro |
 | `plevin[network]` | 7.4 MB  | ASN, operator, routing, registry         |
-| `plevin[abuse]`   | 4.1 MB  | abuse level, service and provider        |
+| `plevin[abuse]`   | 4.2 MB  | abuse level, service and provider        |
 | `plevin[country]` | 378 KB  | country code                             |
 
 Your own file: `PLEVIN_DB=/path/to/plevin.plv`, `plevin.use(path)`, or

@@ -52,10 +52,10 @@ Open once, reuse for every lookup. Nothing is downloaded or cached for you.
 
 | file                                                  | size    | carries                                  |
 | ----------------------------------------------------- | ------- | ---------------------------------------- |
-| `plevin.plv`                                          | 18.7 MB | every field                              |
+| `plevin.plv`                                          | 19.2 MB | every field                              |
 | `plevin.metro-place.plv`                              | 6.3 MB  | city, region, postal, coordinates, metro |
 | `plevin.network.plv`                                  | 7.4 MB  | ASN, operator, routing, registry         |
-| `plevin.abuse-level-abuse-provider-abuse-service.plv` | 4.1 MB  | abuse level, service and provider        |
+| `plevin.abuse-level-abuse-provider-abuse-service.plv` | 4.2 MB  | abuse level, service and provider        |
 | `plevin.place-country-code.plv`                       | 378 KB  | country code                             |
 
 All are served with open CORS from [plevin.tn3w.dev/db](https://plevin.tn3w.dev/db/);
@@ -83,7 +83,7 @@ No build step:
 | `https://plevin.tn3w.dev/plevin/plevin.min.js` | the bundle beside the databases   |
 
 - **Pin a version for production:** `cdn.jsdelivr.net/npm/plevinjs@0.2.3`.
-- **Pick the smallest build:** the country build is 378 KB against 18.7 MB.
+- **Pick the smallest build:** the country build is 378 KB against 19.2 MB.
 - **Cache the file** so it downloads once per visitor:
 
 ```js
@@ -277,7 +277,7 @@ result opens like any other file.
 import { slim } from "plevinjs/slim";
 
 const raw = new Uint8Array(await (await fetch(url)).arrayBuffer());   // plevin.raw
-const small = slim(raw, "place.country.code+network.asn");   // 400 KB, not 18.7 MB
+const small = slim(raw, "place.country.code+network.asn");   // 400 KB, not 19.2 MB
 const db = new Plevin(small);
 ```
 
