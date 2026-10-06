@@ -46,7 +46,7 @@ const database = () => {
     opening = (async () => {
       say("downloading the database");
       const db = new Plevin(
-        await download((text, fraction) => {
+        await download("db/plevin.plv", (text, fraction) => {
           say(text);
           if (fraction) bar(fraction);
         }),

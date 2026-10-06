@@ -136,7 +136,7 @@ const progressText = ({ label, done, total }) => {
 
 const open = () => {
   state.opening ??= (async () => {
-    const bytes = await download((text, fraction) => {
+    const bytes = await download("db/plevin.raw", (text, fraction) => {
       setStatus(text);
       setBar(fraction);
     });

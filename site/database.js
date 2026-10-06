@@ -1,17 +1,16 @@
-const DATABASE = "db/plevin.raw";
 const STORE = "plevin";
 
-export const download = async (progress) => {
+export const download = async (file, progress) => {
   const cache = "caches" in window ? await caches.open(STORE) : null;
-  const cached = cache && (await cache.match(DATABASE));
+  const cached = cache && (await cache.match(file));
   if (cached) {
     progress("reading the database out of the browser cache", 1);
     return new Uint8Array(await cached.arrayBuffer());
   }
 
-  const response = await fetch(DATABASE);
+  const response = await fetch(file);
   if (!response.ok) throw new Error(`${response.status} reading the database`);
-  if (cache) await cache.put(DATABASE, response.clone());
+  if (cache) await cache.put(file, response.clone());
 
   const total = Number(response.headers.get("content-length") ?? 0);
   const parts = [];
