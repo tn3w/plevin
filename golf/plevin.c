@@ -23,6 +23,8 @@ enum {
 
 static const char *BOOKS[][2] = {
     {"rpki", "rpki"},
+    {"rir", "rirs"},
+    {"country", "countries"},
     {"place.granularity", "granularity"},
     {"city.timezone", "timezones"},
     {"city.type", "place_types"},
@@ -30,6 +32,8 @@ static const char *BOOKS[][2] = {
     {"abuse.user_type", "categories"},
     {"abuse.service", "services"},
     {"abuse.evidence", "evidence"},
+    {"abuse.threat", "threats"},
+    {"abuse.level", "levels"},
 };
 
 typedef struct {
@@ -480,7 +484,8 @@ static void print_row(const char *table, int row, int depth) {
 }
 
 static void answer(const char *version, int row, int64_t override) {
-    const char *linked[] = {"place", "abuse"}, *extras[] = {"prefix", "rpki", "roas"};
+    const char *linked[] = {"place", "abuse"};
+    const char *extras[] = {"prefix", "rpki", "roas", "rir", "country", "since"};
     char name[MOST];
     int first = 1, inner = 1;
     putchar('{');
@@ -494,10 +499,10 @@ static void answer(const char *version, int row, int64_t override) {
         print_row(linked[index], found - 1, 1);
     }
     snprintf(name, MOST, "spine.%s.network", version);
-    Section *network = find(name), *extra[3];
+    Section *network = find(name), *extra[6];
     int64_t found = network ? value(network, row) : 0;
     int any = found != 0;
-    for (int index = 0; index < 3; index++) {
+    for (int index = 0; index < 6; index++) {
         snprintf(name, MOST, "spine.%s.%s", version, extras[index]);
         any |= (extra[index] = find(name)) != NULL;
     }
@@ -505,7 +510,7 @@ static void answer(const char *version, int row, int64_t override) {
         field(1, &first, "network");
         putchar('{');
         if (found) print_fields("network", found - 1, 2, &inner);
-        for (int index = 0; index < 3; index++) {
+        for (int index = 0; index < 6; index++) {
             if (!extra[index]) continue;
             field(2, &inner, extras[index]);
             print_value(extras[index], extra[index], value(extra[index], row));

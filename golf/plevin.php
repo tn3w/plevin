@@ -15,13 +15,17 @@ const REPEATS = LENGTHS + 514;
 const LITERALS = REPEATS + 514;
 const MASK = 0xFFFFFFFF;
 
-const CARRIED = ['place', 'network', 'abuse', 'prefix', 'rpki', 'roas'];
+const CARRIED = [
+    'place', 'network', 'abuse', 'prefix', 'rpki', 'roas', 'rir', 'country', 'since',
+];
 const LINKED = ['place', 'network', 'abuse'];
 const BOOKS = [
-    'rpki' => 'rpki', 'place.granularity' => 'granularity', 'city.timezone' => 'timezones',
+    'rpki' => 'rpki', 'rir' => 'rirs', 'country' => 'countries',
+    'place.granularity' => 'granularity', 'city.timezone' => 'timezones',
     'city.type' => 'place_types', 'operator.category' => 'categories',
     'abuse.user_type' => 'categories', 'abuse.service' => 'services',
-    'abuse.evidence' => 'evidence',
+    'abuse.evidence' => 'evidence', 'abuse.threat' => 'threats',
+    'abuse.level' => 'levels',
 ];
 
 final class Lzma
@@ -500,5 +504,5 @@ if ($argc !== 3) {
     exit(1);
 }
 $flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-    | JSON_INVALID_UTF8_SUBSTITUTE;
+    | JSON_INVALID_UTF8_SUBSTITUTE | JSON_FORCE_OBJECT;
 echo json_encode((new Plevin($argv[1]))->lookup($argv[2]), $flags), "\n";

@@ -26,13 +26,16 @@ const (
 	literals = repeats + 514
 )
 
-var carried = []string{"place", "network", "abuse", "prefix", "rpki", "roas"}
+var carried = []string{
+	"place", "network", "abuse", "prefix", "rpki", "roas", "rir", "country", "since",
+}
 
 var books = map[string]string{
-	"rpki": "rpki", "place.granularity": "granularity", "city.timezone": "timezones",
+	"rpki": "rpki", "rir": "rirs", "country": "countries",
+	"place.granularity": "granularity", "city.timezone": "timezones",
 	"city.type": "place_types", "operator.category": "categories",
 	"abuse.user_type": "categories", "abuse.service": "services",
-	"abuse.evidence": "evidence",
+	"abuse.evidence": "evidence", "abuse.threat": "threats", "abuse.level": "levels",
 }
 
 type U128 struct{ High, Low uint64 }

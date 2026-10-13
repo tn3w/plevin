@@ -18,13 +18,15 @@ use constant REPEATS   => LENGTHS + 514;
 use constant LITERALS  => REPEATS + 514;
 use constant MASK      => 0xFFFFFFFF;
 
-my @CARRIED = qw(place network abuse prefix rpki roas);
+my @CARRIED = qw(place network abuse prefix rpki roas rir country since);
 my %LINKED  = map { $_ => 1 } qw(place network abuse);
 my %BOOKS   = (
-    'rpki'              => 'rpki',        'place.granularity' => 'granularity',
+    'rpki'              => 'rpki',        'rir'               => 'rirs',
+    'country'           => 'countries',   'place.granularity' => 'granularity',
     'city.timezone'     => 'timezones',   'city.type'         => 'place_types',
     'operator.category' => 'categories',  'abuse.user_type'   => 'categories',
     'abuse.service'     => 'services',    'abuse.evidence'    => 'evidence',
+    'abuse.threat'      => 'threats',     'abuse.level'       => 'levels',
 );
 my %UNSIGNED = (1 => 'C', 2 => 'v', 4 => 'V', 8 => 'Q<');
 my %SIGNED   = (1 => 'c', 2 => 's<', 4 => 'l<', 8 => 'q<');

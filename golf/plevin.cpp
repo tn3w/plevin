@@ -30,6 +30,8 @@ enum {
 
 const std::map<std::string, std::string> BOOKS = {
     {"rpki", "rpki"},
+    {"rir", "rirs"},
+    {"country", "countries"},
     {"place.granularity", "granularity"},
     {"city.timezone", "timezones"},
     {"city.type", "place_types"},
@@ -37,6 +39,8 @@ const std::map<std::string, std::string> BOOKS = {
     {"abuse.user_type", "categories"},
     {"abuse.service", "services"},
     {"abuse.evidence", "evidence"},
+    {"abuse.threat", "threats"},
+    {"abuse.level", "levels"},
 };
 
 class Lzma {
@@ -418,7 +422,7 @@ class Plevin {
         Section *network = find("spine." + version + ".network");
         int64_t found = network ? network->value(row) : 0;
         std::vector<std::pair<std::string, Section *>> extras;
-        for (std::string name : {"prefix", "rpki", "roas"})
+        for (std::string name : {"prefix", "rpki", "roas", "rir", "country", "since"})
             if (Section *section = find("spine." + version + "." + name)) extras.push_back({name, section});
         if (found || !extras.empty()) {
             field(1, first, "network");

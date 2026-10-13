@@ -149,8 +149,18 @@ library only. Plain dictionaries, no derived fields.
 python plevin_mini.py plevin.plv 8.8.8.8
 ```
 
-[`golf/`](golf): the same reader ported, one file each, standard library only. C, C++, Rust,
-Go, Java, Kotlin, C#, PHP, Ruby and Perl so far, with Lua and Elixir still to come.
+[`golf/`](golf): the same reader ported, one file each, standard library only, LZMA
+decoder included. C, C++, Rust, Go, Java, Kotlin, C#, PHP, Perl, Ruby, Lua 5.4 and Elixir.
+
+```bash
+lua golf/plevin.lua plevin.plv 8.8.8.8        # or: elixir golf/plevin.exs, ruby …
+python golf/compare.py plevin.plv             # every port against plevin_mini.py
+python golf/compare.py plevin.plv lua --count 50
+```
+
+`compare.py` builds each port into `golf/build/`, looks up fixed and seeded random
+v4/v6 addresses and diffs the JSON field for field. Needs the matching toolchains: gcc,
+g++ (C++23), rustc, go, javac, kotlinc, dotnet 10, php, perl, ruby, lua5.4, elixir.
 
 ## Data
 

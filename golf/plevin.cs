@@ -326,11 +326,16 @@ class Section
 
 class Plevin
 {
-    static readonly string[] Carried = ["place", "network", "abuse", "prefix", "rpki", "roas"];
+    static readonly string[] Carried =
+    [
+        "place", "network", "abuse", "prefix", "rpki", "roas", "rir", "country", "since",
+    ];
     static readonly string[] Linked = ["place", "network", "abuse"];
     static readonly Dictionary<string, string> Books = new()
     {
         ["rpki"] = "rpki",
+        ["rir"] = "rirs",
+        ["country"] = "countries",
         ["place.granularity"] = "granularity",
         ["city.timezone"] = "timezones",
         ["city.type"] = "place_types",
@@ -338,6 +343,8 @@ class Plevin
         ["abuse.user_type"] = "categories",
         ["abuse.service"] = "services",
         ["abuse.evidence"] = "evidence",
+        ["abuse.threat"] = "threats",
+        ["abuse.level"] = "levels",
     };
 
     readonly SortedDictionary<string, Section> sections = new(StringComparer.Ordinal);

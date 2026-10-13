@@ -15,9 +15,13 @@ const LENGTHS: usize = ALIGN + 16;
 const REPEATS: usize = LENGTHS + 514;
 const LITERALS: usize = REPEATS + 514;
 
-const CARRIED: [&str; 6] = ["place", "network", "abuse", "prefix", "rpki", "roas"];
-const BOOKS: [(&str, &str); 8] = [
+const CARRIED: [&str; 9] = [
+    "place", "network", "abuse", "prefix", "rpki", "roas", "rir", "country", "since",
+];
+const BOOKS: [(&str, &str); 12] = [
     ("rpki", "rpki"),
+    ("rir", "rirs"),
+    ("country", "countries"),
     ("place.granularity", "granularity"),
     ("city.timezone", "timezones"),
     ("city.type", "place_types"),
@@ -25,6 +29,8 @@ const BOOKS: [(&str, &str); 8] = [
     ("abuse.user_type", "categories"),
     ("abuse.service", "services"),
     ("abuse.evidence", "evidence"),
+    ("abuse.threat", "threats"),
+    ("abuse.level", "levels"),
 ];
 
 struct Lzma<'a> {

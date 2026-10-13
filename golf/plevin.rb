@@ -16,13 +16,14 @@ REPEATS = LENGTHS + 514
 LITERALS = REPEATS + 514
 MASK = 0xFFFFFFFF
 
-CARRIED = %w[place network abuse prefix rpki roas].freeze
+CARRIED = %w[place network abuse prefix rpki roas rir country since].freeze
 LINKED = %w[place network abuse].freeze
 BOOKS = {
-  "rpki" => "rpki", "place.granularity" => "granularity", "city.timezone" => "timezones",
+  "rpki" => "rpki", "rir" => "rirs", "country" => "countries",
+  "place.granularity" => "granularity", "city.timezone" => "timezones",
   "city.type" => "place_types", "operator.category" => "categories",
   "abuse.user_type" => "categories", "abuse.service" => "services",
-  "abuse.evidence" => "evidence"
+  "abuse.evidence" => "evidence", "abuse.threat" => "threats", "abuse.level" => "levels"
 }.freeze
 
 class Lzma

@@ -17,13 +17,17 @@ const val LENGTHS = ALIGN + 16
 const val REPEATS = LENGTHS + 514
 const val LITERALS = REPEATS + 514
 
-val CARRIED = listOf("place", "network", "abuse", "prefix", "rpki", "roas")
+val CARRIED = listOf(
+    "place", "network", "abuse", "prefix", "rpki", "roas", "rir", "country", "since",
+)
 val LINKED = setOf("place", "network", "abuse")
 val BOOKS = mapOf(
-    "rpki" to "rpki", "place.granularity" to "granularity", "city.timezone" to "timezones",
+    "rpki" to "rpki", "rir" to "rirs", "country" to "countries",
+    "place.granularity" to "granularity", "city.timezone" to "timezones",
     "city.type" to "place_types", "operator.category" to "categories",
     "abuse.user_type" to "categories", "abuse.service" to "services",
-    "abuse.evidence" to "evidence",
+    "abuse.evidence" to "evidence", "abuse.threat" to "threats",
+    "abuse.level" to "levels",
 )
 
 class Lzma(private val data: ByteArray, tuning: List<Int>) {

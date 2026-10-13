@@ -26,3 +26,4 @@ node_modules/
 *.tsbuildinfo
 site/db/
 site/plevin/
+erl_crash.dump

@@ -3,11 +3,16 @@ static final int IS_THIRD = IS_SECOND + 12, IS_LONG = IS_THIRD + 12, SLOTS = IS_
 static final int SPECIAL = SLOTS + 256, ALIGN = SPECIAL + 114, LENGTHS = ALIGN + 16;
 static final int REPEATS = LENGTHS + 514, LITERALS = REPEATS + 514;
 
-static final List<String> CARRIED = List.of("place", "network", "abuse", "prefix", "rpki", "roas");
-static final Map<String, String> BOOKS = Map.of(
-    "rpki", "rpki", "place.granularity", "granularity", "city.timezone", "timezones",
-    "city.type", "place_types", "operator.category", "categories",
-    "abuse.user_type", "categories", "abuse.service", "services", "abuse.evidence", "evidence");
+static final List<String> CARRIED = List.of(
+    "place", "network", "abuse", "prefix", "rpki", "roas", "rir", "country", "since");
+static final Map<String, String> BOOKS = Map.ofEntries(
+    Map.entry("rpki", "rpki"), Map.entry("rir", "rirs"),
+    Map.entry("country", "countries"), Map.entry("place.granularity", "granularity"),
+    Map.entry("city.timezone", "timezones"),
+    Map.entry("city.type", "place_types"), Map.entry("operator.category", "categories"),
+    Map.entry("abuse.user_type", "categories"), Map.entry("abuse.service", "services"),
+    Map.entry("abuse.evidence", "evidence"), Map.entry("abuse.threat", "threats"),
+    Map.entry("abuse.level", "levels"));
 
 static class Lzma {
     final byte[] data;

@@ -13,6 +13,10 @@ const registry = {
 const registered = {
   skip: held.skip || (!db?.fields.includes("network.country") && "a build before 1.1"),
 };
+const coned = {
+  skip:
+    held.skip || (!db?.fields.includes("network.operator.cone") && "a build before cone"),
+};
 
 test("opens a database and says what it carries", held, () => {
   assert.match(db?.built ?? "", /^\d{4}-\d{2}-\d{2}$/);
@@ -83,7 +87,7 @@ test("names a continent, and each language once", held, () => {
   assert.deepEqual(db?.lookup("1.1.1.1").place?.country?.languages, ["en"]);
 });
 
-test("reads the size of a network and its customer cone", held, () => {
+test("reads the size of a network and its customer cone", coned, () => {
   const operator = db?.lookup("1.1.1.1").network?.operator;
   assert.ok((operator?.cone ?? 0) > 1);
   assert.equal(operator?.website, "https://cloudflare.com");
@@ -96,7 +100,7 @@ test("types a network by its operator unless the range says otherwise", held, ()
   assert.equal(db?.lookup("18.9.1.1").network?.carrier?.user_type, "education");
 });
 
-test("finds nothing where nothing is known", held, () => {
+test("finds nothing where nothing is known", coned, () => {
   const found = db?.lookup("0.197.62.223");
   assert.equal(found?.found, false);
   assert.equal(found?.expanded, null);
