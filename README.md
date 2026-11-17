@@ -1,3 +1,21 @@
+> [!WARNING]
+> **Retired.** Use [iplore](https://github.com/tn3w/iplore) instead:
+> location, network and abuse data for IPv4 and IPv6 in one offline file, with a Rust
+> reader and Python and JavaScript bindings.
+> feeds.json moved [here](https://github.com/tn3w/iplore/blob/master/data/feeds.json),
+> blocklist.netset [here](https://github.com/tn3w/iplore/releases/latest/download/blocklist.netset)
+>
+> ```sh
+> release=https://github.com/tn3w/iplore/releases
+> pip install iplore --no-index -f $release/expanded_assets/bindings
+> curl -LO $release/latest/download/iplore-full.ipl
+> ```
+>
+> ```python
+> >>> iplore.open("iplore-full.ipl").lookup("1.1.1.1")["network"]["asn"]
+> 13335
+> ```
+
 <div align="center">
 <a href="https://plevin.tn3w.dev">
 <picture>
