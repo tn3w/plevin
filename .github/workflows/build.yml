@@ -44,13 +44,15 @@ jobs:
             https://ftp.ripe.net/pub/stats/ripencc/nro-stats/latest/nro-delegated-stats \
             https://ftp.ripe.net/ripe/asnames/asn.txt \
             https://console.rpki-client.org/vrps.csv \
-            https://data.ris.ripe.net/rrc00/latest-bview.gz \
             https://github.com/tn3w/asn-abuse/releases/latest/download/abuse-contacts.tsv \
             $caida/as-organizations/$(newest as-organizations 'as-org2info\.txt\.gz') \
             $caida/as-relationships/serial-2/$(newest as-relationships/serial-2 'as-rel2\.txt\.bz2')
           do
             get -O "$url"
           done
+          bview_slot=$(( ($(date -u +%s) / 28800 - 1) * 28800 ))
+          bview_path=$(date -u -d "@$bview_slot" +%Y.%m/bview.%Y%m%d.%H%M)
+          get -o bview.gz "https://data.ris.ripe.net/rrc00/$bview_path.gz"
           ripe=https://ftp.ripe.net/ripe/dbase/split
           apnic=https://ftp.apnic.net/apnic/whois
           keys='^(inetnum|inet6num|netname|descr|country|org|organisation|org-name|geofeed):'
@@ -83,7 +85,6 @@ jobs:
           rm asrank_*.json
           for archive in *.zip; do unzip -oq "$archive"; done
           gunzip -f *.gz && bunzip2 -f *.bz2 && rm *.zip
-          mv latest-bview bview
           for dated in *.as-*.txt; do mv "$dated" "${dated#*.}"; done
 
       - name: Download geofeeds
